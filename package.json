@@ -1,0 +1,44 @@
+{
+  "name": "zotero-ai-assistant",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "AI reading assistant for Zotero — ask questions about papers and collections without leaving your reading flow.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agentpaper/zotero-ai-assistant.git"
+  },
+  "config": {
+    "addonName": "Zotero AI Assistant",
+    "addonID": "zotero-ai-assistant@agentpaper.dev",
+    "addonRef": "zotero-ai-assistant",
+    "addonInstance": "ZoteroAIAssistant",
+    "prefsPrefix": "extensions.zotero.zotero-ai-assistant"
+  },
+  "scripts": {
+    "start": "zotero-plugin serve",
+    "build": "zotero-plugin build && tsc --noEmit",
+    "lint:check": "prettier --check . && eslint .",
+    "lint:fix": "prettier --write . && eslint . --fix",
+    "release": "zotero-plugin release",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "jotai": "^2.12.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zotero-plugin-toolkit": "^5.1.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
+    "zotero-plugin-scaffold": "^0.8.6",
+    "zotero-types": "^4.1.2"
+  }
+}

@@ -1,0 +1,10 @@
+export type ScopeType = "pdf" | "paper" | "collection" | "manual-selection";
+
+export interface ScopeContext {
+  type: ScopeType;
+  id: string;
+  label: string;
+  itemIds: number[];
+  readerAttachmentId?: number;
+  selectedText?: string;
+}

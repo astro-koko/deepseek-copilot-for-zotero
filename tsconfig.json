@@ -1,0 +1,14 @@
+{
+  "extends": "zotero-types/entries/sandbox/",
+  "include": ["src", "typings"],
+  "exclude": ["build", "addon"],
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020", "DOM"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true
+  }
+}

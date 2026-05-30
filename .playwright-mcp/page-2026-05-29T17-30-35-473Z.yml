@@ -1,0 +1,91 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - heading "Superpowers Brainstorming" [level=1] [ref=e3]:
+      - link "Superpowers Brainstorming" [ref=e4] [cursor=pointer]:
+        - /url: https://github.com/obra/superpowers
+    - generic [ref=e5]: Connected
+  - generic [ref=e7]:
+    - heading "Phase 1 Sidebar Structure" [level=2] [ref=e8]
+    - paragraph [ref=e9]: "Recommended: Beaver-like shell, no cloud account scaffolding, one continuous thread across Library and Reader."
+    - generic [ref=e10]:
+      - generic [ref=e11] [cursor=pointer]:
+        - generic [ref=e12]: A
+        - generic [ref=e13]:
+          - heading "Recommended" [level=3] [ref=e14]
+          - paragraph [ref=e15]: Same shell in both surfaces, but context chips change with where the user is.
+      - generic [ref=e16] [cursor=pointer]:
+        - generic [ref=e17]: B
+        - generic [ref=e18]:
+          - heading "Too Heavy" [level=3] [ref=e19]
+          - paragraph [ref=e20]: Beaver-style full product shell with cloud, account, credits, and research-agent affordances.
+      - generic [ref=e21] [cursor=pointer]:
+        - generic [ref=e22]: C
+        - generic [ref=e23]:
+          - heading "Too Thin" [level=3] [ref=e24]
+          - paragraph [ref=e25]: Single bare chat box with almost no visible context, control, or per-paper status.
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - generic [ref=e28]: Library Surface
+        - generic [ref=e30]:
+          - generic [ref=e34]: AI Assistant
+          - generic [ref=e39]:
+            - generic [ref=e40]: "Surface: Library"
+            - generic [ref=e41]: "Selected item: 1 paper"
+            - generic [ref=e42]: "Thread: shared with Reader"
+          - generic [ref=e43]:
+            - generic [ref=e44]: Current context
+            - generic [ref=e45]: Scaling Laws for Neural Language Models
+            - generic [ref=e46]: Auto-loaded from current library selection
+          - generic [ref=e47]:
+            - generic [ref=e48]: What are the main contributions of this paper?
+            - generic [ref=e49]:
+              - generic [ref=e50]: Three main contributions
+              - generic [ref=e51]:
+                - text: 1. Empirical scaling relationship across model size, data, and compute.
+                - text: 2. Predictable loss behavior across regimes.
+                - text: 3. Practical implications for training-budget planning.
+          - generic [ref=e52]:
+            - generic [ref=e53]: Composer
+            - generic [ref=e54]:
+              - generic [ref=e55]: Current paper
+              - generic [ref=e56]: + Add manual context
+      - generic [ref=e58]:
+        - generic [ref=e59]: Reader Surface
+        - generic [ref=e61]:
+          - generic [ref=e65]: AI Assistant
+          - generic [ref=e70]:
+            - generic [ref=e71]: "Surface: Reader"
+            - generic [ref=e72]: "Current PDF: auto-loaded"
+            - generic [ref=e73]: "Selection: p.4"
+          - generic [ref=e74]:
+            - generic [ref=e75]: Current context
+            - generic [ref=e76]: Scaling Laws for Neural Language Models
+            - generic [ref=e77]: Full PDF auto-loaded, selection boosted as local context
+          - generic [ref=e78]:
+            - generic [ref=e79]: Explain this paragraph and the meaning of equation 3.
+            - generic [ref=e80]:
+              - generic [ref=e81]: Interpretation
+              - generic [ref=e82]: The paragraph argues that test loss follows a smooth power-law trend. Equation 3 is the compact form that links expected loss to scale variables rather than a new algorithmic step.
+              - generic [ref=e83]: Anchored to current selection, page 4
+          - generic [ref=e84]:
+            - generic [ref=e85]: Composer
+            - generic [ref=e86]:
+              - generic [ref=e87]: Current paper
+              - generic [ref=e88]: Selection p.4
+              - generic [ref=e89]: + Add manual context
+    - generic [ref=e91]:
+      - generic [ref=e92]:
+        - heading "Keep From Beaver" [level=4] [ref=e93]
+        - list [ref=e94]:
+          - listitem [ref=e95]: Persistent right-side shell
+          - listitem [ref=e96]: Visible context chips
+          - listitem [ref=e97]: History + new thread affordances
+          - listitem [ref=e98]: Reader selection becomes immediate chat context
+      - generic [ref=e99]:
+        - heading "Remove For Phase 1" [level=4] [ref=e100]
+        - list [ref=e101]:
+          - listitem [ref=e102]: Account / login / sync status
+          - listitem [ref=e103]: Credits / subscriptions / cloud state
+          - listitem [ref=e104]: Research-agent orchestration UI
+          - listitem [ref=e105]: Web-search and remote-library assumptions
+  - generic [ref=e106]: Click an option above, then return to the terminal
