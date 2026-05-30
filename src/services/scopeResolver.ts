@@ -1,4 +1,6 @@
-import type { ScopeContext, ScopeType } from "../types/scope";
+import type { ScopeContext } from "../types/scope";
+
+let notifierCallbackID: string | null = null;
 
 export function resolveScopeFromReader(reader: any): ScopeContext | null {
   if (!reader || reader.type !== "pdf") return null;
@@ -27,13 +29,21 @@ export function resolveScopeFromLibrary(): ScopeContext | null {
   const win = Zotero.getMainWindow();
   if (!win) return null;
 
-  // Check if a collection is selected
-  const collectionTree = (win as any).ZoteroPane?.collectionsView;
-  if (collectionTree) {
-    const selectedTreeRow = collectionTree.getRow(collectionTree.selection?.currentIndex);
-    if (selectedTreeRow?.isCollection?.()) {
-      const collection = selectedTreeRow.ref;
-      const itemIds = collection.getChildItems(true) || [];
+  const zp = (win as any).ZoteroPane;
+  if (!zp) return null;
+
+  const itemsView = zp.itemsView;
+  const collectionsView = zp.collectionsView;
+
+  if (!itemsView || !collectionsView) return null;
+
+  const selectedCollectionRow = collectionsView.getRow(collectionsView.selection?.currentIndex);
+  const selectedItems = zp.getSelectedItems ? zp.getSelectedItems() : [];
+
+  if (selectedItems.length === 0) {
+    if (selectedCollectionRow?.isCollection?.()) {
+      const collection = selectedCollectionRow.ref;
+      const itemIds = collection.getChildItems ? collection.getChildItems(true) || [] : [];
       return {
         type: "collection",
         id: `collection-${collection.libraryID}-${collection.key}`,
@@ -41,11 +51,8 @@ export function resolveScopeFromLibrary(): ScopeContext | null {
         itemIds,
       };
     }
+    return null;
   }
-
-  // Check selected items
-  const selectedItems = Zotero.getActiveZoteroPane()?.getSelectedItems();
-  if (!selectedItems || selectedItems.length === 0) return null;
 
   if (selectedItems.length === 1) {
     const item = selectedItems[0];
@@ -59,7 +66,6 @@ export function resolveScopeFromLibrary(): ScopeContext | null {
     }
   }
 
-  // Multiple items selected
   const regularItems = selectedItems.filter((item: Zotero.Item) => item.isRegularItem());
   if (regularItems.length === 0) return null;
 
@@ -72,11 +78,62 @@ export function resolveScopeFromLibrary(): ScopeContext | null {
 }
 
 export function getCurrentScope(): ScopeContext | null {
-  // Check if reader is active
-  const reader = Zotero.Reader.getByTabID(Zotero.Reader.getSelectedTabID?.() || "");
+  const reader = Zotero.Reader.getByTabID((Zotero.Reader as any).getSelectedTabID?.() || "");
   if (reader) {
     return resolveScopeFromReader(reader);
   }
 
   return resolveScopeFromLibrary();
+}
+
+export function getSelectedTextFromReader(): string | null {
+  const reader = Zotero.Reader.getByTabID((Zotero.Reader as any).getSelectedTabID?.() || "");
+  if (!reader || reader.type !== "pdf") return null;
+
+  try {
+    const primaryView = (reader as any)?._internalReader?._primaryView;
+    if (primaryView?._selectionRanges?.length > 0) {
+      return primaryView._selectionRanges
+        .map((range: any) => range.text)
+        .join("\n\n");
+    }
+  } catch (_e) {
+    // Graceful fallback
+  }
+  return null;
+}
+
+export function registerScopeNotifier(
+  onScopeChange: (scope: ScopeContext | null) => void,
+): void {
+  unregisterScopeNotifier();
+
+  const callback = {
+    notify: (event: string, type: string, ids: Array<string | number>, _extraData: any) => {
+      if (
+        event === "select" &&
+        (type === "item" || type === "collection" || type === "tab")
+      ) {
+        const newScope = getCurrentScope();
+        onScopeChange(newScope);
+      }
+    },
+  };
+
+  notifierCallbackID = Zotero.Notifier.registerObserver(callback, [
+    "item",
+    "collection",
+    "tab",
+  ], addon.data.config.addonID);
+}
+
+export function unregisterScopeNotifier(): void {
+  if (notifierCallbackID) {
+    try {
+      Zotero.Notifier.unregisterObserver(notifierCallbackID);
+    } catch {
+      // Ignore
+    }
+    notifierCallbackID = null;
+  }
 }

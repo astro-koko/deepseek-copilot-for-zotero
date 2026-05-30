@@ -5,6 +5,7 @@ import type {
   StreamingResponse,
 } from "./provider/types";
 import { createOpenAICompatibleProvider } from "./provider/openAICompatibleProvider";
+import { assembleContext } from "./contextAssembler";
 import { getPref } from "../utils/prefs";
 
 export function buildSystemPrompt(scope: ScopeContext | undefined): string {
@@ -34,8 +35,24 @@ export function buildMessages(
   thread: Thread,
   scope: ScopeContext | undefined,
 ): ChatCompletionMessage[] {
+  let contextContent = "";
+  if (scope) {
+    try {
+      const assembled = assembleContext(scope);
+      contextContent = `\n\n=== CONTEXT ===\n${assembled.metadata}`;
+      if (assembled.selectedText) {
+        contextContent += `\n\n=== SELECTED TEXT ===\n${assembled.selectedText}`;
+      }
+      if (assembled.fullText) {
+        contextContent += `\n\n=== FULL TEXT ===\n${assembled.fullText}`;
+      }
+    } catch (e) {
+      ztoolkit.log("Context assembly failed:", e);
+    }
+  }
+
   const messages: ChatCompletionMessage[] = [
-    { role: "system", content: buildSystemPrompt(scope) },
+    { role: "system", content: buildSystemPrompt(scope) + contextContent },
   ];
 
   // Add recent thread history (last 20 messages)

@@ -3,7 +3,11 @@ import { config } from "../package.json";
 import { createZToolkit } from "./utils/ztoolkit";
 import { UIFactory } from "./ui/ui";
 import { initReaderIntegration, cleanupReaderIntegration } from "./modules/readerIntegration";
-import { getPref } from "./utils/prefs";
+import { initDatabase, closeDatabase } from "./services/persistence";
+import { registerScopeNotifier, unregisterScopeNotifier } from "./services/scopeResolver";
+import { EventBus } from "./utils/eventBus";
+
+let scopeChangeCallback: ((scope: any) => void) | null = null;
 
 async function onStartup() {
   await Promise.all([
@@ -14,6 +18,14 @@ async function onStartup() {
 
   initLocale();
   ztoolkit.log("Startup");
+
+  // Initialize database
+  try {
+    await initDatabase();
+    ztoolkit.log("Database initialized");
+  } catch (e) {
+    ztoolkit.log("Database init failed:", e);
+  }
 
   // Register reader integration
   initReaderIntegration();
@@ -64,8 +76,22 @@ async function onMainWindowLoad(win: Window): Promise<void> {
     `${addon.data.config.addonRef}-mainWindow.ftl`,
   );
 
+  // Setup event bus on window
+  (win as any).__aiAssistantEventBus = EventBus.getInstance();
+
   loadStylesheet();
   UIFactory.registerChatPanel(win);
+
+  // Register scope notifier
+  if (!scopeChangeCallback) {
+    scopeChangeCallback = (scope) => {
+      const eventBus = (win as any).__aiAssistantEventBus;
+      if (eventBus) {
+        eventBus.dispatchEvent(new win.CustomEvent("scopeChange", { detail: scope }));
+      }
+    };
+    registerScopeNotifier(scopeChangeCallback);
+  }
 
   ztoolkit.log("UI ready");
 }
@@ -77,12 +103,24 @@ async function onMainWindowUnload(win: Window): Promise<void> {
 }
 
 async function onShutdown(): Promise<void> {
+  unregisterScopeNotifier();
   cleanupReaderIntegration();
+
+  try {
+    await closeDatabase();
+  } catch (e) {
+    ztoolkit.log("Database close error:", e);
+  }
+
   ztoolkit.unregisterAll();
   addon.data.dialog?.window?.close();
   addon.data.alive = false;
-  // @ts-expect-error - Plugin instance is not typed
-  delete Zotero[addon.data.config.addonInstance];
+
+  try {
+    delete (Zotero as any)[addon.data.config.addonInstance];
+  } catch {
+    // Ignore
+  }
 }
 
 async function onNotify(

@@ -12,17 +12,23 @@ import {
 import { sendChatMessage } from "../../services/chatEngine";
 import { getCurrentScope } from "../../services/scopeResolver";
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  location: "library" | "reader";
+  eventBus: EventTarget;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ location, eventBus }) => {
   const [thread, setThread] = useState<Thread | null>(null);
   const [scope, setScope] = useState<ScopeContext | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Poll scope changes
+  // Listen for scope changes from event bus
   useEffect(() => {
-    const interval = setInterval(() => {
-      const newScope = getCurrentScope();
+    const handleScopeChange = (e: Event) => {
+      const newScope = (e as CustomEvent).detail as ScopeContext | null;
       setScope((prev) => {
         if (
           !newScope ||
@@ -31,33 +37,48 @@ export const Sidebar: React.FC = () => {
           newScope.id !== prev.id
         ) {
           if (newScope && thread) {
-            recordScopeTransition(thread.id, newScope);
+            recordScopeTransition(thread.id, newScope).then((updated) => {
+              if (updated) setThread(updated);
+            });
           }
           return newScope;
         }
         return prev;
       });
-    }, 500);
-    return () => clearInterval(interval);
-  }, [thread]);
+    };
 
-  const handleNewThread = useCallback(() => {
+    eventBus.addEventListener("scopeChange", handleScopeChange);
+    return () => eventBus.removeEventListener("scopeChange", handleScopeChange);
+  }, [eventBus, thread]);
+
+  // Initial scope resolution
+  useEffect(() => {
+    setScope(getCurrentScope());
+  }, []);
+
+  const handleNewThread = useCallback(async () => {
     const currentScope = getCurrentScope();
-    const newThread = createThread(currentScope || undefined);
+    const newThread = await createThread(currentScope || undefined);
     setThread(newThread);
     setScope(currentScope);
+    setError(null);
   }, []);
 
   const handleSend = useCallback(
     async (userInput: string) => {
+      setError(null);
+
       if (!thread) {
-        handleNewThread();
+        await handleNewThread();
         return;
       }
 
       // Add user message
-      appendMessage(thread.id, { role: "user", content: userInput });
-      setThread({ ...thread });
+      const updated = await appendMessage(thread.id, {
+        role: "user",
+        content: userInput,
+      });
+      if (updated) setThread(updated);
 
       setIsStreaming(true);
       setStreamingContent("");
@@ -77,20 +98,23 @@ export const Sidebar: React.FC = () => {
           setStreamingContent(fullResponse);
         }
 
-        appendMessage(thread.id, {
+        const finalThread = await appendMessage(thread.id, {
           role: "assistant",
           content: fullResponse,
         });
-      } catch (error: any) {
-        appendMessage(thread.id, {
+        if (finalThread) setThread(finalThread);
+      } catch (err: any) {
+        const msg = err.message || "Failed to get response";
+        setError(msg);
+        const errorThread = await appendMessage(thread.id, {
           role: "assistant",
-          content: `Error: ${error.message || "Failed to get response"}`,
+          content: `Error: ${msg}`,
         });
+        if (errorThread) setThread(errorThread);
       } finally {
         setIsStreaming(false);
         setStreamingContent("");
         abortRef.current = null;
-        setThread({ ...thread });
       }
     },
     [thread, scope, handleNewThread],
@@ -113,6 +137,11 @@ export const Sidebar: React.FC = () => {
         <div style={styles.streaming}>
           <div style={styles.streamingLabel}>AI is thinking...</div>
           <div style={styles.streamingContent}>{streamingContent}</div>
+        </div>
+      )}
+      {error && (
+        <div style={styles.error}>
+          {error}
         </div>
       )}
       <Composer
@@ -161,5 +190,12 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.5,
     color: "#333",
     whiteSpace: "pre-wrap",
+  },
+  error: {
+    padding: "8px 12px",
+    background: "#ffebee",
+    color: "#c62828",
+    fontSize: "13px",
+    borderTop: "1px solid #ef9a9a",
   },
 };

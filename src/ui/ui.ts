@@ -1,10 +1,20 @@
-import { getLocaleID, getString } from "../utils/locale";
+import React from "react";
+import { createRoot } from "react-dom/client";
 import { triggerToggleChat } from "./toggleChat";
 import { getPref } from "../utils/prefs";
+import { EventBus } from "../utils/eventBus";
+import { Sidebar } from "./components/Sidebar";
 
 interface AIAssistantWindow extends Window {
   __aiAssistantEventBus?: EventTarget;
 }
+
+interface PanelRoots {
+  library?: ReturnType<typeof createRoot>;
+  reader?: ReturnType<typeof createRoot>;
+}
+
+const windowRoots = new WeakMap<Window, PanelRoots>();
 
 export class UIFactory {
   private static toolbarFocusHandlers = new WeakMap<Window, EventListener>();
@@ -32,29 +42,53 @@ export class UIFactory {
     const contextPane = win.document.getElementById("zotero-context-pane");
 
     if (itemPane) {
-      const { mountPoint: libraryMount } = createMountingElement("ai-assistant-pane-library", "library");
+      const { mountPoint: libraryMount, reactContainer: libraryContainer } = createMountingElement("ai-assistant-pane-library", "library");
       itemPane.appendChild(libraryMount);
       ztoolkit.log("registerChatPanel: library mount point appended");
+
+      const roots = windowRoots.get(win) || {};
+      roots.library = createRoot(libraryContainer);
+      windowRoots.set(win, roots);
     }
 
     if (contextPane) {
-      const { mountPoint: readerMount } = createMountingElement("ai-assistant-pane-reader", "reader");
+      const { mountPoint: readerMount, reactContainer: readerContainer } = createMountingElement("ai-assistant-pane-reader", "reader");
       contextPane.appendChild(readerMount);
       ztoolkit.log("registerChatPanel: reader mount point appended");
+
+      const roots = windowRoots.get(win) || {};
+      roots.reader = createRoot(readerContainer);
+      windowRoots.set(win, roots);
     }
 
     this.addToolbarButton(win);
 
-    // TODO: Load React bundle and render components
-    // For Stage 0, we just mount placeholder content
-    const libraryRootEl = win.document.getElementById("ai-assistant-react-root-library");
-    const readerRootEl = win.document.getElementById("ai-assistant-react-root-reader");
+    // Render React components
+    this.renderPanels(win);
+  }
 
-    if (libraryRootEl) {
-      libraryRootEl.innerHTML = `<div style="padding: 16px; color: #666;">AI Assistant (Library)</div>`;
+  private static renderPanels(win: AIAssistantWindow) {
+    const roots = windowRoots.get(win);
+    if (!roots) return;
+
+    const eventBus = EventBus.getInstance();
+
+    if (roots.library) {
+      roots.library.render(
+        React.createElement(Sidebar, {
+          location: "library",
+          eventBus,
+        })
+      );
     }
-    if (readerRootEl) {
-      readerRootEl.innerHTML = `<div style="padding: 16px; color: #666;">AI Assistant (Reader)</div>`;
+
+    if (roots.reader) {
+      roots.reader.render(
+        React.createElement(Sidebar, {
+          location: "reader",
+          eventBus,
+        })
+      );
     }
   }
 
@@ -64,6 +98,13 @@ export class UIFactory {
       if (!win?.document) return;
 
       this.removeToolbarFocusHandler(win);
+
+      const roots = windowRoots.get(win);
+      if (roots) {
+        roots.library?.unmount();
+        roots.reader?.unmount();
+        windowRoots.delete(win);
+      }
 
       const elementIds = [
         "ai-assistant-pane-library",

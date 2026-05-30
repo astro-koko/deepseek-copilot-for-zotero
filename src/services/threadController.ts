@@ -7,7 +7,7 @@ import {
   deletePersistedThread,
 } from "./persistence";
 
-export function createThread(scope?: ScopeContext): Thread {
+export async function createThread(scope?: ScopeContext): Promise<Thread> {
   const now = Date.now();
   const thread: Thread = {
     id: `thread-${now}-${Math.random().toString(36).slice(2, 9)}`,
@@ -17,15 +17,15 @@ export function createThread(scope?: ScopeContext): Thread {
     scopeSnapshot: scope,
     messages: [],
   };
-  saveThread(thread);
+  await saveThread(thread);
   return thread;
 }
 
-export function appendMessage(
+export async function appendMessage(
   threadId: string,
   message: Omit<Message, "id" | "timestamp">,
-): Thread | null {
-  const thread = loadThread(threadId);
+): Promise<Thread | null> {
+  const thread = await loadThread(threadId);
   if (!thread) return null;
 
   const newMessage: Message = {
@@ -37,7 +37,6 @@ export function appendMessage(
   thread.messages.push(newMessage);
   thread.updatedAt = Date.now();
 
-  // Auto-title from first user message
   if (
     thread.title === "New Conversation" &&
     message.role === "user" &&
@@ -46,18 +45,17 @@ export function appendMessage(
     thread.title = message.content.slice(0, 60) + (message.content.length > 60 ? "..." : "");
   }
 
-  saveThread(thread);
+  await saveThread(thread);
   return thread;
 }
 
-export function recordScopeTransition(
+export async function recordScopeTransition(
   threadId: string,
   newScope: ScopeContext,
-): Thread | null {
-  const thread = loadThread(threadId);
+): Promise<Thread | null> {
+  const thread = await loadThread(threadId);
   if (!thread) return null;
 
-  // Only record if scope actually changed
   if (
     thread.scopeSnapshot?.type === newScope.type &&
     thread.scopeSnapshot?.id === newScope.id
@@ -76,18 +74,19 @@ export function recordScopeTransition(
   thread.scopeSnapshot = newScope;
   thread.updatedAt = Date.now();
 
-  saveThread(thread);
+  await saveThread(thread);
   return thread;
 }
 
-export function getThread(id: string): Thread | null {
+export async function getThread(id: string): Promise<Thread | null> {
   return loadThread(id);
 }
 
-export function listThreads(): Thread[] {
-  return loadAllThreads().sort((a, b) => b.updatedAt - a.updatedAt);
+export async function listThreads(): Promise<Thread[]> {
+  const threads = await loadAllThreads();
+  return threads.sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
-export function deleteThread(id: string): boolean {
+export async function deleteThread(id: string): Promise<boolean> {
   return deletePersistedThread(id);
 }
