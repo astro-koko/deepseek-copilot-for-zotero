@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import { ScopeBar } from "./ScopeBar";
 import { ThreadView } from "./ThreadView";
 import { Composer } from "./Composer";
+import { SettingsPanel } from "./SettingsPanel";
 import type { ScopeContext } from "../../types/scope";
 import type { Thread } from "../../types/thread";
 import {
@@ -23,6 +24,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ location, eventBus }) => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   // Listen for scope changes from event bus
@@ -131,7 +133,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ location, eventBus }) => {
         <button style={styles.newThreadBtn} onClick={handleNewThread}>
           New Thread
         </button>
+        <button
+          style={styles.settingsBtn}
+          onClick={() => setShowSettings((s) => !s)}
+        >
+          {showSettings ? "Close Settings" : "Settings"}
+        </button>
       </div>
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
       <ThreadView thread={thread} />
       {isStreaming && streamingContent && (
         <div style={styles.streaming}>
@@ -166,6 +175,8 @@ const styles: Record<string, React.CSSProperties> = {
   toolbar: {
     padding: "4px 12px",
     borderBottom: "1px solid #f0f0f0",
+    display: "flex",
+    gap: "8px",
   },
   newThreadBtn: {
     padding: "4px 12px",
@@ -174,6 +185,15 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "6px",
     fontSize: "12px",
     cursor: "pointer",
+  },
+  settingsBtn: {
+    padding: "4px 12px",
+    background: "#fff",
+    border: "1px solid #ddd",
+    borderRadius: "6px",
+    fontSize: "12px",
+    cursor: "pointer",
+    marginLeft: "auto",
   },
   streaming: {
     padding: "8px 12px",

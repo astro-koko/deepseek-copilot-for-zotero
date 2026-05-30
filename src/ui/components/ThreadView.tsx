@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import type { Thread, Message } from "../../types/thread";
+import { EmptyState } from "./EmptyState";
 
 interface ThreadViewProps {
   thread: Thread | null;
@@ -14,13 +15,12 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ thread }) => {
     }
   }, [thread?.messages.length]);
 
+  const hasScope = thread?.scopeSnapshot != null;
+
   if (!thread || thread.messages.length === 0) {
     return (
-      <div style={styles.empty}>
-        <p>No messages yet.</p>
-        <p style={styles.hint}>
-          Ask a question about the current paper or collection.
-        </p>
+      <div ref={scrollRef} style={styles.container}>
+        <EmptyState hasScope={hasScope} />
       </div>
     );
   }
@@ -71,20 +71,6 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: "8px",
-  },
-  empty: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#888",
-    textAlign: "center",
-    padding: "24px",
-  },
-  hint: {
-    fontSize: "13px",
-    marginTop: "8px",
   },
   message: {
     maxWidth: "85%",

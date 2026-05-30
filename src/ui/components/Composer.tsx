@@ -17,6 +17,7 @@ export const Composer: React.FC<ComposerProps> = ({
 }) => {
   const [input, setInput] = useState("");
   const [showPresets, setShowPresets] = useState(false);
+  const [selectedPresetIndex, setSelectedPresetIndex] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = useCallback(() => {
@@ -29,21 +30,54 @@ export const Composer: React.FC<ComposerProps> = ({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (showPresets) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setSelectedPresetIndex((i) =>
+            Math.min(i + 1, PRESETS.length - 1)
+          );
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setSelectedPresetIndex((i) => Math.max(i - 1, 0));
+          return;
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const preset = PRESETS[selectedPresetIndex];
+          if (preset) {
+            applyPresetToInput(preset.id);
+          }
+          return;
+        }
+        if (e.key === "Escape") {
+          setShowPresets(false);
+          return;
+        }
+      }
+
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSubmit();
       }
     },
-    [handleSubmit],
+    [showPresets, selectedPresetIndex, handleSubmit]
   );
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const value = e.target.value;
       setInput(value);
-      setShowPresets(value === "/");
+
+      if (value === "/") {
+        setShowPresets(true);
+        setSelectedPresetIndex(0);
+      } else if (!value.startsWith("/")) {
+        setShowPresets(false);
+      }
     },
-    [],
+    []
   );
 
   const applyPresetToInput = useCallback(
@@ -52,30 +86,35 @@ export const Composer: React.FC<ComposerProps> = ({
         ? getPresetWarning(presetId, currentScopeType)
         : null;
       if (warning) {
-        // In a real implementation, show a toast or inline warning
         console.warn(warning);
       }
       const preset = PRESETS.find((p) => p.id === presetId);
       if (preset) {
-        setInput(`/${preset.label} `);
+        const augmented = applyPreset(preset.id, "");
+        setInput(augmented);
         inputRef.current?.focus();
       }
       setShowPresets(false);
     },
-    [currentScopeType],
+    [currentScopeType]
   );
 
   return (
     <div style={styles.container}>
       {showPresets && (
         <div style={styles.presetMenu}>
-          {PRESETS.map((preset) => (
+          {PRESETS.map((preset, index) => (
             <button
               key={preset.id}
-              style={styles.presetItem}
+              style={{
+                ...styles.presetItem,
+                background:
+                  index === selectedPresetIndex ? "#e3f2fd" : "transparent",
+              }}
               onClick={() => applyPresetToInput(preset.id)}
+              onMouseEnter={() => setSelectedPresetIndex(index)}
             >
-              <span style={styles.presetLabel}>{preset.label}</span>
+              <span style={styles.presetLabel}>/{preset.label}</span>
               <span style={styles.presetDesc}>{preset.description}</span>
             </button>
           ))}
@@ -117,6 +156,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderTop: "1px solid #e0e0e0",
     padding: "8px 12px",
     background: "#fff",
+    position: "relative",
   },
   inputRow: {
     display: "flex",
