@@ -13,12 +13,54 @@
 ## Current Status
 
 - Active branch: `codex/deepseek-official-config`
+- Management baseline checkpoint committed at `76598f1` (`docs: add host-first frontend execution baseline`)
 - Current repo state already includes:
   - Settings pane registration and hydration
   - Library/Reader native host logic plus fallback section
   - Reader selection popup/context-menu dispatch
   - host lifecycle tests for UI mounting and teardown
 - Current project risk is not lack of code; it is unstable host ownership and incomplete frontend acceptance discipline
+- Current branch state is mixed:
+  - the committed baseline now records the host-first execution route
+  - an additional unstaged implementation tranche is still in progress across `M1` through `M4`
+  - no frontend milestone beyond `M0` should be treated as complete until packaged smoke proves it
+
+## Live Worktree Snapshot
+
+The current dirty worktree mostly maps to the frontend tranche, not random spillover.
+
+### `M1` Settings in progress
+
+- `addon/content/preferences.xhtml`
+- `addon/prefs.js`
+- `src/modules/preferencesPane.ts`
+- `src/modules/preferencesPane.test.ts`
+- `src/hooks.ts`
+
+### `M2` / `M3` Native host ownership in progress
+
+- `src/ui/ui.ts`
+- `src/ui/ui.test.ts`
+- `src/ui/sidebarSection.ts`
+- `src/ui/sidebarSection.test.ts`
+- `src/ui/sidebarRuntime.ts`
+- `src/ui/sidebarRuntime.test.ts`
+- `src/ui/toggleChat.ts`
+
+### `M4` Reader handoff and shell interaction in progress
+
+- `src/ui/components/Sidebar.tsx`
+- `src/ui/components/sidebarViewModel.ts`
+- `src/ui/components/sidebarViewModel.test.ts`
+- `src/ui/readerActionFlow.ts`
+- `src/ui/readerActionFlow.test.ts`
+
+### Supporting test and typing churn present
+
+- `src/services/chatSession.test.ts`
+- `src/services/provider/openAICompatibleProvider.test.ts`
+- `typings/i10n.d.ts`
+- `typings/prefs.d.ts`
 
 ## Source-Of-Truth File Map
 
@@ -115,12 +157,12 @@
 - Modify: `docs/zotero-sidebar-stability-review.md`
 - Modify: `IMPLEMENTATION_PLAN.md`
 
-- [ ] Treat the daily Zotero profile as the formal frontend acceptance environment.
-- [ ] Record the fixed runtime evidence collected during host debugging.
-- [ ] Split smoke into:
+- [x] Treat the daily Zotero profile as the formal frontend acceptance environment.
+- [x] Record the fixed runtime evidence collected during host debugging.
+- [x] Split smoke into:
   - stage 1 minimal-isolation frontend host pass
   - stage 2 restored-plugin compatibility pass
-- [ ] Keep `.xpi` restart verification as the gate for claiming the frontend usable.
+- [x] Keep `.xpi` restart verification as the gate for claiming the frontend usable.
 
 ## Current Acceptance Gates
 
@@ -146,3 +188,24 @@
 - [ ] Prefer workstream-sized commits instead of giant mixed commits
 - [ ] Update this board when a milestone turns green or a blocker changes
 - [ ] Do not call the branch release-ready until `M5` and `M6` are both complete
+
+## Recommended Next Git Slices
+
+The safest next commit sequence from the current worktree is:
+
+1. `M1 + M2 core host checkpoint`
+   - Settings pane persistence/idempotence
+   - native host ownership and visibility control
+   - related tests only
+2. `M3 + M4 interaction checkpoint`
+   - Reader host churn fixes
+   - Reader `Explain` / `Ask...` handoff
+   - shell/view-model interaction fixes
+3. `test-and-typing cleanup checkpoint`
+   - supporting tests and type updates that remain after the first two slices
+
+Before each commit:
+
+- verify the staged file list matches the intended milestone slice
+- avoid staging unrelated repository cleanup or reference-material churn
+- update this board if a milestone actually turns green
