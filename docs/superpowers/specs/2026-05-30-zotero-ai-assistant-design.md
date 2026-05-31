@@ -1,5 +1,21 @@
 # Zotero AI Assistant: Product and Plugin Architecture Decision Spec
 
+## Status: historical product spec
+
+This spec remains useful for the broader product direction, but it is not the active execution spec for the current frontend stabilization push.
+
+Use these files first for the current execution path:
+
+- [2026-05-31-ds-copilot-host-first-frontend-design.md](/Users/Liang/project/agentpaper_zotero/docs/superpowers/specs/2026-05-31-ds-copilot-host-first-frontend-design.md)
+- [2026-05-31-ds-copilot-host-first-frontend-task-board.md](/Users/Liang/project/agentpaper_zotero/docs/superpowers/plans/2026-05-31-ds-copilot-host-first-frontend-task-board.md)
+- [docs/zotero-dev-workbench.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-dev-workbench.md)
+- [docs/zotero-dev-smoke-checklist.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-dev-smoke-checklist.md)
+
+Current interpretation:
+
+- host-first frontend stabilization is the immediate goal
+- packaged `.xpi` plus restart is the real acceptance gate
+- this older spec should not be treated as the top-level source of truth for current sequencing
 Date: 2026-05-30
 Status: Draft for review
 Scope: Product design plus plugin architecture decisions
