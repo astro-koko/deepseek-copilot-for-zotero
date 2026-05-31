@@ -32,6 +32,29 @@ Current evidence in the codebase:
 
 The problem is not "there is no plugin." The problem is that the host-facing parts are still too coupled and not yet stable enough to serve as a trustworthy frontend base.
 
+Current verified runtime state:
+
+- `Settings` is visible again and no longer opens as a blank pane
+- `Settings` text controls are now real editable Zotero-7-safe controls
+- Reader scope resolution now follows the active PDF tab instead of leaking stale Reader state
+- the sidebar shell can mount in Reader and show the expected chrome
+- the Reader composer is now actually editable, and manual typing unlocks `Send`
+- the top-toolbar toggle still exists only as a temporary debug/fallback affordance
+
+Current acceptance gaps:
+
+- `Settings` still needs explicit edit/save/reopen/restart validation in the daily profile
+- `Library` still needs explicit daily-profile acceptance on both regular items and PDF attachment items
+- manual send still does not settle into a visible active-thread state after the draft clears
+- packaged restart and restored-plugin compatibility are still required before any frontend milestone can be called complete
+
+Management interpretation of those gaps:
+
+- these are acceptance and operability gaps, not evidence that the host-first direction is wrong
+- the team should treat the current toolbar affordance as transitional scaffolding, not as the target product contract
+- the final Settings contract has now tightened further: user-facing configuration should collapse to `API key` only
+- no one should broaden scope into provider polish or release packaging cleanup until the missing host evidence is collected
+
 ## 3. Product Goal For This Phase
 
 Phase goal:
@@ -67,17 +90,30 @@ Assumptions for this phase:
 
 The Settings pane is a required first-class surface.
 
+Current status:
+
+- visible again in the daily profile
+- controls are now genuinely editable again in the daily profile
+- not yet accepted until edit/save/reopen/restart behavior is explicitly re-verified
+
 Contract:
 
 - the left navigation entry is present
 - selecting it opens a real pane, not a blank page
 - `apiKey`, `model`, and `maxContextBudget` are editable
+- the intended release contract is narrower: only `apiKey` remains user-facing
 - saved values persist across reopening the pane and restarting Zotero
 - repeated `onPrefsEvent("load")` calls are idempotent
+- long contexts are handled by internal truncation/compression, not by a user-managed max-context field
 
 ### Library Native Host
 
 The official Library UI surface is the native right pane host, not the fallback section.
+
+Current status:
+
+- still not accepted
+- current work adds Library PDF-attachment scope support, but the daily-profile pass is still pending
 
 Contract:
 
@@ -86,10 +122,16 @@ Contract:
 - opening DS Copilot hides the conflicting native pane body content for the active layer
 - closing DS Copilot restores native content fully
 - reload, tab switching, pane collapse, and restart never create duplicate mounts or fake-visible states
+- activation should feel local to the right-side surface; a top-toolbar toggle may remain temporarily as a debugging or fallback affordance, but it is not the final placement contract
 
 ### Reader Native Host
 
 The official Reader UI surface is the native Reader context pane.
+
+Current status:
+
+- active PDF tabs now resolve against the selected Zotero tab ID
+- shell mount is visible, but operability and churn resistance still need acceptance coverage
 
 Contract:
 
@@ -97,10 +139,16 @@ Contract:
 - fall back to `#zotero-context-pane` only if the inner container is unavailable
 - keep exactly one Reader host and one React root per window
 - survive PDF switches, layout changes, pane collapse/expand, reload, and restart
+- content placement and activation affordance are separate concerns; the native Reader pane is the official content surface even if a temporary toolbar toggle still exists
 
 ### Reader Handoff
 
 Reader actions are part of the frontend acceptance scope.
+
+Current status:
+
+- flow wiring exists
+- acceptance is blocked until the mounted shell is fully interactive after handoff
 
 Contract:
 
@@ -130,6 +178,13 @@ Every meaningful host debugging pass should capture the same runtime facts:
 - direct children of `#zotero-item-pane` and `#zotero-context-pane`
 - count, parent, display, and dimensions of `ai-assistant-pane-library-mount` and `ai-assistant-pane-reader-mount`
 - whether the native right-pane content is actually hidden or still present underneath
+
+Frontend acceptance should additionally record:
+
+- whether Settings values round-trip after save and reopen
+- whether the same behavior survives a full Zotero restart from a packaged `.xpi`
+- whether `Explain` and `Ask...` leave the sidebar interactive instead of merely visible
+- whether the observed surface was reached through the native pane or only through the temporary toolbar toggle
 
 Weak signals such as "button exists" or "section registered" are not acceptance evidence.
 
@@ -222,6 +277,8 @@ keep hot reload, packaged acceptance, and compatibility regression documented an
 These are intentionally deferred:
 
 - provider correctness beyond the minimum needed to avoid blocking the UI
+- final discovery UX beyond the temporary toolbar fallback needed to expose the native-pane host during stabilization
+- release-readiness claims based only on toolbar visibility or proxy-mode `npm start` behavior
 - DeepSeek quality tuning
 - broad multi-plugin compatibility fixes outside right-pane and Reader host conflicts
 - release automation, changelog discipline, and public release packaging polish

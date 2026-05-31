@@ -1,6 +1,8 @@
 import type { ScopeContext } from "../types/scope";
 
 let notifierCallbackID: string | null = null;
+let lastResolvedReaderTabID: string | null = null;
+let lastResolvedReaderScope: ScopeContext | null = null;
 
 export function resolveScopeFromReader(reader: any): ScopeContext | null {
   if (!reader || reader.type !== "pdf") return null;
@@ -64,6 +66,24 @@ export function resolveScopeFromLibrary(): ScopeContext | null {
         itemIds: [item.id],
       };
     }
+
+    if (
+      item.isAttachment?.() &&
+      item.isPDFAttachment?.() &&
+      item.attachmentContentType === "application/pdf"
+    ) {
+      const parentItem = item.parentItem;
+      const label = parentItem
+        ? parentItem.getDisplayTitle()
+        : item.getDisplayTitle();
+      return {
+        type: "pdf",
+        id: `pdf-${item.id}`,
+        label: label || "Current PDF",
+        itemIds: parentItem ? [parentItem.id] : [item.id],
+        readerAttachmentId: item.id,
+      };
+    }
   }
 
   const regularItems = selectedItems.filter((item: Zotero.Item) => item.isRegularItem());
@@ -78,16 +98,40 @@ export function resolveScopeFromLibrary(): ScopeContext | null {
 }
 
 export function getCurrentScope(): ScopeContext | null {
-  const reader = Zotero.Reader.getByTabID((Zotero.Reader as any).getSelectedTabID?.() || "");
+  const selectedType = `${Zotero.getMainWindow?.()?.Zotero_Tabs?.selectedType ?? ""}`.toLowerCase();
+  const selectedTabID = `${Zotero.getMainWindow?.()?.Zotero_Tabs?.selectedID ?? ""}`;
+  const reader =
+    isReaderTabType(selectedType) && selectedTabID
+      ? Zotero.Reader.getByTabID(selectedTabID)
+      : null;
   if (reader) {
-    return resolveScopeFromReader(reader);
+    const scope = resolveScopeFromReader(reader);
+    if (scope) {
+      lastResolvedReaderTabID = selectedTabID;
+      lastResolvedReaderScope = scope;
+    }
+    return scope;
+  }
+
+  if (
+    isReaderTabType(selectedType) &&
+    selectedTabID &&
+    lastResolvedReaderTabID === selectedTabID &&
+    lastResolvedReaderScope
+  ) {
+    return lastResolvedReaderScope;
   }
 
   return resolveScopeFromLibrary();
 }
 
 export function getSelectedTextFromReader(): string | null {
-  const reader = Zotero.Reader.getByTabID((Zotero.Reader as any).getSelectedTabID?.() || "");
+  const selectedType = `${Zotero.getMainWindow?.()?.Zotero_Tabs?.selectedType ?? ""}`.toLowerCase();
+  const selectedTabID = `${Zotero.getMainWindow?.()?.Zotero_Tabs?.selectedID ?? ""}`;
+  const reader =
+    isReaderTabType(selectedType) && selectedTabID
+      ? Zotero.Reader.getByTabID(selectedTabID)
+      : null;
   if (!reader || reader.type !== "pdf") return null;
 
   try {
@@ -101,6 +145,15 @@ export function getSelectedTextFromReader(): string | null {
     // Graceful fallback
   }
   return null;
+}
+
+function isReaderTabType(selectedType: string): boolean {
+  return selectedType.includes("reader");
+}
+
+export function resetScopeResolverCacheForTests(): void {
+  lastResolvedReaderTabID = null;
+  lastResolvedReaderScope = null;
 }
 
 export function registerScopeNotifier(

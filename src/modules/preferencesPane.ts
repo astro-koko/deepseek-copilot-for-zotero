@@ -5,6 +5,7 @@ import {
   saveSettings,
   validateSettings,
 } from "../services/settingsManager";
+import { EventBus } from "../utils/eventBus";
 
 type PreferencesWindow = Window & {
   document: PreferencesDocument;
@@ -16,15 +17,12 @@ type PreferencesDocument = Document & {
   } | null;
 };
 
-interface PreferencesRootElement extends HTMLElement {
-  dataset: DOMStringMap & {
-    initialized?: string;
-  };
-}
+type PreferencesRootElement = HTMLElement;
 
 interface PreferencesFieldElement extends HTMLElement {
   value: string;
   disabled?: boolean;
+  __aiAssistantListeners?: Map<string, EventListener>;
 }
 
 interface PreferencesStatusElement extends HTMLElement {
@@ -63,15 +61,10 @@ export function registerPreferencesPane(
 
   hydrateForm(doc, deps.getSettings());
 
-  if (root.dataset.initialized === "true") {
-    return;
-  }
-
-  root.dataset.initialized = "true";
-
   const persist = () => {
     const values = readFormValues(doc);
     deps.saveSettings(values);
+    EventBus.getInstance().dispatchEvent(new Event("settingsChange"));
     const formatter = doc.l10n?.formatValue;
     const status = getStatusElement(doc);
     if (!status) {
@@ -106,11 +99,12 @@ export function registerPreferencesPane(
     setStatusText(doc, result.error || "Validation failed", "error");
   };
 
-  getField(doc, API_KEY_ID)?.addEventListener("change", persist);
-  getField(doc, MODEL_ID)?.addEventListener("change", persist);
-  getField(doc, MAX_CONTEXT_ID)?.addEventListener("change", persist);
-  getField(doc, SAVE_BUTTON_ID)?.addEventListener("click", persist);
-  getField(doc, VALIDATE_BUTTON_ID)?.addEventListener("click", () => {
+  bindFieldEvent(doc, API_KEY_ID, "change", persist);
+  bindFieldEvent(doc, MODEL_ID, "command", persist);
+  bindFieldEvent(doc, MODEL_ID, "change", persist);
+  bindFieldEvent(doc, MAX_CONTEXT_ID, "change", persist);
+  bindFieldEvent(doc, SAVE_BUTTON_ID, "command", persist);
+  bindFieldEvent(doc, VALIDATE_BUTTON_ID, "command", () => {
     void validate();
   });
 }
@@ -153,9 +147,33 @@ function getField(
   doc: PreferencesDocument,
   id: string,
 ): (PreferencesFieldElement & {
+  removeEventListener?(type: string, listener: (...args: any[]) => void): void;
   addEventListener(type: string, listener: (...args: any[]) => void): void;
 }) | null {
   return doc.getElementById(id) as any;
+}
+
+function bindFieldEvent(
+  doc: PreferencesDocument,
+  id: string,
+  type: string,
+  listener: () => void,
+): void {
+  const field = getField(doc, id);
+  if (!field) {
+    return;
+  }
+
+  const listeners = field.__aiAssistantListeners ?? new Map<string, EventListener>();
+  const previous = listeners.get(type);
+  if (previous && typeof field.removeEventListener === "function") {
+    field.removeEventListener(type, previous);
+  }
+
+  const eventListener = (() => listener()) as EventListener;
+  field.addEventListener(type, eventListener);
+  listeners.set(type, eventListener);
+  field.__aiAssistantListeners = listeners;
 }
 
 async function updateStatus(

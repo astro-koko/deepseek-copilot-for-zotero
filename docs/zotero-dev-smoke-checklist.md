@@ -34,6 +34,37 @@ The immediate target is a usable frontend host loop:
 
 Provider quality is secondary until the host loop is stable.
 
+## Current verified state
+
+- `Settings` is visible again and no longer blank in the daily profile.
+- `API Key` and `Max Context` are now real editable controls in the daily profile.
+- Reader scope now resolves from the active PDF tab instead of stale Reader context.
+- the sidebar shell can mount in Reader and show the expected shell chrome.
+- the Reader composer now accepts typed input and unlocks `Send`.
+- clicking `Send` now clears the draft, so the frontend interaction path is live.
+- the top-toolbar toggle is still temporary and does not count as final UX acceptance.
+
+## Current blockers
+
+- `Settings` still needs edit/save/reopen validation in the daily profile and restart validation in packaged smoke.
+- the final Settings contract should be reduced to `API key` only; `Max Context` should move behind an internal default/compression strategy.
+- `Library` still needs explicit daily-profile verification on both regular items and PDF attachment items.
+- manual send still does not settle into a visible thread/response state, even though the draft clears.
+- toolbar-only discovery is still a failure for release readiness.
+
+## What To Record In The Next Smoke Pass
+
+Treat the next smoke run as an evidence-collection pass, not a vibe check. Capture explicit pass/fail notes for:
+
+1. Settings edit, save, reopen, and packaged-restart persistence for `apiKey`, `model`, and `maxContextBudget`.
+2. a follow-up simplification pass that removes `model` / `maxContextBudget` from the final user-facing Settings contract.
+3. Library native-host behavior on one regular item and one PDF attachment item.
+4. Reader native-host behavior after switching between at least two PDF tabs.
+5. `Explain` auto-send behavior plus post-handoff interactivity.
+6. `Ask...` prefill-only behavior plus post-handoff interactivity.
+7. manual send behavior: does it create a visible active thread or silently clear the draft.
+8. whether the observed surface was reached natively or only via the temporary top-toolbar fallback.
+
 ## Smoke gates
 
 1. Run `npm run check`.
@@ -44,13 +75,16 @@ Provider quality is secondary until the host loop is stable.
 6. Open Zotero Settings and confirm the `DS Copilot` pane exists.
 7. Confirm the settings pane already has a usable API key state and model from the dev-profile preload, or enter a real API key for packaged smoke.
 8. Select a real library item and confirm the DS Copilot native right-pane host appears and is visibly correct.
-9. Open a real PDF Reader tab and confirm the DS Copilot Reader host appears and is visibly correct.
-10. Open Zotero Settings and verify `apiKey`, `model`, and `maxContextBudget` can be edited and persist when you reopen the pane.
-11. In Reader, select text and confirm the popup shows `Explain` and `Ask...`.
-12. Right-click selected Reader text and confirm `Explain with DS Copilot` and `Ask DS Copilot...` appear.
-13. Trigger `Explain` once and confirm the sidebar opens and enters the send flow.
-14. Trigger `Ask...` once and confirm the sidebar opens and pre-fills a draft without auto-send.
-15. Restart Zotero and re-check plugin list, settings pane, Library host, Reader host, and Reader handoff.
+9. Open a real PDF Reader tab and confirm the DS Copilot Reader host appears, uses the active tab scope, and is visibly correct.
+10. Open Zotero Settings and verify `apiKey`, `model`, and `maxContextBudget` can be edited, saved, and persisted when you reopen the pane.
+11. Record whether the release-facing Settings contract should now be simplified to `API key` only.
+12. In Reader, select text and confirm the popup shows `Explain` and `Ask...`.
+13. Right-click selected Reader text and confirm `Explain with DS Copilot` and `Ask DS Copilot...` appear.
+14. Trigger `Explain` once and confirm the sidebar opens and enters the send flow.
+15. Trigger `Ask...` once and confirm the sidebar opens and pre-fills a draft without auto-send.
+16. Type a manual message in Reader and verify whether `Send` creates a visible active thread.
+17. Restart Zotero and re-check plugin list, settings pane, Library host, Reader host, and Reader handoff.
+18. Treat a top-toolbar toggle as a temporary debug/fallback affordance only; do not count toolbar-only discovery as the final placement UX for release.
 
 ## Runtime evidence
 
@@ -60,6 +94,15 @@ Collect the following facts during host debugging:
 - direct children of `#zotero-item-pane` and `#zotero-context-pane`
 - count, parent, display, and dimensions of `ai-assistant-pane-library-mount` and `ai-assistant-pane-reader-mount`
 - whether the native pane content is truly hidden when DS Copilot is visible
+
+Still-missing evidence for the current branch:
+
+- a captured Settings round-trip result after reopen
+- a captured decision point for removing user-facing `Max Context`
+- a captured packaged `.xpi` restart result
+- a captured Library pass on both regular and attachment items
+- a captured post-handoff interactivity result for `Explain` and `Ask...`
+- a captured manual-send result that either shows a real active thread or explains why it fails
 
 ## Debug signals
 
@@ -76,6 +119,7 @@ The most useful user-visible checks by layer are:
 - Install chain: `DS Copilot` appears in the plugin list.
 - Settings registration: a `DS Copilot` pane exists in Zotero Settings.
 - Host registration: a DS Copilot native right-pane host exists in library and reader contexts.
+- Reader scope signal: the active PDF tab, not a stale prior tab, determines the visible Reader scope.
 - Reader registration: the text-selection popup and right-click menu show DS Copilot actions.
 - Handoff connectivity: Reader actions reach the sidebar flow.
 - Provider connectivity: sidebar messages return a real model response once the host loop is stable.
@@ -107,3 +151,4 @@ Isolation order:
 - Use Zotero's plugin manager to install the built `.xpi` into the dedicated dev profile.
 - `npm start` proxy mode is never enough for release acceptance.
 - Do not validate releases by copying files into `extensions/` or editing Zotero registry files by hand.
+- A top-toolbar toggle may help expose the host during debugging, but it does not by itself satisfy release UX acceptance.

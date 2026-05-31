@@ -4,6 +4,7 @@ import {
   registerPreferencesPane,
   type PreferencesPaneDeps,
 } from "./preferencesPane";
+import { EventBus } from "../utils/eventBus";
 
 class FakeEventTarget {
   listeners = new Map<string, Set<(...args: any[]) => void>>();
@@ -12,6 +13,10 @@ class FakeEventTarget {
     const listeners = this.listeners.get(type) ?? new Set();
     listeners.add(listener);
     this.listeners.set(type, listeners);
+  }
+
+  removeEventListener(type: string, listener: (...args: any[]) => void) {
+    this.listeners.get(type)?.delete(listener);
   }
 
   dispatch(type: string) {
@@ -68,6 +73,7 @@ describe("registerPreferencesPane", () => {
   let deps: PreferencesPaneDeps;
 
   beforeEach(() => {
+    EventBus.dispose();
     root = new FakeRootElement();
     apiKeyField = new FakeField();
     modelField = new FakeField();
@@ -121,8 +127,8 @@ describe("registerPreferencesPane", () => {
     apiKeyField.dispatch("change");
 
     expect(apiKeyField.getListenerCount("change")).toBe(1);
-    expect(saveButton.getListenerCount("click")).toBe(1);
-    expect(validateButton.getListenerCount("click")).toBe(1);
+    expect(saveButton.getListenerCount("command")).toBe(1);
+    expect(validateButton.getListenerCount("command")).toBe(1);
     expect(deps.saveSettings).toHaveBeenCalledTimes(1);
   });
 
@@ -150,7 +156,7 @@ describe("registerPreferencesPane", () => {
     registerPreferencesPane(createWindow(), deps);
 
     maxContextField.value = "not-a-number";
-    saveButton.dispatch("click");
+    saveButton.dispatch("command");
 
     expect(deps.saveSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-test",
@@ -167,7 +173,7 @@ describe("registerPreferencesPane", () => {
     registerPreferencesPane(createWindow(), deps);
 
     apiKeyField.value = "sk-bad";
-    validateButton.dispatch("click");
+    validateButton.dispatch("command");
     await Promise.resolve();
     await Promise.resolve();
 
@@ -178,5 +184,57 @@ describe("registerPreferencesPane", () => {
     });
     expect(status.textContent).toBe("Invalid API key");
     expect(status.dataset.variant).toBe("error");
+  });
+
+  it("persists settings from XUL command events and broadcasts the change", () => {
+    const eventSpy = vi.fn();
+    EventBus.getInstance().addEventListener("settingsChange", eventSpy);
+    registerPreferencesPane(createWindow(), deps);
+
+    apiKeyField.value = "sk-command";
+    saveButton.dispatch("command");
+
+    expect(deps.saveSettings).toHaveBeenLastCalledWith({
+      apiKey: "sk-command",
+      model: "deepseek-v4-pro",
+      maxContextBudget: 8192,
+    });
+    expect(eventSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("rebinds listeners when Zotero recreates the field nodes under the same root", () => {
+    const win = createWindow();
+    registerPreferencesPane(win, deps);
+
+    const replacementApiKeyField = new FakeField();
+    const replacementModelField = new FakeField();
+    const replacementMaxContextField = new FakeField();
+    const replacementSaveButton = new FakeButton();
+    const replacementValidateButton = new FakeButton();
+    const replacementStatus = new FakeStatusElement();
+    const replacementDocument = new FakeDocument({
+      "zotero-ai-assistant-prefs": root,
+      "zotero-ai-assistant-pref-api-key": replacementApiKeyField,
+      "zotero-ai-assistant-pref-model": replacementModelField,
+      "zotero-ai-assistant-pref-max-context": replacementMaxContextField,
+      "zotero-ai-assistant-pref-save": replacementSaveButton,
+      "zotero-ai-assistant-pref-validate": replacementValidateButton,
+      "zotero-ai-assistant-pref-status": replacementStatus,
+    });
+
+    registerPreferencesPane(
+      new FakeWindow(replacementDocument as unknown as FakeDocument) as unknown as Window,
+      deps,
+    );
+
+    replacementApiKeyField.value = "sk-recreated";
+    replacementSaveButton.dispatch("command");
+
+    expect(deps.saveSettings).toHaveBeenLastCalledWith({
+      apiKey: "sk-recreated",
+      model: "deepseek-v4-pro",
+      maxContextBudget: 8192,
+    });
+    expect(replacementSaveButton.getListenerCount("command")).toBe(1);
   });
 });

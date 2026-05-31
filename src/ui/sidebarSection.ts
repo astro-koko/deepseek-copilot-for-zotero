@@ -14,6 +14,7 @@ export interface SidebarSurfaceHost {
   reactRoot: Root | null;
   reactRootElement: HTMLDivElement;
   bootstrapped: boolean;
+  bootstrappingPromise: Promise<void> | null;
 }
 
 interface NativePaneLike {
@@ -38,8 +39,12 @@ type SidebarDocumentFactory = Pick<Document, "createElement"> &
   };
 
 export function resolveSidebarLocation(tabType: string): SidebarLocation | null {
-  if (tabType === "library" || tabType === "reader") {
-    return tabType;
+  const normalized = `${tabType || ""}`.toLowerCase();
+  if (normalized === "library" || normalized.includes("library")) {
+    return "library";
+  }
+  if (normalized === "reader" || normalized.includes("reader")) {
+    return "reader";
   }
   return null;
 }
@@ -213,6 +218,7 @@ function createSidebarHost(
     reactRoot: null,
     reactRootElement,
     bootstrapped: false,
+    bootstrappingPromise: null,
   };
 }
 

@@ -21,6 +21,7 @@ import { listThreads } from "../../services/threadController";
 
 interface SidebarProps {
   eventBus: EventTarget;
+  hostWindow: Window;
   location: "library" | "reader";
 }
 
@@ -28,7 +29,7 @@ function isSupportedChatScope(scope: ScopeContext | null): scope is ScopeContext
   return scope?.type === "paper" || scope?.type === "pdf";
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ eventBus, location }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location }) => {
   const session = useSyncExternalStore(
     chatSessionStore.subscribe,
     chatSessionStore.getSnapshot,
@@ -42,15 +43,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, location }) => {
   const [composerFocusNonce, setComposerFocusNonce] = useState(0);
 
   useEffect(() => {
-    const currentWindow = globalThis as unknown as Window;
     const refreshSettings = () => {
       setSettings(getSettings());
     };
 
     refreshSettings();
-    currentWindow.addEventListener("focus", refreshSettings);
-    return () => currentWindow.removeEventListener("focus", refreshSettings);
-  }, []);
+    const handleSettingsChange = () => {
+      refreshSettings();
+    };
+    hostWindow.addEventListener("focus", refreshSettings);
+    eventBus.addEventListener("settingsChange", handleSettingsChange);
+    return () => {
+      hostWindow.removeEventListener("focus", refreshSettings);
+      eventBus.removeEventListener("settingsChange", handleSettingsChange);
+    };
+  }, [eventBus, hostWindow]);
 
   useEffect(() => {
     let disposed = false;

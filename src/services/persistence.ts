@@ -1,20 +1,20 @@
 import type { Thread } from "../types/thread";
 
-const DB_NAME = "zotero-ai-assistant";
-let dbConnection: any = null;
+let initialized = false;
 
-function getDB(): any {
-  if (!dbConnection) {
-    dbConnection = new (Zotero as any).DBConnection(DB_NAME);
-  }
-  return dbConnection;
+function getDB() {
+  return Zotero.DB;
 }
 
 export async function initDatabase(): Promise<void> {
+  if (initialized) {
+    return;
+  }
+
   const db = getDB();
   try {
-    await db.execTransaction(async (conn: any) => {
-      await conn.queryAsync(`
+    await db.executeTransaction(async () => {
+      await db.queryAsync(`
         CREATE TABLE IF NOT EXISTS threads (
           id TEXT PRIMARY KEY,
           title TEXT NOT NULL,
@@ -25,6 +25,7 @@ export async function initDatabase(): Promise<void> {
         )
       `);
     });
+    initialized = true;
     ztoolkit.log("Database initialized");
   } catch (e) {
     ztoolkit.log("Database init error:", e);
@@ -32,18 +33,12 @@ export async function initDatabase(): Promise<void> {
 }
 
 export async function closeDatabase(): Promise<void> {
-  if (dbConnection) {
-    try {
-      await dbConnection.closeDatabase();
-    } catch (e) {
-      ztoolkit.log("Database close error:", e);
-    }
-    dbConnection = null;
-  }
+  initialized = false;
 }
 
 export async function saveThread(thread: Thread): Promise<void> {
   try {
+    await initDatabase();
     const db = getDB();
     await db.queryAsync(
       `INSERT OR REPLACE INTO threads (id, title, createdAt, updatedAt, scopeSnapshot, messages)
@@ -64,6 +59,7 @@ export async function saveThread(thread: Thread): Promise<void> {
 
 export async function loadThread(id: string): Promise<Thread | null> {
   try {
+    await initDatabase();
     const db = getDB();
     const rows = await db.queryAsync(
       `SELECT * FROM threads WHERE id = ?`,
@@ -79,6 +75,7 @@ export async function loadThread(id: string): Promise<Thread | null> {
 
 export async function loadAllThreads(): Promise<Thread[]> {
   try {
+    await initDatabase();
     const db = getDB();
     const rows = await db.queryAsync(`SELECT * FROM threads`);
     if (!rows || rows.length === 0) return [];
@@ -91,6 +88,7 @@ export async function loadAllThreads(): Promise<Thread[]> {
 
 export async function deletePersistedThread(id: string): Promise<boolean> {
   try {
+    await initDatabase();
     const db = getDB();
     await db.queryAsync(`DELETE FROM threads WHERE id = ?`, [id]);
     return true;

@@ -1,5 +1,4 @@
 import React from "react";
-import { createRoot } from "react-dom/client";
 import { EventBus } from "../utils/eventBus";
 import { getLocaleID } from "../utils/locale";
 import { getPref } from "../utils/prefs";
@@ -26,6 +25,7 @@ import {
 
 interface AIAssistantWindow extends Window {
   __aiAssistantEventBus?: EventTarget;
+  __aiAssistantTabObserverId?: string | null;
   MozXULElement?: {
     insertFTLIfNeeded?: (path: string) => void;
   };
@@ -64,6 +64,7 @@ const READER_HOST_ID = "ai-assistant-pane-reader-mount";
 const TOGGLE_BUTTON_ID = "zotero-ai-assistant-tb-chat-toggle";
 const TOGGLE_SEPARATOR_ID = "ai-assistant-tb-separator";
 const LIVE_REGION_ID = "ai-assistant-live-region";
+const SURFACE_DIAGNOSTIC_PATH = "/tmp/ds-copilot-surface-state.json";
 
 const windowHosts = new WeakMap<AIAssistantWindow, SidebarHostState>();
 const windowRefreshCleanup = new WeakMap<AIAssistantWindow, () => void>();
@@ -76,6 +77,7 @@ const windowCollapsedState = new WeakMap<
 >();
 
 let sectionRegistered = false;
+let reactDomClientPromise: Promise<typeof import("react-dom/client")> | null = null;
 
 export class UIFactory {
   static registerChatPanel(win: AIAssistantWindow) {
@@ -83,6 +85,7 @@ export class UIFactory {
     this.removeToolbarButton(win);
     this.ensureToolbarButton(win);
     this.ensureWindowRefreshRegistration(win);
+    this.ensureTabSelectionRefreshRegistration(win);
     this.refreshWindow(win);
   }
 
@@ -100,6 +103,7 @@ export class UIFactory {
     }
 
     this.removeToolbarButton(win);
+    this.removeTabSelectionRefreshRegistration(win);
     windowRefreshCleanup.get(win)?.();
     windowRefreshCleanup.delete(win);
     windowCollapsedState.delete(win);
@@ -112,19 +116,13 @@ export class UIFactory {
     const selectedType = this.getSelectedLocation(win);
     const hosts = this.ensureWindowHosts(win);
 
-    if (hosts.library) {
-      this.ensureHostBootstrapped(hosts.library, "library");
-    }
-    if (hosts.reader) {
-      this.ensureHostBootstrapped(hosts.reader, "reader");
-    }
-
     this.attachNativeHost(win, "library");
     this.attachNativeHost(win, "reader");
 
     this.applyPaneVisibility(win, "library", visible && selectedType === "library");
     this.applyPaneVisibility(win, "reader", visible && selectedType === "reader");
     this.syncToolbarState(win, visible);
+    this.writeSurfaceDiagnostic(win, visible, selectedType);
   }
 
   static refreshAllWindows() {
@@ -253,6 +251,45 @@ export class UIFactory {
     windowRefreshCleanup.set(win, unregister);
   }
 
+  private static ensureTabSelectionRefreshRegistration(win: AIAssistantWindow) {
+    if (win.__aiAssistantTabObserverId) {
+      return;
+    }
+
+    const callback = {
+      notify: (event: string, type: string) => {
+        if (event === "select" && type === "tab" && !win.closed) {
+          this.refreshWindow(win);
+        }
+      },
+    };
+
+    try {
+      win.__aiAssistantTabObserverId = Zotero.Notifier.registerObserver(
+        callback,
+        ["tab"],
+        `${addon.data.config.addonID}-ui-tab-refresh`,
+      );
+    } catch (error) {
+      ztoolkit.log("Failed to register DS Copilot tab refresh observer:", error);
+      win.__aiAssistantTabObserverId = null;
+    }
+  }
+
+  private static removeTabSelectionRefreshRegistration(win: AIAssistantWindow) {
+    const observerId = win.__aiAssistantTabObserverId;
+    if (!observerId) {
+      return;
+    }
+
+    try {
+      Zotero.Notifier.unregisterObserver(observerId);
+    } catch {
+      // Ignore stale observer cleanup errors.
+    }
+    win.__aiAssistantTabObserverId = null;
+  }
+
   private static ensureWindowHosts(win: AIAssistantWindow): SidebarHostState {
     const existing = windowHosts.get(win);
     if (existing) {
@@ -297,24 +334,44 @@ export class UIFactory {
   }
 
   private static ensureHostBootstrapped(
+    win: AIAssistantWindow,
     hostState: SidebarSurfaceHost,
     location: SidebarLocation,
-  ) {
-    if (!hostState.reactRoot) {
-      hostState.reactRoot = createRoot(hostState.reactRootElement);
-    }
-
+  ): Promise<void> {
     if (hostState.bootstrapped) {
-      return;
+      return Promise.resolve();
     }
 
-    hostState.reactRoot.render(
-      React.createElement(Sidebar, {
-        eventBus: EventBus.getInstance(),
-        location,
-      }),
-    );
-    hostState.bootstrapped = true;
+    if (hostState.bootstrappingPromise) {
+      return hostState.bootstrappingPromise;
+    }
+
+    hostState.bootstrappingPromise = (async () => {
+      const { createRoot } = await this.getReactDomClient(win);
+      if (!hostState.reactRoot) {
+        hostState.reactRoot = createRoot(hostState.reactRootElement);
+      }
+
+      hostState.reactRoot.render(
+        React.createElement(Sidebar, {
+          eventBus: EventBus.getInstance(),
+          hostWindow: win,
+          location,
+        }),
+      );
+      hostState.bootstrapped = true;
+    })()
+      .catch((error) => {
+        hostState.reactRoot?.unmount();
+        hostState.reactRoot = null;
+        hostState.bootstrapped = false;
+        throw error;
+      })
+      .finally(() => {
+        hostState.bootstrappingPromise = null;
+      });
+
+    return hostState.bootstrappingPromise;
   }
 
   private static attachNativeHost(
@@ -329,7 +386,9 @@ export class UIFactory {
     const host = this.getOrCreateHost(win, location);
     this.removeStaleMounts(win, host.mountPoint.id, host.mountPoint);
     attachSidebarHostToNativePane(pane, host, location);
-    this.ensureHostBootstrapped(host, location);
+    void this.ensureHostBootstrapped(win, host, location).catch((error) => {
+      ztoolkit.log(`Failed to bootstrap DS Copilot ${location} host:`, error);
+    });
     return host;
   }
 
@@ -534,6 +593,112 @@ export class UIFactory {
     win.setTimeout(() => {
       region.textContent = message;
     }, 50);
+  }
+
+  private static writeSurfaceDiagnostic(
+    win: AIAssistantWindow,
+    visible: boolean,
+    selectedLocation: SidebarLocation | null,
+  ) {
+    try {
+      const doc = win.document;
+      const summarizeNode = (id: string) => {
+        const element = doc.getElementById(id) as HTMLElement | null;
+        if (!element) {
+          return null;
+        }
+
+        const rect =
+          typeof element.getBoundingClientRect === "function"
+            ? element.getBoundingClientRect()
+            : null;
+
+        return {
+          id,
+          parent: element.parentElement?.id || element.parentElement?.tagName || null,
+          display: element.style.display || "",
+          hidden: Boolean(element.hidden),
+          selected: element.getAttribute("selected"),
+          ariaPressed: element.getAttribute("aria-pressed"),
+          rect: rect
+            ? {
+                width: rect.width,
+                height: rect.height,
+              }
+            : null,
+          childIDs: Array.from(element.children).map(
+            (child) => (child as HTMLElement).id || child.tagName,
+          ),
+        };
+      };
+
+      const summarizeChildren = (id: string) => {
+        const element = doc.getElementById(id) as HTMLElement | null;
+        if (!element) {
+          return null;
+        }
+
+        return Array.from(element.children).map((child) => ({
+          id: (child as HTMLElement).id || child.tagName,
+          display: (child as HTMLElement).style?.display || "",
+        }));
+      };
+
+      // TEMP probe for daily-profile host debugging. Remove before release acceptance.
+      const diagnosticFile = Zotero.File.pathToFile(SURFACE_DIAGNOSTIC_PATH);
+      Zotero.File.putContents(
+        diagnosticFile,
+        JSON.stringify(
+          {
+            timestamp: new Date().toISOString(),
+            visible,
+            selectedType: win.Zotero_Tabs?.selectedType || null,
+            selectedID: (win.Zotero_Tabs as { selectedID?: string | number } | undefined)?.selectedID ?? null,
+            resolvedLocation: selectedLocation,
+            itemPaneChildren: summarizeChildren("zotero-item-pane"),
+            contextPaneChildren: summarizeChildren("zotero-context-pane"),
+            nodes: {
+              itemPane: summarizeNode("zotero-item-pane"),
+              contextPane: summarizeNode("zotero-context-pane"),
+              contextPaneInner: summarizeNode("zotero-context-pane-inner"),
+              libraryMount: summarizeNode(LIBRARY_HOST_ID),
+              readerMount: summarizeNode(READER_HOST_ID),
+              toggleButton: summarizeNode(TOGGLE_BUTTON_ID),
+            },
+          },
+          null,
+          2,
+        ),
+      );
+    } catch (error) {
+      ztoolkit.log("Failed to write DS Copilot surface diagnostic:", error);
+    }
+  }
+
+  private static async getReactDomClient(win: AIAssistantWindow) {
+    if (!reactDomClientPromise) {
+      this.bindDomGlobals(win);
+      reactDomClientPromise = import("react-dom/client");
+    }
+    return reactDomClientPromise;
+  }
+
+  private static bindDomGlobals(win: AIAssistantWindow) {
+    const globalScope = globalThis as typeof globalThis & {
+      document?: Document;
+      navigator?: Navigator;
+      window?: Window;
+    };
+
+    if (!globalScope.window) {
+      globalScope.window = win;
+    }
+    if (!globalScope.document) {
+      globalScope.document = win.document;
+    }
+    if (!globalScope.navigator && "navigator" in win) {
+      globalScope.navigator = win.navigator;
+    }
   }
 
   private static ensureLiveRegion(win: AIAssistantWindow): HTMLElement | null {

@@ -14,53 +14,76 @@
 
 - Active branch: `codex/deepseek-official-config`
 - Management baseline checkpoint committed at `76598f1` (`docs: add host-first frontend execution baseline`)
-- Current repo state already includes:
-  - Settings pane registration and hydration
-  - Library/Reader native host logic plus fallback section
-  - Reader selection popup/context-menu dispatch
-  - host lifecycle tests for UI mounting and teardown
-- Current project risk is not lack of code; it is unstable host ownership and incomplete frontend acceptance discipline
-- Current branch state is mixed:
-  - the committed baseline now records the host-first execution route
-  - an additional unstaged implementation tranche is still in progress across `M1` through `M4`
+- Latest verified daily-profile facts:
+  - `Settings` is no longer blank; the DS Copilot preferences pane renders real fields and actions
+  - the `Settings` pane now exposes a real secure `API Key` input and a real editable `Max Context` control in the daily profile
+  - `Reader` scope resolution is now tied to the active PDF tab, so the native host no longer falls back to stale `Waiting for context` state there
+  - the sidebar shell can mount in Reader with visible scope, suggested actions, and composer chrome
+  - the Reader composer now accepts real typed input, and typing unlocks `Send`
+  - clicking `Send` is no longer inert; the draft clears, which proves the frontend dispatch path is live
+  - the top-toolbar toggle still exists and must be treated as a temporary debug/fallback affordance, not the final placement contract
+- Current project risk is now narrower:
+  - Library native-host acceptance still needs an explicit daily-profile pass on regular items and PDF attachment items
+  - Reader and Library tab-switch churn still need wider regression coverage
+  - manual send still does not settle into a visible active-thread state after the draft clears
   - no frontend milestone beyond `M0` should be treated as complete until packaged smoke proves it
+
+## Current Blockers
+
+- `Settings` renders again and is editable, but save/reopen/restart validation in the daily profile is still required before `M1` can turn green.
+- the sidebar shell mounts and accepts input, but there is still a send/session-state issue to resolve before `M4` is acceptable.
+- `Library` native-host behavior still needs explicit daily-profile verification on both regular items and PDF attachment items before `M2` can turn green.
+- the top-toolbar toggle remains a temporary debug/fallback control and is not acceptable as the final discovery contract.
+
+## Verified Facts Vs Open Evidence
+
+Verified now:
+
+- `Settings` opens a real DS Copilot pane in the daily profile instead of a blank surface.
+- `API Key` is a real secure text field in the daily profile.
+- `Max Context` is a real editable numeric control in the daily profile.
+- Reader scope resolution follows the active PDF tab instead of a stale Reader tab.
+- the Reader shell can mount with visible chrome, scope, and composer affordances.
+- the Reader composer accepts typed input.
+- typing into the Reader composer unlocks `Send`.
+- clicking `Send` clears the draft, confirming that the frontend event path is firing.
+
+Still missing runtime evidence:
+
+- proof that editing `apiKey`, `model`, and `maxContextBudget` survives save, reopen, and full restart
+- proof that the release-facing Settings contract is narrowed to `API key` only, with DeepSeek defaults and automatic context compression handled internally
+- proof that Library native-host behavior is correct for both regular items and PDF attachment items
+- proof that Reader and Library survive tab-switch churn without duplicate mounts or false-visible states
+- proof that `Explain` and `Ask...` leave the mounted shell interactive after handoff
+- proof that manual send creates a visible active thread or visible response state instead of clearing the draft and returning to the shell home state
+- proof that packaged `.xpi` behavior matches the daily-profile pass after full restart
+
+## Next Acceptance Pass
+
+Do not flip any milestone based on partial observation. The next acceptance loop should record these exact pass/fail decisions:
+
+- `M1` passes only if Settings is visible, editable, saveable, and persistent after reopen in the daily profile, then matches the same behavior after packaged restart.
+- `M1.1` passes only if the user-facing Settings contract is simplified to `API key` only.
+- `M2` passes only if the Library native host behaves the same on a regular item and a PDF attachment item, while hiding and restoring the competing native pane content correctly.
+- `M3` passes only if Reader survives PDF tab switches, pane collapse/expand, reload, and restart without duplicate mounts or stale scope.
+- `M4` passes only if `Explain` auto-sends, `Ask...` pre-fills only, manual send creates a visible active thread, and the sidebar remains fully interactive after each handoff.
+- `M5` passes only if the packaged `.xpi` reproduces the Stage 1 frontend behavior after full Zotero restart.
+- `M6` passes only if the restored plugin set preserves the same Settings, Library, Reader, and handoff behavior with no host duplication or blank panes.
 
 ## Live Worktree Snapshot
 
-The current dirty worktree mostly maps to the frontend tranche, not random spillover.
-
-### `M1` Settings in progress
+The current dirty worktree is concentrated in the host-first tranche:
 
 - `addon/content/preferences.xhtml`
-- `addon/prefs.js`
-- `src/modules/preferencesPane.ts`
-- `src/modules/preferencesPane.test.ts`
-- `src/hooks.ts`
-
-### `M2` / `M3` Native host ownership in progress
-
-- `src/ui/ui.ts`
-- `src/ui/ui.test.ts`
-- `src/ui/sidebarSection.ts`
-- `src/ui/sidebarSection.test.ts`
-- `src/ui/sidebarRuntime.ts`
-- `src/ui/sidebarRuntime.test.ts`
-- `src/ui/toggleChat.ts`
-
-### `M4` Reader handoff and shell interaction in progress
-
-- `src/ui/components/Sidebar.tsx`
-- `src/ui/components/sidebarViewModel.ts`
-- `src/ui/components/sidebarViewModel.test.ts`
-- `src/ui/readerActionFlow.ts`
-- `src/ui/readerActionFlow.test.ts`
-
-### Supporting test and typing churn present
-
-- `src/services/chatSession.test.ts`
-- `src/services/provider/openAICompatibleProvider.test.ts`
-- `typings/i10n.d.ts`
-- `typings/prefs.d.ts`
+  preference fragment shape fix plus Zotero-7-safe editable input controls for real Zotero Settings interaction
+- `src/services/scopeResolver.ts`
+  Library PDF-attachment scope support plus Reader tab-id scope fixes
+- `src/services/scopeResolver.test.ts`
+  regressions for Library attachment scope and stale Reader scope avoidance
+- `src/modules/preferencesPaneSource.test.ts`
+  guardrail test that keeps the preferences pane in Zotero fragment form
+- `src/ui/ui.ts`, `src/ui/ui.test.ts`, `src/ui/sidebarSection.ts`, `src/ui/sidebarSection.test.ts`, `src/ui/components/Sidebar.tsx`
+  active host-ownership, tab refresh, and shell-behavior tranche still in progress
 
 ## Source-Of-Truth File Map
 
@@ -129,6 +152,7 @@ The current dirty worktree mostly maps to the frontend tranche, not random spill
 
 - [ ] Make `onPrefsEvent("load")` safe to call repeatedly without double-binding.
 - [ ] Verify `apiKey`, `model`, and `maxContextBudget` round-trip between UI and prefs.
+- [ ] Simplify the release-facing Settings contract to `API key` only after the current send/session blocker is solved.
 - [ ] Ensure the pane never renders blank due to missing initialization order.
 - [ ] Keep the pane intentionally narrow: only fields needed for the first usable frontend.
 - [ ] Add or refine tests for hydration, save, reopen, and persistence behavior.
@@ -146,6 +170,7 @@ The current dirty worktree mostly maps to the frontend tranche, not random spill
 - [ ] Keep Beaver-style Reader event registration and cleanup discipline.
 - [ ] Ensure `Explain` auto-submits a draft after the sidebar is visible.
 - [ ] Ensure `Ask...` pre-fills without sending.
+- [ ] Ensure manual send creates or opens a visible active thread instead of clearing the draft and falling back to the home shell.
 - [ ] Confirm Reader-selected text merges into active scope without clobbering surface state.
 - [ ] Verify the shell remains interactive after handoff, not just visually mounted.
 
@@ -170,11 +195,20 @@ The current dirty worktree mostly maps to the frontend tranche, not random spill
 
 - [ ] Add-ons entry visible after packaged install
 - [ ] Settings pane visible, editable, persistent
+  Daily-profile evidence confirms the pane is no longer blank; edit/save/reopen and packaged restart still need explicit recheck.
 - [ ] Library native host visibly stable
 - [ ] Reader native host visibly stable
+  Daily-profile evidence confirms active PDF tabs now resolve to the live Reader scope; tab churn, restart, and shell operability are still pending.
 - [ ] `Explain` auto-send handoff works
 - [ ] `Ask...` prefill-only handoff works
 - [ ] full Zotero restart preserves the same behavior
+
+## Known UX Gap
+
+- DS Copilot content now mounts into Zotero's native right-side surfaces, but the visible activation affordance is still the top-toolbar toggle.
+- Treat the toolbar button as a temporary debug/fallback control.
+- Do not accept toolbar-only discovery as the final UI contract for GitHub release readiness.
+- Do not spend this tranche redesigning final toolbar UX; the current requirement is host stability inside native Library and Reader panes.
 
 ### Stage 2: Compatibility Regression Gate
 

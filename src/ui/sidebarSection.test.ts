@@ -89,6 +89,8 @@ describe("sidebarSection helpers", () => {
   it("enables the sidebar only for library and reader tabs", () => {
     expect(resolveSidebarLocation("library")).toBe("library");
     expect(resolveSidebarLocation("reader")).toBe("reader");
+    expect(resolveSidebarLocation("library-tab")).toBe("library");
+    expect(resolveSidebarLocation("reader-view")).toBe("reader");
     expect(resolveSidebarLocation("note")).toBeNull();
     expect(resolveSidebarLocation("unknown")).toBeNull();
   });

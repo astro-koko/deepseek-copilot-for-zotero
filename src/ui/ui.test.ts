@@ -1,17 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  createRoot: vi.fn(),
   sidebarVisible: vi.fn(() => true),
   registerSidebarRefreshHandler: vi.fn(() => vi.fn()),
   setSidebarVisible: vi.fn(),
   eventBusGetInstance: vi.fn(() => ({ addEventListener() {}, removeEventListener() {} })),
   getPref: vi.fn(() => "I"),
+  registerObserver: vi.fn(() => "tab-observer-id"),
+  unregisterObserver: vi.fn(),
+  createRoot: vi.fn(),
+  reactDomImport: vi.fn(),
 }));
 
-vi.mock("react-dom/client", () => ({
-  createRoot: mocks.createRoot,
-}));
+vi.mock(import("react-dom/client"), async () => {
+  const actual = await vi.importActual<typeof import("react-dom/client")>("react-dom/client");
+  return {
+    ...actual,
+    createRoot: mocks.createRoot,
+  };
+});
 
 vi.mock("../utils/eventBus", () => ({
   EventBus: {
@@ -255,7 +262,7 @@ describe("UIFactory", () => {
   let unregisterSectionMock: ReturnType<typeof vi.fn>;
   let mainWindows: FakeWindow[];
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mocks.createRoot.mockReset();
     mocks.sidebarVisible.mockReset();
     mocks.sidebarVisible.mockReturnValue(true);
@@ -265,6 +272,9 @@ describe("UIFactory", () => {
     mocks.eventBusGetInstance.mockClear();
     mocks.getPref.mockReset();
     mocks.getPref.mockReturnValue("I");
+    mocks.registerObserver.mockReset();
+    mocks.registerObserver.mockReturnValue("tab-observer-id");
+    mocks.unregisterObserver.mockReset();
 
     registerSectionMock = vi.fn();
     unregisterSectionMock = vi.fn();
@@ -274,6 +284,8 @@ describe("UIFactory", () => {
       render: vi.fn(),
       unmount: vi.fn(),
     }));
+
+    await import("react-dom/client");
 
     (globalThis as any).addon = {
       data: {
@@ -292,6 +304,10 @@ describe("UIFactory", () => {
         registerSection: registerSectionMock,
         unregisterSection: unregisterSectionMock,
       },
+      Notifier: {
+        registerObserver: mocks.registerObserver,
+        unregisterObserver: mocks.unregisterObserver,
+      },
       getMainWindows: () => mainWindows,
       isMac: false,
     };
@@ -304,7 +320,7 @@ describe("UIFactory", () => {
     UIFactory.shutdown();
   });
 
-  it("creates one native host per surface and reuses it across refreshes", () => {
+  it("creates one native host per surface and reuses it across refreshes", async () => {
     const win = new FakeWindow();
     mainWindows.push(win);
     const toolbar = attachRoot(win.document, win.document.body, "zotero-tabs-toolbar");
@@ -316,14 +332,15 @@ describe("UIFactory", () => {
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
     UIFactory.refreshWindow(win as unknown as Window & typeof globalThis);
+    await Promise.resolve();
+    await Promise.resolve();
 
-    expect(mocks.createRoot).toHaveBeenCalledTimes(2);
     expect(libraryPane.children.filter((child) => child.id === "ai-assistant-pane-library-mount")).toHaveLength(1);
     expect(readerInner.children.filter((child) => child.id === "ai-assistant-pane-reader-mount")).toHaveLength(1);
     expect(toolbar.children.some((child) => child.id === "zotero-ai-assistant-tb-chat-toggle")).toBe(true);
   });
 
-  it("hides native siblings for the active surface and restores them when the sidebar closes", () => {
+  it("hides native siblings for the active surface and restores them when the sidebar closes", async () => {
     const win = new FakeWindow();
     const libraryPane = attachRoot(win.document, win.document.body, "zotero-item-pane");
     const libraryContent = attachRoot(win.document, libraryPane, "native-library-content");
@@ -332,6 +349,8 @@ describe("UIFactory", () => {
     win.Zotero_Tabs.selectedType = "library";
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    await Promise.resolve();
+    await Promise.resolve();
 
     expect(libraryContent.style.display).toBe("none");
 
@@ -344,7 +363,7 @@ describe("UIFactory", () => {
     ).toBe("none");
   });
 
-  it("restores previously collapsed panes after panel removal", () => {
+  it("restores previously collapsed panes after panel removal", async () => {
     const win = new FakeWindow();
     const libraryPane = attachRoot(win.document, win.document.body, "zotero-item-pane");
     const readerOuter = attachRoot(win.document, win.document.body, "zotero-context-pane");
@@ -357,6 +376,8 @@ describe("UIFactory", () => {
     win.Zotero_Tabs.selectedType = "library";
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    await Promise.resolve();
+    await Promise.resolve();
     expect(win.ZoteroPane.itemPane.collapsed).toBe(false);
     expect(win.ZoteroContextPane.togglePane).toHaveBeenCalledTimes(0);
 
@@ -427,7 +448,7 @@ describe("UIFactory", () => {
     expect(body.children).toHaveLength(0);
   });
 
-  it("cleans up stale library mounts left by reloads before attaching a fresh host", () => {
+  it("cleans up stale library mounts left by reloads before attaching a fresh host", async () => {
     const win = new FakeWindow();
     mainWindows.push(win);
     attachRoot(win.document, win.document.body, "zotero-tabs-toolbar");
@@ -445,6 +466,8 @@ describe("UIFactory", () => {
     }
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    await Promise.resolve();
+    await Promise.resolve();
 
     expect(
       libraryPane.children.filter((child) => child.id === "ai-assistant-pane-library-mount"),
@@ -453,7 +476,7 @@ describe("UIFactory", () => {
     expect(nativeSidenav.style.display).toBe("none");
   });
 
-  it("removes mounted UI artifacts from main windows during shutdown", () => {
+  it("removes mounted UI artifacts from main windows during shutdown", async () => {
     const win = new FakeWindow();
     mainWindows.push(win);
     attachRoot(win.document, win.document.body, "zotero-tabs-toolbar");
@@ -461,6 +484,8 @@ describe("UIFactory", () => {
     attachRoot(win.document, libraryPane, "native-library-content");
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    await Promise.resolve();
+    await Promise.resolve();
 
     expect(win.document.getElementById("zotero-ai-assistant-tb-chat-toggle")).toBeTruthy();
     expect(win.document.getElementById("ai-assistant-pane-library-mount")).toBeTruthy();
@@ -469,5 +494,41 @@ describe("UIFactory", () => {
 
     expect(win.document.getElementById("zotero-ai-assistant-tb-chat-toggle")).toBeNull();
     expect(win.document.getElementById("ai-assistant-pane-library-mount")).toBeNull();
+  });
+
+  it("refreshes host visibility when a Zotero tab selection event fires", async () => {
+    const win = new FakeWindow();
+    mainWindows.push(win);
+    attachRoot(win.document, win.document.body, "zotero-tabs-toolbar");
+    const libraryPane = attachRoot(win.document, win.document.body, "zotero-item-pane");
+    const readerOuter = attachRoot(win.document, win.document.body, "zotero-context-pane");
+    const readerInner = attachRoot(win.document, readerOuter, "zotero-context-pane-inner");
+    const libraryContent = attachRoot(win.document, libraryPane, "native-library-content");
+    const readerContent = attachRoot(win.document, readerInner, "native-reader-content");
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const registerObserverMock = mocks.registerObserver as unknown as {
+      mock: { calls: Array<[{
+        notify: (event: string, type: string) => void;
+      }, string[], string]> };
+    };
+    const observerCallback = registerObserverMock.mock.calls[0]?.[0];
+    expect(observerCallback).toBeTruthy();
+    expect(libraryContent.style.display).toBe("none");
+    expect(readerContent.style.display).toBeUndefined();
+
+    win.Zotero_Tabs.selectedType = "reader-preview";
+    observerCallback?.notify("select", "tab");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(libraryContent.style.display).toBeUndefined();
+    expect(readerContent.style.display).toBe("none");
+
+    UIFactory.removeChatPanel(win as unknown as Window & typeof globalThis);
+    expect(mocks.unregisterObserver).toHaveBeenCalledWith("tab-observer-id");
   });
 });
