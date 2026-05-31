@@ -1,5 +1,22 @@
 # Zotero AI Assistant Task Board
 
+## Status: historical roadmap board
+
+This board is still useful for the broader product roadmap, but it is no longer the active execution board for the current frontend stabilization push.
+
+Use these files first for the current execution path:
+
+- [2026-05-31-ds-copilot-host-first-frontend-design.md](/Users/Liang/project/agentpaper_zotero/docs/superpowers/specs/2026-05-31-ds-copilot-host-first-frontend-design.md)
+- [2026-05-31-ds-copilot-host-first-frontend-task-board.md](/Users/Liang/project/agentpaper_zotero/docs/superpowers/plans/2026-05-31-ds-copilot-host-first-frontend-task-board.md)
+- [docs/zotero-dev-workbench.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-dev-workbench.md)
+- [docs/zotero-dev-smoke-checklist.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-dev-smoke-checklist.md)
+
+Current interpretation:
+
+- host-first frontend stabilization is the immediate goal
+- packaged `.xpi` plus restart is the real acceptance gate
+- this older board should not be used as the top-level source of truth for current sequencing
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this board task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Turn the approved spec and implementation plan into a start-ready execution board for a Phase 1 Zotero-native AI reading assistant.
@@ -302,7 +319,7 @@
 **Dependencies:** Task 2.3
 
 **Acceptance:**
-- Users can configure `baseURL`, `apiKey`, `model`, and optional context budget.
+- Users can configure `apiKey`, `model`, and optional context budget inside the plugin Settings pane.
 - Missing or invalid settings are shown as actionable UI states.
 
 **References:**

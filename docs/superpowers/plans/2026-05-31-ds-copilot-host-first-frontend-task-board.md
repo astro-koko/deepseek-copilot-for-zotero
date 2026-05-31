@@ -209,3 +209,114 @@ Before each commit:
 - verify the staged file list matches the intended milestone slice
 - avoid staging unrelated repository cleanup or reference-material churn
 - update this board if a milestone actually turns green
+
+## Exact Staging Groups
+
+Use these groups as the default file boundaries unless the implementation itself changes shape.
+
+### Slice A: `M1 + M2 core host checkpoint`
+
+Primary purpose:
+
+- Settings pane persistence and idempotence
+- Library/native host ownership and visibility truth
+
+Preferred staged files:
+
+- `addon/content/preferences.xhtml`
+- `addon/prefs.js`
+- `addon/locale/en-US/preferences.ftl`
+- `src/hooks.ts`
+- `src/modules/preferencesPane.ts`
+- `src/modules/preferencesPane.test.ts`
+- `src/ui/ui.ts`
+- `src/ui/ui.test.ts`
+- `src/ui/sidebarSection.ts`
+- `src/ui/sidebarSection.test.ts`
+- `src/ui/sidebarRuntime.ts`
+- `src/ui/sidebarRuntime.test.ts`
+- `src/ui/toggleChat.ts`
+- `typings/i10n.d.ts`
+- `typings/prefs.d.ts`
+
+Preferred focused verification:
+
+```bash
+npx vitest run \
+  src/modules/preferencesPane.test.ts \
+  src/ui/ui.test.ts \
+  src/ui/sidebarSection.test.ts \
+  src/ui/sidebarRuntime.test.ts
+```
+
+Pre-commit check:
+
+```bash
+git add addon/content/preferences.xhtml addon/prefs.js addon/locale/en-US/preferences.ftl \
+  src/hooks.ts src/modules/preferencesPane.ts src/modules/preferencesPane.test.ts \
+  src/ui/ui.ts src/ui/ui.test.ts src/ui/sidebarSection.ts src/ui/sidebarSection.test.ts \
+  src/ui/sidebarRuntime.ts src/ui/sidebarRuntime.test.ts src/ui/toggleChat.ts \
+  typings/i10n.d.ts typings/prefs.d.ts
+git diff --cached --name-only
+```
+
+### Slice B: `M3 + M4 interaction checkpoint`
+
+Primary purpose:
+
+- Reader host churn fixes
+- `Explain` / `Ask...` handoff
+- shell and view-model interaction behavior
+
+Preferred staged files:
+
+- `src/ui/components/Sidebar.tsx`
+- `src/ui/components/sidebarViewModel.ts`
+- `src/ui/components/sidebarViewModel.test.ts`
+- `src/ui/readerActionFlow.ts`
+- `src/ui/readerActionFlow.test.ts`
+- `src/services/chatSession.test.ts`
+- `src/services/provider/openAICompatibleProvider.test.ts`
+
+Preferred focused verification:
+
+```bash
+npx vitest run \
+  src/ui/readerActionFlow.test.ts \
+  src/ui/components/sidebarViewModel.test.ts \
+  src/services/chatSession.test.ts \
+  src/services/provider/openAICompatibleProvider.test.ts
+```
+
+Pre-commit check:
+
+```bash
+git add src/ui/components/Sidebar.tsx src/ui/components/sidebarViewModel.ts \
+  src/ui/components/sidebarViewModel.test.ts src/ui/readerActionFlow.ts \
+  src/ui/readerActionFlow.test.ts src/services/chatSession.test.ts \
+  src/services/provider/openAICompatibleProvider.test.ts
+git diff --cached --name-only
+```
+
+### Slice C: `roadmap-doc drift cleanup`
+
+Primary purpose:
+
+- clean up remaining older-board wording that no longer reflects the host-first baseline
+
+Preferred staged files:
+
+- `docs/superpowers/plans/2026-05-30-zotero-ai-assistant-task-board.md`
+
+Preferred verification:
+
+- manual review only
+
+## History Caveat
+
+The branch history now contains two useful management checkpoints:
+
+- `76598f1` introduced the host-first execution baseline
+- `01da25b` recorded the live frontend tranche state
+
+However, `76598f1` is not a pure docs-only checkpoint because earlier staged code was swept into that commit. Do not use commit-message wording alone as evidence of scope. When preparing the next implementation checkpoint, trust the live file list and focused verification commands above.
