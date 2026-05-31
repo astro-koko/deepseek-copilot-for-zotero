@@ -2,6 +2,10 @@
 
 配套开发方法请先看 [docs/zotero-dev-workbench.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-dev-workbench.md)，文档入口索引见 [docs/zotero-doc-index.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-doc-index.md)。
 
+## 当前执行目标
+
+当前执行目标是宿主前端优先稳定化，不是继续扩展通用产品能力。
+
 ## 本轮目标
 
 本轮先验收宿主前端闭环，再谈 provider 质量和发布工程。
