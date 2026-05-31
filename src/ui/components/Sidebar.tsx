@@ -4,6 +4,7 @@ import { ThreadView } from "./ThreadView";
 import { buildSidebarViewModel } from "./sidebarViewModel";
 import {
   buildReaderActionDraft,
+  mergeReaderActionScope,
   type ReaderActionDetail,
 } from "../readerActionFlow";
 import type { ScopeContext } from "../../types/scope";
@@ -21,6 +22,10 @@ import { listThreads } from "../../services/threadController";
 interface SidebarProps {
   eventBus: EventTarget;
   location: "library" | "reader";
+}
+
+function isSupportedChatScope(scope: ScopeContext | null): scope is ScopeContext {
+  return scope?.type === "paper" || scope?.type === "pdf";
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ eventBus, location }) => {
@@ -92,18 +97,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, location }) => {
 
       const detail = (event as CustomEvent).detail as ReaderActionDetail;
       const prompt = buildReaderActionDraft(detail);
-      const currentScope = getCurrentScope();
+      const currentScope = mergeReaderActionScope(getCurrentScope(), detail);
       setScope(currentScope);
       setContextSummary(summarizeScope(currentScope));
 
       void (async () => {
+        if (!isSupportedChatScope(currentScope)) {
+          return;
+        }
+
         await chatSessionStore.syncScope(currentScope);
         setShowRecentChats(false);
 
         if (detail.action === "explain") {
           setComposerDraft("");
-          await chatSessionStore.newThread(currentScope || undefined);
-          await chatSessionStore.send(prompt, currentScope || undefined);
+          await chatSessionStore.send(prompt, currentScope);
           return;
         }
 
@@ -133,14 +141,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, location }) => {
     const currentScope = getCurrentScope();
     setScope(currentScope);
     setContextSummary(summarizeScope(currentScope));
-    await chatSessionStore.newThread(currentScope || undefined);
+    if (!isSupportedChatScope(currentScope)) {
+      return;
+    }
+    await chatSessionStore.newThread(currentScope);
     setComposerDraft("");
     setShowRecentChats(false);
   };
 
   const handleSend = async (userInput: string) => {
+    if (!isSupportedChatScope(scope)) {
+      return;
+    }
+
     try {
-      await chatSessionStore.send(userInput, scope || undefined);
+      await chatSessionStore.send(userInput, scope);
       setComposerDraft("");
       setSettings(getSettings());
       setShowRecentChats(false);
@@ -208,12 +223,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, location }) => {
         <button
           style={{
             ...styles.toolbarButton,
-            ...(scope ? null : styles.toolbarButtonDisabled),
+            ...(isSupportedChatScope(scope) ? null : styles.toolbarButtonDisabled),
           }}
           onClick={() => {
             void handleNewThread();
           }}
-          disabled={!scope || session.isStreaming}
+          disabled={!isSupportedChatScope(scope) || session.isStreaming}
         >
           New Thread
         </button>

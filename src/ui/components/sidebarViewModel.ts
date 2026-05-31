@@ -57,6 +57,14 @@ const scopeTypeLabels: Record<string, string> = {
   pdf: "PDF",
 };
 
+type SupportedScopeContext = ScopeContext & { type: "paper" | "pdf" };
+
+function isChatSupportedScope(
+  scope: ScopeContext | null,
+): scope is SupportedScopeContext {
+  return scope?.type === "paper" || scope?.type === "pdf";
+}
+
 export function buildSidebarViewModel({
   contextSummary,
   location,
@@ -82,17 +90,17 @@ export function buildSidebarViewModel({
       composerDisabledReason:
         location === "reader"
           ? "Open a PDF in Zotero Reader to start chatting."
-          : "Select a paper, a collection, or a PDF to start chatting.",
+          : "Select a single paper in Library or open a PDF to start chatting.",
       composerPlaceholder:
         location === "reader"
           ? "Open a PDF to unlock the chat box."
-          : "Select a Zotero item to unlock the chat box.",
+          : "Select a single paper in Library to unlock the chat box.",
       contextAvailabilityLabel,
       contextWarnings,
       heroBody:
         location === "reader"
           ? "The assistant appears here as soon as a PDF reader tab is active."
-          : "Choose a paper, collection, or PDF in Zotero and the assistant will stay scoped to that context.",
+          : "Choose a single paper in Library or open a PDF in Reader and the assistant will stay scoped to that context.",
       heroTitle:
         location === "reader" ? "Open a PDF to begin" : "Select a Zotero item",
       locationLabel,
@@ -123,6 +131,7 @@ export function buildSidebarViewModel({
   const scopeSelectionLabel = scope.selectedText
     ? "Selected text included"
     : null;
+  const supportedScope = isChatSupportedScope(scope);
 
   if (settingsIssue) {
     return {
@@ -150,6 +159,37 @@ export function buildSidebarViewModel({
       showSuggestedActions: false,
       showThreadView: false,
       statusLabel: "Needs setup",
+      suggestedActions: [],
+    };
+  }
+
+  if (!supportedScope) {
+    return {
+      composerDisabled: true,
+      composerDisabledReason:
+        "This minimal DS Copilot loop currently supports one single paper or the current PDF only.",
+      composerPlaceholder:
+        "Select a single paper in Library or open a PDF in Reader to enable chat.",
+      contextAvailabilityLabel,
+      contextWarnings,
+      heroBody:
+        "This iteration is intentionally narrowed to the minimal AI loop. Select a single paper in Library or open one PDF in Reader to chat with grounded context.",
+      heroTitle: "Single paper or current PDF required",
+      locationLabel,
+      mode: "empty",
+      noticeText: null,
+      noticeTitle: null,
+      providerLabel,
+      recentThreads: filteredRecentThreads,
+      scopeLabel: scope.label,
+      scopeMeta,
+      scopeSelectionLabel,
+      scopeTypeLabel,
+      showRecentThreads: false,
+      showShell: true,
+      showSuggestedActions: false,
+      showThreadView: false,
+      statusLabel: "Limited scope",
       suggestedActions: [],
     };
   }
@@ -201,10 +241,7 @@ export function buildSidebarViewModel({
     contextWarnings,
     heroBody:
       "Use a suggested action to get moving fast, or type your own question in the composer below.",
-    heroTitle:
-      scope.type === "collection"
-        ? "Compare papers in this collection"
-        : "Start a conversation with this context",
+    heroTitle: "Start a conversation with this context",
     locationLabel,
     mode: "home",
     noticeText: null,
@@ -224,12 +261,9 @@ export function buildSidebarViewModel({
   };
 }
 
-function buildComposerPlaceholder(scope: ScopeContext): string {
+function buildComposerPlaceholder(scope: SupportedScopeContext): string {
   if (scope.selectedText) {
     return "Ask about the selected text or the broader context...";
-  }
-  if (scope.type === "collection" || scope.type === "manual-selection") {
-    return "Compare themes, methods, or findings across this set...";
   }
   return "Ask about this paper, PDF, or reading context...";
 }

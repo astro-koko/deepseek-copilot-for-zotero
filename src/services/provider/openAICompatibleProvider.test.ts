@@ -40,4 +40,44 @@ describe("openAICompatibleProvider", () => {
 
     expect(text).toBe("Hello world");
   });
+
+  it("parses CRLF-delimited SSE events and flushes the final buffered event on stream end", async () => {
+    const chunks = [
+      new TextEncoder().encode(
+        'data: {"choices":[{"delta":{"content":"Hello"}}]}\r\n\r\ndata: {"choices":[{"delta":{"content":" world"}}]}\r\n\r\n',
+      ),
+      new TextEncoder().encode(
+        'data: {"choices":[{"delta":{"content":"!"}}]}\r\n\r\ndata: [DONE]',
+      ),
+    ];
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            new ReadableStream({
+              start(controller: ReadableStreamDefaultController) {
+                chunks.forEach((chunk) => controller.enqueue(chunk));
+                controller.close();
+              },
+            }),
+          ),
+      ),
+    );
+
+    const provider = createOpenAICompatibleProvider({
+      baseURL: "https://api.deepseek.com",
+      apiKey: "test-key",
+      model: "deepseek-v4-flash",
+    });
+
+    const response = await provider.sendChat([{ role: "user", content: "hi" }]);
+    let text = "";
+    for await (const chunk of response.stream) {
+      text += chunk;
+    }
+
+    expect(text).toBe("Hello world!");
+  });
 });

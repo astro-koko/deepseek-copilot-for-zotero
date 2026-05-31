@@ -259,4 +259,80 @@ describe("chatSession", () => {
     expect(store.getSnapshot().error).toBeNull();
     expect(store.getSnapshot().isStreaming).toBe(false);
   });
+
+  it("reuses the current thread when sending another message in the same supported scope", async () => {
+    const scope = makeScope();
+    const activeThread = makeThread({
+      scopeSnapshot: scope,
+      messages: [
+        {
+          id: "msg-user-1",
+          role: "user",
+          content: "First question",
+          timestamp: 1,
+        },
+        {
+          id: "msg-assistant-1",
+          role: "assistant",
+          content: "First answer",
+          timestamp: 2,
+        },
+      ],
+      updatedAt: 2,
+    });
+    const threadWithFollowup = makeThread({
+      ...activeThread,
+      messages: [
+        ...activeThread.messages,
+        {
+          id: "msg-user-2",
+          role: "user",
+          content: "Explain this excerpt",
+          timestamp: 3,
+        },
+      ],
+      updatedAt: 3,
+    });
+    const finalThread = makeThread({
+      ...threadWithFollowup,
+      messages: [
+        ...threadWithFollowup.messages,
+        {
+          id: "msg-assistant-2",
+          role: "assistant",
+          content: "Here is the explanation.",
+          timestamp: 4,
+        },
+      ],
+      updatedAt: 4,
+    });
+
+    const createThread = vi.fn();
+    const appendMessage = vi
+      .fn()
+      .mockResolvedValueOnce(threadWithFollowup)
+      .mockResolvedValueOnce(finalThread);
+    const sendChatMessage = vi.fn().mockResolvedValue({
+      abort: vi.fn(),
+      stream: streamChunks("Here is ", "the explanation."),
+    });
+
+    const store = createChatSessionStore({
+      appendMessage,
+      createThread,
+      recordScopeTransition: vi.fn(),
+      sendChatMessage,
+    });
+
+    store.openThread(activeThread);
+    await store.send("Explain this excerpt", scope);
+
+    expect(createThread).not.toHaveBeenCalled();
+    expect(sendChatMessage).toHaveBeenCalledWith(
+      threadWithFollowup,
+      scope,
+      expect.any(AbortSignal),
+    );
+    expect(store.getSnapshot().activeThread).toEqual(finalThread);
+  });
 });

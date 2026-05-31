@@ -64,6 +64,7 @@ describe("buildSidebarViewModel", () => {
     expect(model.composerDisabled).toBe(true);
     expect(model.showShell).toBe(true);
     expect(model.showSuggestedActions).toBe(false);
+    expect(model.composerDisabledReason).toContain("single paper");
   });
 
   it("shows a configuration state instead of a blank body when the api key is missing", () => {
@@ -154,5 +155,29 @@ describe("buildSidebarViewModel", () => {
     expect((model as any).contextWarnings).toContain(
       "Using the abstract because no extractable PDF text is available for this scope.",
     );
+  });
+
+  it("keeps collection scope visible but disables chat interactions for the minimal closed loop", () => {
+    const model = buildSidebarViewModel({
+      location: "library",
+      recentThreads: [makeThread({ id: "thread-2", title: "Earlier chat" })],
+      scope: makeScope({
+        type: "collection",
+        id: "collection-1",
+        label: "My Collection",
+        itemIds: [1, 2, 3],
+      }),
+      session: makeSession(),
+      settings: makeSettings(),
+      settingsIssue: null,
+    });
+
+    expect(model.showShell).toBe(true);
+    expect(model.composerDisabled).toBe(true);
+    expect(model.mode).toBe("empty");
+    expect(model.heroTitle).toContain("Single paper");
+    expect(model.heroBody).toContain("single paper");
+    expect(model.composerDisabledReason).toContain("single paper");
+    expect(model.showSuggestedActions).toBe(false);
   });
 });
