@@ -1,5 +1,12 @@
 node_modules
 .scaffold
+.env
+.env.*
+!.env.example
+tsconfig.tsbuildinfo
 *.xpi
 *.log
 .DS_Store
+.claude/
+.playwright-mcp/
+.superpowers/

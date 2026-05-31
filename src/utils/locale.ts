@@ -23,5 +23,5 @@ function getString(name: string): string {
 }
 
 function getLocaleID(name: string): string {
-  return `${config.addonRef}-${name}`;
+  return name;
 }

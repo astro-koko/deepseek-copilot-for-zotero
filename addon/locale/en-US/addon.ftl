@@ -1,1 +1,1 @@
-ai-assistant-toggle-shortcut = Toggle AI Assistant
+ai-assistant-toggle-shortcut = Toggle DS Copilot

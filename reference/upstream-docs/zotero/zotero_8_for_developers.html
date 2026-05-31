@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<!-- Required meta tags -->
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+		<meta name="description" content="Zotero is a free, easy-to-use tool to help you collect, organize, cite, and share research."/>
+
+<title>Zotero 8 for Developers | Zotero Documentation</title>
+
+		<link rel="stylesheet" href="/static/css/bs4/web-components.min.1778705639.css" type="text/css"/>
+		<style nonce="j6sWUHMyhB9sg2nw7I9svKTXSboRHDBczCoDwRvj">
+			.jumbotron #ios-link, .jumbotron .mobile-link {
+				color: inherit;
+				text-decoration: underline;
+			}
+		</style>
+
+		<script type="text/javascript" charset="utf-8" nonce="s7978n2VUw5rFt8wQ5Es82q7XhCVr2vkkjRXrk7L">
+			window.zoteroConfig = {
+				installData: {}
+			};
+			if(!window.Zotero){
+				window.Zotero = {};
+			}
+			if(typeof window.zoteroData == 'undefined'){
+				window.zoteroData = {};
+			}
+		</script>
+
+		<script src="/static/js/bs4/web-components.min.1777573288.js"></script>
+		<script type="text/javascript" charset="utf-8" nonce="s7978n2VUw5rFt8wQ5Es82q7XhCVr2vkkjRXrk7L">
+			WebFont.load({
+				custom: {
+					families: [
+						'AvenirNextLTPro:n3',
+						'AvenirNextLTPro:i3',
+						'AvenirNextLTPro:n4',
+						'AvenirNextLTPro:i4',
+						'AvenirNextLTPro:n6',
+						'AvenirNextLTPro:i6'
+					]
+				}
+			});
+
+					</script>
+	</head>
+	<body>
+		<!-- hidden area for possible JS messages -->
+		<ul class="messages"></ul>
+		<header class="mobile-header d-lg-none d-xl-none">
+			<nav>
+				<ul class="mobile-nav">
+					<li class="active"><a class="nav-link" href="/">Zotero</a></li>
+										<li><a class="nav-link" href="/groups/">Groups</a></li>
+					<li><a class="nav-link" href="/support/">Documentation</a></li>
+					<li><a class="nav-link" href="">Forums</a></li>
+					<li><a class="nav-link" href="/getinvolved">Get Involved</a></li>
+										<li><a class="nav-link separated" href="/user/login/">Log In</a></li>
+					<li><a class="nav-link" href="/user/register/">Sign Up</a></li>
+																<li><a class="nav-link separated" href="/storage">Upgrade Storage</a></li>
+														</ul>
+			</nav>
+		</header>
+		<div class="nav-cover"></div>
+		<div class="site-wrapper">
+			<header class="main-header border-bottom">
+				<div class="container">
+					<a href="/" class="brand">
+						<img src="/static/images/bs4theme/zotero-logo.1775160902.svg" width="108" height="32" alt="Zotero">
+					</a>
+					<nav>
+						<ul class="main-nav d-none d-lg-flex">
+														<li class="nav-item active"><a href="/groups/" class="nav-link">Groups</a></li>
+							<li class="nav-item"><a href="/support/" class="nav-link">Documentation</a></li>
+							<li class="nav-item"><a href="https://forums.zotero.org/discussions" class="nav-link">Forums</a></li>
+							<li class="nav-item"><a href="/getinvolved" class="nav-link">Get Involved</a></li>
+														<li class="nav-item"><a href="/user/login/" class="nav-link log-in">Log In</a></li>
+																						<li class="nav-item"><a href="/storage" class="btn btn-sm btn-secondary upgrade-storage">Upgrade Storage</a></li>
+																				</ul>
+					</nav>
+					<button class="btn btn-link nav-toggle d-lg-none">
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 18">
+						  <path d="M1,1H23M1,9H23M1,17H23" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="2"/>
+						</svg>
+					</button>
+				</div>
+			</header>
+<main>
+  <div class="zotero-docs-page">
+    
+
+<style>
+  @font-face {
+    font-family: 'Inter';
+    font-weight: 400;
+    font-display: swap;
+    src: url('/support/_fonts/inter/Inter-Regular.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Inter';
+    font-weight: 500;
+    font-display: swap;
+    src: url('/support/_fonts/inter/Inter-Medium.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Inter';
+    font-weight: 600;
+    font-display: swap;
+    src: url('/support/_fonts/inter/Inter-SemiBold.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Inter';
+    font-weight: 700;
+    font-display: swap;
+    src: url('/support/_fonts/inter/Inter-Bold.woff2') format('woff2');
+  }
+
+  .zotero-docs {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 720px) 200px;
+    justify-content: center;
+    gap: 2.5em;
+    margin: 1.5em auto;
+    padding: 0 1em;
+    max-width: 1320px;
+    box-sizing: border-box;
+    font-family: Inter, sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+    color: #222;
+  }
+  @media (max-width: 1240px) {
+    .zotero-docs {
+      grid-template-columns: 220px minmax(0, 1fr) 200px;
+    }
+  }
+  @media (max-width: 1100px) {
+    .zotero-docs {
+      grid-template-columns: 220px minmax(0, 1fr);
+    }
+    .zotero-docs-toc { display: none; }
+  }
+  @media (max-width: 800px) {
+    .zotero-docs {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ----- Content ----- */
+  .zotero-docs-content {
+    min-width: 0;
+  }
+  .zotero-docs-content h1,
+  .zotero-docs-content h2,
+  .zotero-docs-content h3,
+  .zotero-docs-content h4,
+  .zotero-docs-content h5,
+  .zotero-docs-content h6 {
+    font-family: inherit;
+    font-weight: bold;
+    margin: 0 0 0.6em;
+    line-height: 1.3;
+    clear: left;
+  }
+  .zotero-docs-content h1,
+  .zotero-docs-content h2 { padding-top: 1.4em; }
+  .zotero-docs-content h3,
+  .zotero-docs-content h4 { padding-top: 0.8em; }
+  .zotero-docs-content h5,
+  .zotero-docs-content h6 { padding-top: 0.4em; }
+  .zotero-docs-content > h1:first-child { padding-top: 0; }
+  .zotero-docs-content :is(h1,h2,h3,h4,h5,h6) + :is(h1,h2,h3,h4,h5,h6) {
+    padding-top: 0.5em;
+  }
+  .zotero-docs-content h1 {
+    font-size: 200%;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 0.2em;
+  }
+  .zotero-docs-content h2 {
+    font-size: 155%;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.15em;
+  }
+  .zotero-docs-content h3 { font-size: 125%; }
+  .zotero-docs-content h4 { font-size: 110%; }
+  .zotero-docs-content h5 { font-size: 100%; color: #555; }
+  .zotero-docs-content h6 {
+    font-size: 88%; color: #555;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .zotero-docs-content p,
+  .zotero-docs-content ul,
+  .zotero-docs-content ol {
+    margin: 0 0 1.3em;
+  }
+  /* Default list items get minimal spacing; this covers both tight lists and
+     loose lists whose items happen to be a single short paragraph. */
+  .zotero-docs-content li { margin: 0.25em 0; }
+  /* Genuinely multi-block items (e.g., a paragraph followed by another
+     paragraph or a nested list) get more breathing room. */
+  .zotero-docs-content li:has(> p + *) { margin: 0.7em 0; }
+  .zotero-docs-content li > ul,
+  .zotero-docs-content li > ol { margin: 0.2em 0 0.4em; }
+  .zotero-docs-content code,
+  .zotero-docs-content pre {
+    font-family: Consolas, "Liberation Mono", Courier, monospace;
+    font-size: 100%;
+  }
+  .zotero-docs-content code {
+    background: #f0f4f8;
+    color: inherit;
+    padding: 0.1em 0.35em;
+    border: 1px solid #dde2e8;
+    border-radius: 3px;
+  }
+  .zotero-docs-content table code {
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  /* Multi-line inline code (from flattened Dokuwiki `<code>` blocks inside
+     table cells) preserves newlines via `&#10;` entities. */
+  .zotero-docs-content code.multiline {
+    display: block;
+    white-space: pre;
+    margin: 0.3em 0;
+    padding: 0.5em 0.7em;
+    background: #f0f4f8;
+    border: 1px solid #dde2e8;
+    border-radius: 3px;
+    font-size: 100%;
+  }
+  .zotero-docs-content pre {
+    background: #f6f8fa;
+    padding: 0.8em 1em;
+    border: 1px solid #dde2e8;
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+  /* Syntax highlighting (Pygments "vs" theme) */
+  .zotero-docs-content .codehilite { background: transparent; }
+  .zotero-docs-content .codehilite .hll { background-color: #ffc; }
+  .zotero-docs-content .codehilite .c,
+  .zotero-docs-content .codehilite .ch,
+  .zotero-docs-content .codehilite .cm,
+  .zotero-docs-content .codehilite .cpf,
+  .zotero-docs-content .codehilite .c1,
+  .zotero-docs-content .codehilite .cs { color: #008000; }
+  .zotero-docs-content .codehilite .k,
+  .zotero-docs-content .codehilite .kc,
+  .zotero-docs-content .codehilite .kd,
+  .zotero-docs-content .codehilite .kn,
+  .zotero-docs-content .codehilite .kp,
+  .zotero-docs-content .codehilite .kr,
+  .zotero-docs-content .codehilite .cp,
+  .zotero-docs-content .codehilite .ow { color: #00F; }
+  .zotero-docs-content .codehilite .kt,
+  .zotero-docs-content .codehilite .nc { color: #2B91AF; }
+  .zotero-docs-content .codehilite .s,
+  .zotero-docs-content .codehilite .sa,
+  .zotero-docs-content .codehilite .sb,
+  .zotero-docs-content .codehilite .sc,
+  .zotero-docs-content .codehilite .dl,
+  .zotero-docs-content .codehilite .sd,
+  .zotero-docs-content .codehilite .s2,
+  .zotero-docs-content .codehilite .se,
+  .zotero-docs-content .codehilite .sh,
+  .zotero-docs-content .codehilite .si,
+  .zotero-docs-content .codehilite .sx,
+  .zotero-docs-content .codehilite .sr,
+  .zotero-docs-content .codehilite .s1,
+  .zotero-docs-content .codehilite .ss { color: #A31515; }
+  .zotero-docs-content pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    border-radius: 0;
+  }
+  .zotero-docs-content table {
+    border-collapse: collapse;
+    margin: 0 0 1.1em;
+    font-size: 95%;
+    width: 100%;
+  }
+  .zotero-docs-content table th,
+  .zotero-docs-content table td {
+    border: 1px solid #ddd;
+    padding: 0.45em 0.7em;
+    text-align: left;
+    vertical-align: top;
+  }
+  .zotero-docs-content table th {
+    background: #f3f3f3;
+    font-weight: 600;
+  }
+  .zotero-docs-content table tr:nth-child(2n) td {
+    background: #fafafa;
+  }
+  .zotero-docs-content img {
+    max-width: 100%;
+    height: auto;
+  }
+  .zotero-docs-content img.align-left {
+    float: left; margin: 0 1em 0.5em 0;
+  }
+  .zotero-docs-content img.align-right {
+    float: right; margin: 0 0 0.5em 1em;
+  }
+  .zotero-docs-content img.align-center {
+    display: block; margin: 0.5em auto;
+  }
+  .zotero-docs-content a {
+    text-decoration: underline;
+    text-decoration-color: rgba(0, 102, 204, 0.4);
+    text-underline-offset: 2px;
+    transition: text-decoration-color 0.15s;
+  }
+  .zotero-docs-content a:hover {
+    text-decoration-color: currentColor;
+  }
+  .zotero-docs-content a.missing-link {
+    color: #006;
+    text-decoration-style: dashed;
+  }
+  .zotero-docs-content a[href^="http"]:not([href*=".zotero.org"]):not([href*="//zotero.org"])::after {
+    content: "";
+    display: inline-block;
+    width: 0.85em;
+    height: 0.85em;
+    margin-left: 0.25em;
+    vertical-align: -1px;
+    background-color: currentColor;
+    opacity: 0.8;
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/><polyline points='15 3 21 3 21 9'/><line x1='10' y1='14' x2='21' y2='3'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/><polyline points='15 3 21 3 21 9'/><line x1='10' y1='14' x2='21' y2='3'/></svg>");
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+  }
+  .zotero-docs-content .headerlink {
+    color: #aaa; text-decoration: none; margin-left: 0.25em;
+    opacity: 0; transition: opacity 0.15s, color 0.15s;
+  }
+  .zotero-docs-content :hover > .headerlink,
+  .zotero-docs-content .headerlink:focus { opacity: 1; }
+  .zotero-docs-content .headerlink:hover { color: #555; }
+  /* The top-level page heading already serves as the page title; suppress
+     its permalink # — there's nothing useful to link to. */
+  .zotero-docs-content > :is(h1, h2):first-child .headerlink {
+    display: none;
+  }
+
+  /* ----- Left sidebar (global nav) ----- */
+  .zotero-docs-nav {
+    font-size: 0.9em;
+    line-height: 1.45;
+    position: sticky;
+    top: 1em;
+    max-height: calc(100vh - 2em);
+    display: flex;
+    flex-direction: column;
+  }
+  /* Search box stays fixed at the top of the sidebar; the nav list scrolls
+     within its own space. The search dropdown can overflow the nav freely
+     because the nav container itself doesn't clip. */
+  .zotero-docs-nav > ul {
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  /* At narrow widths (e.g. high zoom), collapse the sidebar into normal
+     page flow above the content: drop sticky positioning, the flex layout,
+     and the inner ul's scrollbox. Must come AFTER the default nav rules so
+     it wins on source order. DOM order is nav → article → aside, so it
+     naturally lands above the content. */
+  @media (max-width: 800px) {
+    .zotero-docs-nav {
+      position: static;
+      max-height: none;
+      overflow: visible;
+      display: block;
+      padding-bottom: 1em;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 1.5em;
+    }
+    .zotero-docs-nav > ul {
+      overflow: visible;
+      flex: none;
+    }
+  }
+  .zotero-docs-search {
+    position: relative;
+    margin-bottom: 1em;
+  }
+  .zotero-docs-search input {
+    width: 100%;
+    padding: 0.45em 0.7em;
+    font: inherit;
+    font-size: 0.95em;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  .zotero-docs-search input:focus {
+    outline: none;
+    border-color: #1a3a6e;
+  }
+  .zotero-docs-search-results {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    max-height: 60vh;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+  }
+  .zotero-docs-search-results.open { display: block; }
+  .zotero-docs-search-results article {
+    display: block;
+    padding: 0.5em 0.7em;
+    margin: 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .zotero-docs-search-results article:last-child { border-bottom: none; }
+  .zotero-docs-search-results h3 {
+    display: block;
+    margin: 0 0 0.15em;
+    padding: 0;
+    font-size: 0.95em;
+    font-weight: 600;
+  }
+  .zotero-docs-search-results h3 a {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    text-indent: 0;
+    text-decoration: none;
+  }
+  .zotero-docs-search-results h3 a:hover { text-decoration: underline; }
+  .zotero-docs-search-results p {
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+  .zotero-docs-search-context {
+    color: #888;
+    font-weight: 400;
+  }
+  .zotero-docs-search-results h3 a {
+    color: #1a3a6e;
+    text-decoration: none;
+  }
+  .zotero-docs-search-results h3 a:hover,
+  .zotero-docs-search-results h3 a:focus {
+    text-decoration: underline;
+    outline: none;
+  }
+  .zotero-docs-search-results article:focus-within {
+    background: #f5f8fc;
+  }
+  .zotero-docs-search-results p {
+    margin: 0;
+    font-size: 0.85em;
+    color: #666;
+    line-height: 1.4;
+  }
+  .zotero-docs-search-empty {
+    padding: 0.7em;
+    color: #888;
+    font-size: 0.9em;
+    font-style: italic;
+  }
+  .zotero-docs-nav ul {
+    list-style: none; padding: 0; margin: 0;
+  }
+  .zotero-docs-nav ul ul {
+    padding-left: 0.9em; margin: 0.1em 0 0.3em;
+  }
+  .zotero-docs-nav li { display: block; margin: 0.15em 0; }
+  .zotero-docs-nav a {
+    color: #444; text-decoration: none; display: block;
+    padding: 0.15em 0.4em; border-radius: 3px;
+  }
+  .zotero-docs-nav a:hover { background: #f0f0f0; color: #000; }
+  .zotero-docs-nav li.active > a {
+    background: #e8eef5; color: #1a3a6e; font-weight: 600;
+  }
+  .zotero-docs-nav details {
+    margin-top: 0.5em;
+  }
+  .zotero-docs-nav > ul > li {
+    margin-top: 0.5em;
+  }
+  .zotero-docs-nav > ul > li > a,
+  .zotero-docs-nav summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.25em 0.4em;
+    font-weight: 600;
+    color: #111;
+    user-select: none;
+  }
+  .zotero-docs-nav summary::-webkit-details-marker { display: none; }
+  /* Disclosure chevron drawn as a CSS border triangle so its geometric
+     center matches the box center — rotating around the default origin
+     keeps it visually anchored (a text ▸ glyph isn't centered in its
+     em-box and drifts horizontally when rotated). */
+  .zotero-docs-nav summary::before,
+  .zotero-docs-nav > ul > li > a::before {
+    content: "";
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border: 4px solid transparent;
+    border-left-color: #888;
+    vertical-align: middle;
+    margin-right: 0.25em;
+    /* The triangle's apex is at the border-box center, so the default
+       transform-origin would pivot at the pointy end. Move it to the
+       visible triangle's bbox center (x=25% of the 8px-wide border box). */
+    transform-origin: 25% 50%;
+    transition: transform 0.12s ease;
+  }
+  .zotero-docs-nav > ul > li > a::before {
+    visibility: hidden;
+  }
+  .zotero-docs-nav details[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  /* ----- Right sidebar (page TOC) ----- */
+  .zotero-docs-toc {
+    font-size: 0.85em;
+    line-height: 1.45;
+    position: sticky;
+    top: 1em;
+    max-height: calc(100vh - 2em);
+    overflow-y: auto;
+  }
+  .zotero-docs-toc-title {
+    font-size: 0.9em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #555;
+    margin: 0 0 0.5em;
+    padding-left: 0.4em;
+  }
+  .zotero-docs-page-meta {
+    margin-top: 1.5em;
+    padding: 1.2em 0.4em 0;
+    border-top: 1px solid #eee;
+    font-size: 0.85em;
+    color: #555;
+  }
+  /* No TOC above? The meta block is the only child of the aside and
+     doesn't need its separator line / top padding. */
+  .zotero-docs-page-meta:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+  .zotero-docs-modified {
+    margin-bottom: 0.6em;
+  }
+  .zotero-docs-edit {
+    display: inline-flex;
+    align-items: center;
+    color: #555;
+    text-decoration: none;
+  }
+  .zotero-docs-edit svg {
+    margin-right: 0.6em;
+  }
+  .zotero-docs-edit:hover { color: #000; }
+  .zotero-docs-toc ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  /* Outer ul draws the 2px guide line; nested ones just indent. The hover
+     bar (a ::before on the hovered <a>) is offset back by the cumulative
+     nested padding so it always lands on the outer guide line. */
+  .zotero-docs-toc > ul {
+    border-left: 2px solid #eee;
+  }
+  .zotero-docs-toc ul ul {
+    padding-left: 0.8em;
+  }
+  .zotero-docs-toc li { display: block; margin: 0; }
+  .zotero-docs-toc a {
+    color: #555;
+    text-decoration: none;
+    display: block;
+    padding: 0.15em 0.6em;
+    position: relative;
+  }
+  .zotero-docs-toc a:hover {
+    color: #000;
+  }
+  /* Scope to TOC entries (inside the ul) only — the Edit-on-GitHub link
+     is a sibling anchor in the same aside but shouldn't get the bar. */
+  .zotero-docs-toc ul a:hover::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #aaa;
+  }
+  .zotero-docs-toc > ul > li > a:hover::before { left: -2px; }
+  .zotero-docs-toc > ul > li > ul > li > a:hover::before { left: calc(-0.8em - 2px); }
+  .zotero-docs-toc > ul > li > ul > li > ul > li > a:hover::before { left: calc(-1.6em - 2px); }
+  .zotero-docs-toc > ul > li > ul > li > ul > li > ul > li > a:hover::before { left: calc(-2.4em - 2px); }
+</style>
+
+
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Lunr-based search, running off the main thread in a Web Worker so typing
+  // stays smooth while the index processes queries.
+  var input = document.getElementById('zotero-docs-search-input');
+  var resultsEl = document.getElementById('zotero-docs-search-results');
+  var SEARCH_BASE = '/support/fragments/search/';
+  var WORKER_URL = '/support/fragments/search-worker.js';
+  var URL_PREFIX = '/support/';
+  var workerReady = null;
+  var searchWorker = null;
+  var docsById = {};
+  var pageTitles = {};  // location (no anchor) → page title
+  var pendingResolvers = {};
+  var nextRequestId = 0;
+  var latestRequestId = -1;
+
+  function loadLunr() {
+    if (workerReady) return workerReady;
+    workerReady = fetch(SEARCH_BASE + 'search_index.json')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        data.docs.forEach(function(d, i) {
+          docsById[i] = d;
+          if (d.location && d.location.indexOf('#') === -1) {
+            pageTitles[d.location] = d.title;
+          }
+        });
+        return new Promise(function(resolve) {
+          searchWorker = new Worker(WORKER_URL);
+          searchWorker.onmessage = function(e) {
+            if (e.data.type === 'ready') {
+              searchWorker.onmessage = onWorkerResults;
+              resolve();
+            }
+          };
+          searchWorker.postMessage({ type: 'init', docs: data.docs });
+        });
+      });
+    return workerReady;
+  }
+
+  function onWorkerResults(e) {
+    var resolver = pendingResolvers[e.data.requestId];
+    if (resolver) {
+      delete pendingResolvers[e.data.requestId];
+      resolver(e.data);
+    }
+  }
+
+  function runSearch(rawQuery) {
+    return loadLunr().then(function() {
+      return new Promise(function(resolve) {
+        var id = nextRequestId++;
+        latestRequestId = id;
+        pendingResolvers[id] = resolve;
+        searchWorker.postMessage({
+          type: 'query',
+          query: rawQuery,
+          requestId: id
+        });
+      });
+    });
+  }
+
+  function render(results, query) {
+    if (!results.length) {
+      resultsEl.innerHTML = '<div class="zotero-docs-search-empty">No results for “' +
+        escapeHtml(query) + '”</div>';
+      resultsEl.classList.add('open');
+      return;
+    }
+    // Collapse multiple matches from the same page to a single result. For
+    // each page, keep the highest-ranked entry by default, BUT if the page-
+    // level entry's title contains a query word, prefer it — Lunr's BM25
+    // tends to rank short section anchors above the bare page for general
+    // terms, even when the page's own title is the obvious match.
+    var queryWords = query.toLowerCase().split(/\s+/).filter(Boolean);
+    function titleMatchesQuery(title) {
+      var t = (title || '').toLowerCase();
+      return queryWords.some(function(w) { return t.indexOf(w) !== -1; });
+    }
+    var byPage = {};
+    results.forEach(function(r) {
+      var pageKey = (docsById[r.ref].location || '').split('#')[0];
+      (byPage[pageKey] = byPage[pageKey] || []).push(r);
+    });
+    var seenPages = {};
+    var deduped = [];
+    results.forEach(function(r) {
+      var pageKey = (docsById[r.ref].location || '').split('#')[0];
+      if (seenPages[pageKey]) return;
+      seenPages[pageKey] = true;
+      var bare = byPage[pageKey].find(function(e) {
+        return docsById[e.ref].location.indexOf('#') === -1;
+      });
+      if (bare && titleMatchesQuery(docsById[bare.ref].title)) {
+        deduped.push(bare);
+      } else {
+        deduped.push(r);
+      }
+    });
+    var html = deduped.slice(0, 10).map(function(r) {
+      var d = docsById[r.ref];
+      var url = URL_PREFIX + d.location.replace(/^\//, '');
+      var snippet = (d.text || '').slice(0, 140);
+      var hashIdx = d.location.indexOf('#');
+      var titleHtml = escapeHtml(d.title);
+      // For section-anchor results, prepend the parent page title so the
+      // same heading text on multiple pages is distinguishable.
+      if (hashIdx !== -1) {
+        var pageKey = d.location.slice(0, hashIdx);
+        var parent = pageTitles[pageKey];
+        if (parent && parent !== d.title) {
+          titleHtml = '<span class="zotero-docs-search-context">' +
+            escapeHtml(parent) + ' ›</span> ' + titleHtml;
+        }
+      }
+      return '<article><h3><a href="' + escapeHtml(url) + '">' +
+        titleHtml + '</a></h3><p>' + escapeHtml(snippet) + '…</p></article>';
+    }).join('');
+    resultsEl.innerHTML = html;
+    resultsEl.classList.add('open');
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function(c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  var debounceTimer;
+  function onInput() {
+    clearTimeout(debounceTimer);
+    var rawQuery = input.value.trim();
+    if (!rawQuery) { resultsEl.classList.remove('open'); return; }
+    debounceTimer = setTimeout(function() {
+      runSearch(rawQuery).then(function(response) {
+        // Drop stale responses if the user has typed more since
+        if (response.requestId !== latestRequestId) return;
+        render(response.results || [], rawQuery);
+      });
+    }, 120);
+  }
+  input.addEventListener('input', onInput);
+  input.addEventListener('focus', function() { if (input.value.trim()) onInput(); });
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.zotero-docs-search')) {
+      resultsEl.classList.remove('open');
+    }
+  });
+
+  function resultLinks() {
+    return Array.prototype.slice.call(resultsEl.querySelectorAll('h3 a'));
+  }
+
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowDown') {
+      var links = resultLinks();
+      if (links.length) { e.preventDefault(); links[0].focus(); }
+    } else if (e.key === 'Escape') {
+      resultsEl.classList.remove('open');
+    }
+  });
+
+  resultsEl.addEventListener('keydown', function(e) {
+    var links = resultLinks();
+    var i = links.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (i < links.length - 1) links[i + 1].focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (i > 0) {
+        links[i - 1].focus();
+      } else {
+        input.focus();
+      }
+    } else if (e.key === 'Escape') {
+      resultsEl.classList.remove('open');
+      input.focus();
+    }
+  });
+});
+</script>
+<div class="zotero-docs">
+  <nav class="zotero-docs-nav" aria-label="Documentation">
+    <div class="zotero-docs-search">
+      <input type="search" id="zotero-docs-search-input"
+             placeholder="Search documentation…" autocomplete="off">
+      <div class="zotero-docs-search-results" id="zotero-docs-search-results"></div>
+    </div>
+    <ul>
+      
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/">Home</a>
+    
+  </li>
+
+  <li class=" has-children">
+    
+      <details >
+        <summary>Getting Started</summary>
+        <ul>
+          
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/installation">Installation</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/quick_start_guide">Quick Start Guide</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/system_requirements">System Requirements</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/frequently_asked_questions">Frequently Asked Questions</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/changelog">Version History</a>
+    
+  </li>
+
+        </ul>
+      </details>
+    
+  </li>
+
+  <li class=" has-children">
+    
+      <details >
+        <summary>Adding to Your Library</summary>
+        <ul>
+          
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/adding_items_to_zotero">Adding Items</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/attaching_files">Adding Files</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/feeds">Feeds</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/retrieve_pdf_metadata">Retrieve PDF Metadata</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/moving_to_zotero">Importing from Other Tools</a>
+    
+  </li>
+
+        </ul>
+      </details>
+    
+  </li>
+
+  <li class=" has-children">
+    
+      <details >
+        <summary>Organizing & Taking Notes</summary>
+        <ul>
+          
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/collections_and_tags">Collections and Tags</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/searching">Searching</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/sorting">Sorting</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/pdf_reader">PDF Reader</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/notes">Notes</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/related">Related Items</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/duplicate_detection">Duplicate Detection</a>
+    
+  </li>
+
+        </ul>
+      </details>
+    
+  </li>
+
+  <li class=" has-children">
+    
+      <details >
+        <summary>Citations & Bibliographies</summary>
+        <ul>
+          
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/creating_bibliographies">Creating Bibliographies</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/word_processor_integration">Word Processor Integration</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/styles">Citation Styles</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/reports">Reports</a>
+    
+  </li>
+
+        </ul>
+      </details>
+    
+  </li>
+
+  <li class=" has-children">
+    
+      <details >
+        <summary>Syncing & Collaboration</summary>
+        <ul>
+          
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/sync">Data and File Syncing</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/groups">Groups</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/my_publications">My Publications</a>
+    
+  </li>
+
+        </ul>
+      </details>
+    
+  </li>
+
+  <li class=" has-children">
+    
+      <details >
+        <summary>Preferences</summary>
+        <ul>
+          
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/preferences">Preferences</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/connector_preferences">Connector Preferences</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/supported_languages">Languages</a>
+    
+  </li>
+
+        </ul>
+      </details>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/kb">Knowledge Base</a>
+    
+  </li>
+
+  <li class=" has-children">
+    
+      <details >
+        <summary>Troubleshooting</summary>
+        <ul>
+          
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/getting_help">Getting Help</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/zotero_data">Library Data Issues</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/troubleshooting_translator_issues">Web Saving Issues</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/word_processor_plugin_troubleshooting">Word Processor Plugin Issues</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/kb/changes_not_syncing">Data Sync Issues</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/kb/files_not_syncing">File Sync Issues</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/kb/file_handling_issues">File Handling Issues</a>
+    
+  </li>
+
+        </ul>
+      </details>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/dev">Developers</a>
+    
+  </li>
+
+    </ul>
+  </nav>
+  <article class="zotero-docs-content">
+    <h1 id="zotero_8_for_developers">Zotero 8 for Developers<a class="headerlink" href="#zotero_8_for_developers" title="Permanent link">#</a></h1>
+<p>Zotero 8 includes an internal upgrade of the Mozilla platform on which Zotero is based, incorporating changes from Firefox 115 through Firefox 140.</p>
+<p>Most of the guidance from <a href="/support/dev/zotero_7_for_developers">Zotero 7 for Developers</a> is still relevant.</p>
+<h2 id="feedback">Feedback<a class="headerlink" href="#feedback" title="Permanent link">#</a></h2>
+<p>If you have questions about anything on this page or encounter other problems while updating your plugin, let us know on the <a href="https://groups.google.com/g/zotero-dev">dev list</a>. Please don’t post to the Zotero Forums about Zotero 8 at this time.</p>
+<h2 id="dev_builds">Dev Builds<a class="headerlink" href="#dev_builds" title="Permanent link">#</a></h2>
+<!-- <span style="color: red; font-weight: bold">WARNING:</span>-->
+<p>The <code>dev</code> channel has been paused. Use <a href="/support/beta_builds">Zotero 8 beta builds</a> for development.</p>
+<!-- These `dev` channel builds will stop updating once a beta is available with these changes.
+
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=mac|Mac]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=linux-x86_64|Linux x86_64]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=linux-arm64|Linux ARM64]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=linux-i686|Linux i686]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=win-x64-zip|Windows 64-bit ZIP]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=win-x64|Windows 64-bit Installer]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=win-arm64-zip|Windows ARM64 ZIP]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=win-arm64|Windows ARM64 Installer]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=win32-zip|Windows 32-bit ZIP]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=win32|Windows 32-bit Installer]]
+
+ -->
+
+<h2 id="platform_changes">Platform Changes<a class="headerlink" href="#platform_changes" title="Permanent link">#</a></h2>
+<h3 id="mozilla_platform">Mozilla Platform<a class="headerlink" href="#mozilla_platform" title="Permanent link">#</a></h3>
+<p>The following list includes nearly all Mozilla changes that affected Zotero code. You may encounter other breaking changes if you use APIs not used in Zotero. <a href="https://searchfox.org/">Searchfox</a> is the best resource for identifying current correct usage in Mozilla code and changes between Firefox 115 and Firefox 140.</p>
+<p>Earlier Zotero 8.0 (formerly 7.1) beta releases were based on Firefox 128, so we’ve listed changes for Firefox 128 and 140 separately.</p>
+<h4 id="firefox_115_firefox_128_zotero_71_beta">Firefox 115 → Firefox 128 (“Zotero 7.1” beta)<a class="headerlink" href="#firefox_115_firefox_128_zotero_71_beta" title="Permanent link">#</a></h4>
+<ul>
+<li>Manual <code>Services.jsm</code> imports must be removed (<a href="https://github.com/zotero/zotero/commit/97329752a1839210d636b7b8d37deae854d42410">example</a>)</li>
+<li><code>nsIScriptableUnicodeConverter</code> was removed; replace <code>convertToByteArray()</code> and <code>convertToInputStream()</code> (<a href="https://github.com/zotero/zotero/commit/24bf583b787d21117000336e4f67ddc9ac7b1deb">example</a>)</li>
+<li><code>nsIOSFileConstantsService</code> was removed (<a href="https://github.com/zotero/zotero/commit/7f619e3fe3044ea968a9bd0fb31d98f45d5cb75b">example</a>)</li>
+<li><code>XPCOMUtils.defineLazyGetter</code> → <code>ChromeUtils.defineLazyGetter</code> (<a href="https://github.com/zotero/zotero/commit/9606fca3ad39a52d29d0c74ae96fb680c14ad4e3">example</a>)</li>
+<li><code>nsIDOMChromeWindow</code> was removed (<a href="https://github.com/zotero/zotero/commit/45e681431bfd6b77bfaf8f55ce87f04fedb4a475">example</a>)</li>
+<li>Login manager: <code>addLogin</code> → <code>addLoginAsync</code> (<a href="https://github.com/zotero/zotero/commit/fa2073335342f5f8f067b0e2cad12611012bcab5">example</a>)</li>
+<li><code>BrowsingContext</code> should be passed to <code>nsIFilePicker</code> init (<a href="https://github.com/zotero/zotero/commit/72b56e7a592a6793817e2a7479b08b6f2e334252">example</a>, but we recommend using Zotero’s <code>FilePicker</code> module instead)</li>
+<li><code>DataTransfer#types</code>: <code>contains()</code> → <code>includes()</code> — now a standard array (<a href="https://github.com/zotero/zotero/commit/f28fa763ccfc5aac4575c1a2b28f532d84c89bf2">example</a>)</li>
+<li><code>-moz-nativehyperlinktext</code> → <code>LinkText</code> (<a href="https://github.com/zotero/zotero/commit/b85864595754fe54ae841902df2e4f3276a7574f">example</a>)</li>
+</ul>
+<h4 id="firefox_128_firefox_140_zotero_8">Firefox 128 → Firefox 140 (Zotero 8)<a class="headerlink" href="#firefox_128_firefox_140_zotero_8" title="Permanent link">#</a></h4>
+<ul>
+<li>All JSMs (<code>.jsm</code> files) in Firefox and Zotero were converted to ESMs (<code>.mjs</code> files, or <code>.sys.mjs</code> files for Firefox code) (<a href="https://github.com/zotero/zotero/commit/6f96fa9da8368080001143898f6c3ece60939359">example</a>)<ul>
+<li>Zotero now uses <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules">standard JavaScript modules</a> and <code>import</code> statements (<a href="https://github.com/zotero/zotero/commit/09fc93f9772a267f581198d5ce6a768744ed9d9c">example</a>)</li>
+<li>See Mozilla’s <a href="https://groups.google.com/a/mozilla.org/g/firefox-dev/c/od7Bd1QpCuU">primer on ESMification</a> — in particular, the “Renamed New API” section</li>
+<li><strong>Zotero includes a script that can update most JSM-based code automatically.</strong> Copy the <code>migrate-fx140</code> directory into your plugin’s Git repo and run <code>migrate-fx140/migrate.py esmify path/to/Module.jsm</code>. To update the imports in a non-JSM file, run <code>migrate-fx140/migrate.py esmify --imports path/to/file.js</code>. Both commands also accept a directory for batch conversion.</li>
+<li>Global imports are no longer supported. Imported modules need to be assigned to a variable. (<a href="https://github.com/zotero/zotero/commit/5e64365ce1ad07bd8f9308c76c4c39658883d0a7">example</a>)</li>
+<li>All ESMs run in <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Strict_mode">strict mode</a></li>
+</ul>
+</li>
+<li>Bluebird was removed — Zotero now uses standard JavaScript promises everywhere (<a href="https://github.com/zotero/zotero/commit/b090f5d4eb10108052f95b6afb7599301a81f125">example</a>)<ul>
+<li><strong>Zotero provides a script that can update most Bluebird-based code automatically.</strong> Copy the <code>migrate-fx140</code> directory into your plugin’s Git repo and run <code>migrate-fx140/migrate.py asyncify path/to/file.js</code>. This command also accepts a directory for batch conversion.</li>
+<li>For compatibility, <code>Zotero.Promise.delay()</code> and <code>Zotero.Promise.defer()</code> are still supported. <code>defer()</code> can no longer be called as a constructor (<a href="https://github.com/zotero/zotero/commit/8d6a853a3fe11d4ad560dde8aa270f8aecee35ba">example</a>).</li>
+<li>Bluebird Promise instance methods like <code>map()</code>, <code>filter()</code>, <code>each()</code>, <code>isResolved()</code>, <code>isPending()</code>, and <code>cancel()</code> are no longer available. Collection methods can usually be replaced with iteration (<a href="https://github.com/zotero/zotero/commit/692312b419dfb7f0aaa8759230a9aafe62bbdc60">example</a>, <a href="https://github.com/zotero/zotero/commit/d734d78812c841f7adffdbb35b20b80606b67331">example</a>) or awaits (<a href="https://github.com/zotero/zotero/commit/cf18fe69a9ffef4945841d62d4031c9137f2c5f2">example</a>). Complicated <code>isPending()</code> logic will need to be rewritten (<a href="https://github.com/zotero/zotero/commit/8ffdb8bca2585408334c7dad7b1dce366fd6cd1a">example</a>).</li>
+<li><code>ZoteroProtocolHandler</code> extensions: <code>new AsyncChannel()</code> now takes an async function, not a generator (<a href="https://github.com/zotero/zotero/commit/ccc5dba03220b20722e94a1936a709ffc7a6c025">example</a>)</li>
+<li><code>Zotero.spawn()</code> was removed.</li>
+</ul>
+</li>
+<li><code>Services.appShell.hiddenDOMWindow</code> was removed outside macOS — use only as a fallback (<a href="https://github.com/zotero/zotero/commit/cd813171e7d29b164d3760698274790e888c8fbb">example</a>)</li>
+<li><code>ZOTERO_CONFIG</code> needs to be imported (<a href="https://github.com/zotero/zotero/commit/5e64365ce1ad07bd8f9308c76c4c39658883d0a7">example</a>)</li>
+<li>Preference panes now run in their own global scope, so a <code>var</code> defined in one preference pane’s script won’t automatically be accessible to other preference panes. Set variables on <code>window</code> explicitly if you need to share them between preference panes.</li>
+<li>Update button labels using the <code>label</code> property, not attribute (<a href="https://github.com/zotero/zotero/commit/b828cd5281e8a3ef5c86349b13d0796d8b08caf0">example</a>)</li>
+<li>The first segment of a zotero: URI is now parsed as its host, not as part of its path (<a href="https://github.com/zotero/zotero/commit/9cad92b817e56beb108a57b00929ce756dda4125">example</a>)</li>
+</ul>
+<h2 id="plugin_changes">Plugin Changes<a class="headerlink" href="#plugin_changes" title="Permanent link">#</a></h2>
+<h3 id="custom_menu_items">Custom Menu Items<a class="headerlink" href="#custom_menu_items" title="Permanent link">#</a></h3>
+<p>A new API allows plugins to create custom menu items in Zotero’s menu popups. Plugins should use this official API if possible rather than manually injecting content.</p>
+<p>The example below shows registering a custom menu item and a submenu in Zotero’s items list context menu.</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">let</span><span class="w"> </span><span class="nx">registeredID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">Zotero</span><span class="p">.</span><span class="nx">MenuManager</span><span class="p">.</span><span class="nx">registerMenu</span><span class="p">({</span>
+<span class="w">    </span><span class="nx">menuID</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;test&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">pluginID</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;example@example.com&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">target</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;main/library/item&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">menus</span><span class="o">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">menuType</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;menuitem&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nx">l10nID</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;menu-print&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nx">onShowing</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">,</span><span class="w"> </span><span class="nx">context</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">Zotero</span><span class="p">.</span><span class="nx">debug</span><span class="p">(</span><span class="s2">&quot;onShowing&quot;</span><span class="p">);</span>
+<span class="w">                </span><span class="nx">Zotero</span><span class="p">.</span><span class="nx">debug</span><span class="p">(</span><span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="nx">context</span><span class="p">));</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="nx">onCommand</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">,</span><span class="w"> </span><span class="nx">context</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">Zotero</span><span class="p">.</span><span class="nx">debug</span><span class="p">(</span><span class="s2">&quot;onCommand&quot;</span><span class="p">);</span>
+<span class="w">                </span><span class="nx">Zotero</span><span class="p">.</span><span class="nx">debug</span><span class="p">(</span><span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="nx">context</span><span class="p">));</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">menuType</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;submenu&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nx">l10nID</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;menu-print&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nx">menus</span><span class="o">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                </span><span class="p">{</span>
+<span class="w">                    </span><span class="nx">menuType</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;menuitem&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nx">l10nID</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;menu-print&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nx">onShowing</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">,</span><span class="w"> </span><span class="nx">context</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">Zotero</span><span class="p">.</span><span class="nx">debug</span><span class="p">(</span><span class="s2">&quot;onShowing submenu&quot;</span><span class="p">);</span>
+<span class="w">                        </span><span class="nx">Zotero</span><span class="p">.</span><span class="nx">debug</span><span class="p">(</span><span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="nx">context</span><span class="p">));</span>
+<span class="w">                        </span><span class="c1">// Only for regular items</span>
+<span class="w">                        </span><span class="nx">context</span><span class="p">.</span><span class="nx">setVisible</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">items</span><span class="o">?</span><span class="p">.</span><span class="nx">every</span><span class="p">((</span><span class="nx">item</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">item</span><span class="p">.</span><span class="nx">isRegularItem</span><span class="p">()));</span>
+<span class="w">                    </span><span class="p">},</span>
+<span class="w">                    </span><span class="nx">onCommand</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">,</span><span class="w"> </span><span class="nx">context</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nx">Zotero</span><span class="p">.</span><span class="nx">debug</span><span class="p">(</span><span class="s2">&quot;onCommand submenu&quot;</span><span class="p">);</span>
+<span class="w">                        </span><span class="nx">Zotero</span><span class="p">.</span><span class="nx">debug</span><span class="p">(</span><span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="nx">context</span><span class="p">));</span>
+<span class="w">                    </span><span class="p">},</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">            </span><span class="p">],</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<p>Available targets:</p>
+<ul>
+<li><strong>Main window menubar menus</strong><ul>
+<li>main/menubar/file — File menu in the main window menubar</li>
+<li>main/menubar/edit — Edit menu in the main window menubar</li>
+<li>main/menubar/view — View menu in the main window menubar</li>
+<li>main/menubar/go — Go menu in the main window menubar</li>
+<li>main/menubar/tools — Tools menu in the main window menubar</li>
+<li>main/menubar/help — Help menu in the main window menubar</li>
+</ul>
+</li>
+<li><strong>Main window library context menus</strong><ul>
+<li>main/library/item — Context menu for library items</li>
+<li>main/library/collection — Context menu for library collections</li>
+</ul>
+</li>
+<li><strong>Main window toolbar &amp; file menu submenus</strong><ul>
+<li>main/library/addAttachment — “Add attachment” button/menu</li>
+<li>main/library/addNote — “New note” button/menu</li>
+</ul>
+</li>
+<li><strong>Main window tab context menus</strong><ul>
+<li>main/tab — Context menu for main window tabs</li>
+</ul>
+</li>
+<li><strong>Reader window menubar menus</strong><ul>
+<li>reader/menubar/file — File menu in reader window</li>
+<li>reader/menubar/edit — Edit menu in reader window</li>
+<li>reader/menubar/view — View menu in reader window</li>
+<li>reader/menubar/go — Go menu in reader window</li>
+<li>reader/menubar/window — Window menu in reader window</li>
+</ul>
+</li>
+<li><strong>Item pane context menus</strong><ul>
+<li>itemPane/info/row — Context menu for item pane info rows</li>
+</ul>
+</li>
+<li><strong>Notes pane add note buttons</strong><ul>
+<li>notesPane/addItemNote — Add item note button</li>
+<li>notesPane/addStandaloneNote — Add standalone note button</li>
+</ul>
+</li>
+<li><strong>Sidenav buttons</strong><ul>
+<li>sidenav/locate — Locate button in side navigation</li>
+</ul>
+</li>
+</ul>
+<p>More advanced options are documented in the <a href="https://github.com/zotero/zotero/blob/main/chrome/content/zotero/xpcom/pluginAPI/menuManager.js">source code</a>.</p>
+<p>Note that the ftl string should set the attribute <code>label</code>:</p>
+<div class="codehilite"><pre><span></span><code>menu-key =
+    .label = Custom Menu Item
+</code></pre></div>
+
+<p>When the plugin is disabled or uninstalled, custom menus with the corresponding <code>pluginID</code> will be automatically removed. If you want to unregister a custom menu manually, you can use <code>unregisterMenu()</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">Zotero</span><span class="p">.</span><span class="nx">MenuManager</span><span class="p">.</span><span class="nx">unregisterMenu</span><span class="p">(</span><span class="nx">registeredID</span><span class="p">);</span>
+</code></pre></div>
+
+<p>If you encounter any problem with this API, please let us know on the <a href="https://groups.google.com/g/zotero-dev">dev list</a>.</p>
+<!--  These are test builds based on Firefox 140 intended solely for use by Zotero plugin developers and **should not be used in production**. We strongly recommend using a [[https://www.zotero.org/support/kb/multiple_profiles|separate profile and data directory]] for development. -->
+  </article>
+  
+  
+  
+  
+    <aside class="zotero-docs-toc">
+      
+      <div class="zotero-docs-toc-title">On this page</div>
+      <ul>
+        
+  <li>
+    <a href="#zotero_8_for_developers">Zotero 8 for Developers</a>
+    
+      <ul>
+        
+  <li>
+    <a href="#feedback">Feedback</a>
+    
+  </li>
+
+  <li>
+    <a href="#dev_builds">Dev Builds</a>
+    
+  </li>
+
+  <li>
+    <a href="#platform_changes">Platform Changes</a>
+    
+      <ul>
+        
+  <li>
+    <a href="#mozilla_platform">Mozilla Platform</a>
+    
+      <ul>
+        
+  <li>
+    <a href="#firefox_115_firefox_128_zotero_71_beta">Firefox 115 → Firefox 128 (“Zotero 7.1” beta)</a>
+    
+  </li>
+
+  <li>
+    <a href="#firefox_128_firefox_140_zotero_8">Firefox 128 → Firefox 140 (Zotero 8)</a>
+    
+  </li>
+
+      </ul>
+    
+  </li>
+
+      </ul>
+    
+  </li>
+
+  <li>
+    <a href="#plugin_changes">Plugin Changes</a>
+    
+      <ul>
+        
+  <li>
+    <a href="#custom_menu_items">Custom Menu Items</a>
+    
+  </li>
+
+      </ul>
+    
+  </li>
+
+      </ul>
+    
+  </li>
+
+      </ul>
+      
+      
+      <div class="zotero-docs-page-meta">
+        
+          <div class="zotero-docs-modified">Last updated 2026-02-18</div>
+        
+        
+          <a class="zotero-docs-edit" href="https://github.com/zotero/zotero-docs/edit/main/content/dev/zotero_8_for_developers.md">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm.176 4.823L9.75 4.81l-6.286 6.287a.253.253 0 0 0-.064.108l-.558 1.953 1.953-.558a.253.253 0 0 0 .108-.064L11.189 6.25Zm2.95-2.12-1.086-1.086a.25.25 0 0 0-.354 0l-1.012 1.012 1.44 1.44 1.012-1.013a.25.25 0 0 0 0-.353Z"/></svg>Edit on GitHub
+          </a>
+        
+      </div>
+      
+    </aside>
+  
+</div>  </div>
+</main>
+
+            <footer class="main-footer">
+				<div class="container">
+					<nav>
+						<ul class="footer-nav">
+							<li class="nav-item"><a href="https://www.zotero.org/support/" class="nav-link">Documentation</a></li>
+							<li class="nav-item"><a href="https://forums.zotero.org/" class="nav-link">Forums</a></li>
+							<li class="nav-item"><a href="https://www.zotero.org/blog/" class="nav-link">Blog</a></li>
+							<li class="nav-item"><a href="https://www.zotero.org/support/privacy" class="nav-link">Privacy</a></li>
+							<li class="nav-item"><a href="https://www.zotero.org/support/terms/terms_of_service" class="nav-link">Terms of Service</a></li>
+							<li class="nav-item"><a href="https://www.zotero.org/getinvolved/" class="nav-link">Get Involved</a></li>
+							<li class="nav-item"><a href="https://www.zotero.org/support/dev/start" class="nav-link">Developers</a></li>
+							<li class="nav-item"><a href="https://www.zotero.org/jobs" class="nav-link">Jobs</a></li>
+						</ul>
+						<ul class="social-nav">
+							<li class="nav-item follow-us">Follow us</li>
+							<li class="nav-item mastodon"><a href="https://fosstodon.org/@zotero/"><img alt="Mastodon icon" width='24px' src="/static/images/icons/mastodon-logo-white.svg"></a></li>
+						</ul>
+					</nav>
+					<div class="credits">
+						<p class="about">Zotero is a project of <a href="http://digitalscholar.org/">Digital Scholar</a>, a nonprofit organization dedicated to the development of software and services for researchers and cultural heritage institutions, and is developed by a <a href="/support/credits_and_acknowledgments">global community</a>.</p>
+					</div>
+				</div>
+			</footer>
+		</div>
+	</body>
+</html>

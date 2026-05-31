@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<title>未找到页面</title>
+	<link rel="stylesheet" id="bootstrap-css" href="./assets/404/bootstrap.min.css" type="text/css" media="all">
+	<link rel="stylesheet" id="kratos-css" href="./assets/404/style.css" type="text/css" media="all">
+</head>
+<body data-spy="scroll" data-target=".scrollspy">
+	<div id="kratos-wrapper">
+		<div id="kratos-page">
+			<div id="kratos-header">
+				<header id="kratos-header-section">
+					<div class="container">
+						<div class="nav-header">
+							<h1 id="kratos-logo"><a href="https://blog.northword.cn/">北辞</a></h1>
+						</div>
+					</div>
+				</header>
+			</div>
+			<div class="kratos-start">
+				<div class="kratos-overlay"></div>
+				<div class="kratos-cover kratos-topimg text-center" style="background-image: url(&#39;assets/404/404.jpg&#39;)">
+					<div class="desc desc3">
+						<h2>这里已经是废墟，什么东西都没有</h2>
+						<span>That page can not be found.</span>
+						<span><a href="https://blog.northword.cn/"><div class="btn btn-star">返回首页</div></a></span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<script type="text/javascript">
+		if ($("#main").height() > $("#sidebar").height()) {
+			var footerHeight = 0;
+			if ($('#page-footer').length > 0) {
+				footerHeight = $('#page-footer').outerHeight(true);
+			}
+			$('#sidebar').affix({
+				offset: {
+					top: $('#sidebar').offset().top - 30,
+					bottom: $('#footer').outerHeight(true) + footerHeight + 6
+				}
+			});
+		}
+	</script>
+			
+</body>
+</html>

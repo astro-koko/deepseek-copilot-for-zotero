@@ -1,0 +1,2078 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<!-- Required meta tags -->
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+		<meta name="description" content="Zotero is a free, easy-to-use tool to help you collect, organize, cite, and share research."/>
+
+<title>Zotero 7 for Developers | Zotero Documentation</title>
+
+		<link rel="stylesheet" href="/static/css/bs4/web-components.min.1778705639.css" type="text/css"/>
+		<style nonce="kB79z4s2cadEzh6fq3JHP6ezMBVMmsrQ4He5LgYt">
+			.jumbotron #ios-link, .jumbotron .mobile-link {
+				color: inherit;
+				text-decoration: underline;
+			}
+		</style>
+
+		<script type="text/javascript" charset="utf-8" nonce="k8KZutetbVogek4PZb7nTv9ZysXgcHoR59Ls4jKA">
+			window.zoteroConfig = {
+				installData: {}
+			};
+			if(!window.Zotero){
+				window.Zotero = {};
+			}
+			if(typeof window.zoteroData == 'undefined'){
+				window.zoteroData = {};
+			}
+		</script>
+
+		<script src="/static/js/bs4/web-components.min.1777573288.js"></script>
+		<script type="text/javascript" charset="utf-8" nonce="k8KZutetbVogek4PZb7nTv9ZysXgcHoR59Ls4jKA">
+			WebFont.load({
+				custom: {
+					families: [
+						'AvenirNextLTPro:n3',
+						'AvenirNextLTPro:i3',
+						'AvenirNextLTPro:n4',
+						'AvenirNextLTPro:i4',
+						'AvenirNextLTPro:n6',
+						'AvenirNextLTPro:i6'
+					]
+				}
+			});
+
+					</script>
+	</head>
+	<body>
+		<!-- hidden area for possible JS messages -->
+		<ul class="messages"></ul>
+		<header class="mobile-header d-lg-none d-xl-none">
+			<nav>
+				<ul class="mobile-nav">
+					<li class="active"><a class="nav-link" href="/">Zotero</a></li>
+										<li><a class="nav-link" href="/groups/">Groups</a></li>
+					<li><a class="nav-link" href="/support/">Documentation</a></li>
+					<li><a class="nav-link" href="">Forums</a></li>
+					<li><a class="nav-link" href="/getinvolved">Get Involved</a></li>
+										<li><a class="nav-link separated" href="/user/login/">Log In</a></li>
+					<li><a class="nav-link" href="/user/register/">Sign Up</a></li>
+																<li><a class="nav-link separated" href="/storage">Upgrade Storage</a></li>
+														</ul>
+			</nav>
+		</header>
+		<div class="nav-cover"></div>
+		<div class="site-wrapper">
+			<header class="main-header border-bottom">
+				<div class="container">
+					<a href="/" class="brand">
+						<img src="/static/images/bs4theme/zotero-logo.1775160902.svg" width="108" height="32" alt="Zotero">
+					</a>
+					<nav>
+						<ul class="main-nav d-none d-lg-flex">
+														<li class="nav-item active"><a href="/groups/" class="nav-link">Groups</a></li>
+							<li class="nav-item"><a href="/support/" class="nav-link">Documentation</a></li>
+							<li class="nav-item"><a href="https://forums.zotero.org/discussions" class="nav-link">Forums</a></li>
+							<li class="nav-item"><a href="/getinvolved" class="nav-link">Get Involved</a></li>
+														<li class="nav-item"><a href="/user/login/" class="nav-link log-in">Log In</a></li>
+																						<li class="nav-item"><a href="/storage" class="btn btn-sm btn-secondary upgrade-storage">Upgrade Storage</a></li>
+																				</ul>
+					</nav>
+					<button class="btn btn-link nav-toggle d-lg-none">
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 18">
+						  <path d="M1,1H23M1,9H23M1,17H23" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="2"/>
+						</svg>
+					</button>
+				</div>
+			</header>
+<main>
+  <div class="zotero-docs-page">
+    
+
+<style>
+  @font-face {
+    font-family: 'Inter';
+    font-weight: 400;
+    font-display: swap;
+    src: url('/support/_fonts/inter/Inter-Regular.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Inter';
+    font-weight: 500;
+    font-display: swap;
+    src: url('/support/_fonts/inter/Inter-Medium.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Inter';
+    font-weight: 600;
+    font-display: swap;
+    src: url('/support/_fonts/inter/Inter-SemiBold.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Inter';
+    font-weight: 700;
+    font-display: swap;
+    src: url('/support/_fonts/inter/Inter-Bold.woff2') format('woff2');
+  }
+
+  .zotero-docs {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 720px) 200px;
+    justify-content: center;
+    gap: 2.5em;
+    margin: 1.5em auto;
+    padding: 0 1em;
+    max-width: 1320px;
+    box-sizing: border-box;
+    font-family: Inter, sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+    color: #222;
+  }
+  @media (max-width: 1240px) {
+    .zotero-docs {
+      grid-template-columns: 220px minmax(0, 1fr) 200px;
+    }
+  }
+  @media (max-width: 1100px) {
+    .zotero-docs {
+      grid-template-columns: 220px minmax(0, 1fr);
+    }
+    .zotero-docs-toc { display: none; }
+  }
+  @media (max-width: 800px) {
+    .zotero-docs {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ----- Content ----- */
+  .zotero-docs-content {
+    min-width: 0;
+  }
+  .zotero-docs-content h1,
+  .zotero-docs-content h2,
+  .zotero-docs-content h3,
+  .zotero-docs-content h4,
+  .zotero-docs-content h5,
+  .zotero-docs-content h6 {
+    font-family: inherit;
+    font-weight: bold;
+    margin: 0 0 0.6em;
+    line-height: 1.3;
+    clear: left;
+  }
+  .zotero-docs-content h1,
+  .zotero-docs-content h2 { padding-top: 1.4em; }
+  .zotero-docs-content h3,
+  .zotero-docs-content h4 { padding-top: 0.8em; }
+  .zotero-docs-content h5,
+  .zotero-docs-content h6 { padding-top: 0.4em; }
+  .zotero-docs-content > h1:first-child { padding-top: 0; }
+  .zotero-docs-content :is(h1,h2,h3,h4,h5,h6) + :is(h1,h2,h3,h4,h5,h6) {
+    padding-top: 0.5em;
+  }
+  .zotero-docs-content h1 {
+    font-size: 200%;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 0.2em;
+  }
+  .zotero-docs-content h2 {
+    font-size: 155%;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.15em;
+  }
+  .zotero-docs-content h3 { font-size: 125%; }
+  .zotero-docs-content h4 { font-size: 110%; }
+  .zotero-docs-content h5 { font-size: 100%; color: #555; }
+  .zotero-docs-content h6 {
+    font-size: 88%; color: #555;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .zotero-docs-content p,
+  .zotero-docs-content ul,
+  .zotero-docs-content ol {
+    margin: 0 0 1.3em;
+  }
+  /* Default list items get minimal spacing; this covers both tight lists and
+     loose lists whose items happen to be a single short paragraph. */
+  .zotero-docs-content li { margin: 0.25em 0; }
+  /* Genuinely multi-block items (e.g., a paragraph followed by another
+     paragraph or a nested list) get more breathing room. */
+  .zotero-docs-content li:has(> p + *) { margin: 0.7em 0; }
+  .zotero-docs-content li > ul,
+  .zotero-docs-content li > ol { margin: 0.2em 0 0.4em; }
+  .zotero-docs-content code,
+  .zotero-docs-content pre {
+    font-family: Consolas, "Liberation Mono", Courier, monospace;
+    font-size: 100%;
+  }
+  .zotero-docs-content code {
+    background: #f0f4f8;
+    color: inherit;
+    padding: 0.1em 0.35em;
+    border: 1px solid #dde2e8;
+    border-radius: 3px;
+  }
+  .zotero-docs-content table code {
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  /* Multi-line inline code (from flattened Dokuwiki `<code>` blocks inside
+     table cells) preserves newlines via `&#10;` entities. */
+  .zotero-docs-content code.multiline {
+    display: block;
+    white-space: pre;
+    margin: 0.3em 0;
+    padding: 0.5em 0.7em;
+    background: #f0f4f8;
+    border: 1px solid #dde2e8;
+    border-radius: 3px;
+    font-size: 100%;
+  }
+  .zotero-docs-content pre {
+    background: #f6f8fa;
+    padding: 0.8em 1em;
+    border: 1px solid #dde2e8;
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+  /* Syntax highlighting (Pygments "vs" theme) */
+  .zotero-docs-content .codehilite { background: transparent; }
+  .zotero-docs-content .codehilite .hll { background-color: #ffc; }
+  .zotero-docs-content .codehilite .c,
+  .zotero-docs-content .codehilite .ch,
+  .zotero-docs-content .codehilite .cm,
+  .zotero-docs-content .codehilite .cpf,
+  .zotero-docs-content .codehilite .c1,
+  .zotero-docs-content .codehilite .cs { color: #008000; }
+  .zotero-docs-content .codehilite .k,
+  .zotero-docs-content .codehilite .kc,
+  .zotero-docs-content .codehilite .kd,
+  .zotero-docs-content .codehilite .kn,
+  .zotero-docs-content .codehilite .kp,
+  .zotero-docs-content .codehilite .kr,
+  .zotero-docs-content .codehilite .cp,
+  .zotero-docs-content .codehilite .ow { color: #00F; }
+  .zotero-docs-content .codehilite .kt,
+  .zotero-docs-content .codehilite .nc { color: #2B91AF; }
+  .zotero-docs-content .codehilite .s,
+  .zotero-docs-content .codehilite .sa,
+  .zotero-docs-content .codehilite .sb,
+  .zotero-docs-content .codehilite .sc,
+  .zotero-docs-content .codehilite .dl,
+  .zotero-docs-content .codehilite .sd,
+  .zotero-docs-content .codehilite .s2,
+  .zotero-docs-content .codehilite .se,
+  .zotero-docs-content .codehilite .sh,
+  .zotero-docs-content .codehilite .si,
+  .zotero-docs-content .codehilite .sx,
+  .zotero-docs-content .codehilite .sr,
+  .zotero-docs-content .codehilite .s1,
+  .zotero-docs-content .codehilite .ss { color: #A31515; }
+  .zotero-docs-content pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    border-radius: 0;
+  }
+  .zotero-docs-content table {
+    border-collapse: collapse;
+    margin: 0 0 1.1em;
+    font-size: 95%;
+    width: 100%;
+  }
+  .zotero-docs-content table th,
+  .zotero-docs-content table td {
+    border: 1px solid #ddd;
+    padding: 0.45em 0.7em;
+    text-align: left;
+    vertical-align: top;
+  }
+  .zotero-docs-content table th {
+    background: #f3f3f3;
+    font-weight: 600;
+  }
+  .zotero-docs-content table tr:nth-child(2n) td {
+    background: #fafafa;
+  }
+  .zotero-docs-content img {
+    max-width: 100%;
+    height: auto;
+  }
+  .zotero-docs-content img.align-left {
+    float: left; margin: 0 1em 0.5em 0;
+  }
+  .zotero-docs-content img.align-right {
+    float: right; margin: 0 0 0.5em 1em;
+  }
+  .zotero-docs-content img.align-center {
+    display: block; margin: 0.5em auto;
+  }
+  .zotero-docs-content a {
+    text-decoration: underline;
+    text-decoration-color: rgba(0, 102, 204, 0.4);
+    text-underline-offset: 2px;
+    transition: text-decoration-color 0.15s;
+  }
+  .zotero-docs-content a:hover {
+    text-decoration-color: currentColor;
+  }
+  .zotero-docs-content a.missing-link {
+    color: #006;
+    text-decoration-style: dashed;
+  }
+  .zotero-docs-content a[href^="http"]:not([href*=".zotero.org"]):not([href*="//zotero.org"])::after {
+    content: "";
+    display: inline-block;
+    width: 0.85em;
+    height: 0.85em;
+    margin-left: 0.25em;
+    vertical-align: -1px;
+    background-color: currentColor;
+    opacity: 0.8;
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/><polyline points='15 3 21 3 21 9'/><line x1='10' y1='14' x2='21' y2='3'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/><polyline points='15 3 21 3 21 9'/><line x1='10' y1='14' x2='21' y2='3'/></svg>");
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+  }
+  .zotero-docs-content .headerlink {
+    color: #aaa; text-decoration: none; margin-left: 0.25em;
+    opacity: 0; transition: opacity 0.15s, color 0.15s;
+  }
+  .zotero-docs-content :hover > .headerlink,
+  .zotero-docs-content .headerlink:focus { opacity: 1; }
+  .zotero-docs-content .headerlink:hover { color: #555; }
+  /* The top-level page heading already serves as the page title; suppress
+     its permalink # — there's nothing useful to link to. */
+  .zotero-docs-content > :is(h1, h2):first-child .headerlink {
+    display: none;
+  }
+
+  /* ----- Left sidebar (global nav) ----- */
+  .zotero-docs-nav {
+    font-size: 0.9em;
+    line-height: 1.45;
+    position: sticky;
+    top: 1em;
+    max-height: calc(100vh - 2em);
+    display: flex;
+    flex-direction: column;
+  }
+  /* Search box stays fixed at the top of the sidebar; the nav list scrolls
+     within its own space. The search dropdown can overflow the nav freely
+     because the nav container itself doesn't clip. */
+  .zotero-docs-nav > ul {
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  /* At narrow widths (e.g. high zoom), collapse the sidebar into normal
+     page flow above the content: drop sticky positioning, the flex layout,
+     and the inner ul's scrollbox. Must come AFTER the default nav rules so
+     it wins on source order. DOM order is nav → article → aside, so it
+     naturally lands above the content. */
+  @media (max-width: 800px) {
+    .zotero-docs-nav {
+      position: static;
+      max-height: none;
+      overflow: visible;
+      display: block;
+      padding-bottom: 1em;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 1.5em;
+    }
+    .zotero-docs-nav > ul {
+      overflow: visible;
+      flex: none;
+    }
+  }
+  .zotero-docs-search {
+    position: relative;
+    margin-bottom: 1em;
+  }
+  .zotero-docs-search input {
+    width: 100%;
+    padding: 0.45em 0.7em;
+    font: inherit;
+    font-size: 0.95em;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  .zotero-docs-search input:focus {
+    outline: none;
+    border-color: #1a3a6e;
+  }
+  .zotero-docs-search-results {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    max-height: 60vh;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+  }
+  .zotero-docs-search-results.open { display: block; }
+  .zotero-docs-search-results article {
+    display: block;
+    padding: 0.5em 0.7em;
+    margin: 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .zotero-docs-search-results article:last-child { border-bottom: none; }
+  .zotero-docs-search-results h3 {
+    display: block;
+    margin: 0 0 0.15em;
+    padding: 0;
+    font-size: 0.95em;
+    font-weight: 600;
+  }
+  .zotero-docs-search-results h3 a {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    text-indent: 0;
+    text-decoration: none;
+  }
+  .zotero-docs-search-results h3 a:hover { text-decoration: underline; }
+  .zotero-docs-search-results p {
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+  .zotero-docs-search-context {
+    color: #888;
+    font-weight: 400;
+  }
+  .zotero-docs-search-results h3 a {
+    color: #1a3a6e;
+    text-decoration: none;
+  }
+  .zotero-docs-search-results h3 a:hover,
+  .zotero-docs-search-results h3 a:focus {
+    text-decoration: underline;
+    outline: none;
+  }
+  .zotero-docs-search-results article:focus-within {
+    background: #f5f8fc;
+  }
+  .zotero-docs-search-results p {
+    margin: 0;
+    font-size: 0.85em;
+    color: #666;
+    line-height: 1.4;
+  }
+  .zotero-docs-search-empty {
+    padding: 0.7em;
+    color: #888;
+    font-size: 0.9em;
+    font-style: italic;
+  }
+  .zotero-docs-nav ul {
+    list-style: none; padding: 0; margin: 0;
+  }
+  .zotero-docs-nav ul ul {
+    padding-left: 0.9em; margin: 0.1em 0 0.3em;
+  }
+  .zotero-docs-nav li { display: block; margin: 0.15em 0; }
+  .zotero-docs-nav a {
+    color: #444; text-decoration: none; display: block;
+    padding: 0.15em 0.4em; border-radius: 3px;
+  }
+  .zotero-docs-nav a:hover { background: #f0f0f0; color: #000; }
+  .zotero-docs-nav li.active > a {
+    background: #e8eef5; color: #1a3a6e; font-weight: 600;
+  }
+  .zotero-docs-nav details {
+    margin-top: 0.5em;
+  }
+  .zotero-docs-nav > ul > li {
+    margin-top: 0.5em;
+  }
+  .zotero-docs-nav > ul > li > a,
+  .zotero-docs-nav summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.25em 0.4em;
+    font-weight: 600;
+    color: #111;
+    user-select: none;
+  }
+  .zotero-docs-nav summary::-webkit-details-marker { display: none; }
+  /* Disclosure chevron drawn as a CSS border triangle so its geometric
+     center matches the box center — rotating around the default origin
+     keeps it visually anchored (a text ▸ glyph isn't centered in its
+     em-box and drifts horizontally when rotated). */
+  .zotero-docs-nav summary::before,
+  .zotero-docs-nav > ul > li > a::before {
+    content: "";
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border: 4px solid transparent;
+    border-left-color: #888;
+    vertical-align: middle;
+    margin-right: 0.25em;
+    /* The triangle's apex is at the border-box center, so the default
+       transform-origin would pivot at the pointy end. Move it to the
+       visible triangle's bbox center (x=25% of the 8px-wide border box). */
+    transform-origin: 25% 50%;
+    transition: transform 0.12s ease;
+  }
+  .zotero-docs-nav > ul > li > a::before {
+    visibility: hidden;
+  }
+  .zotero-docs-nav details[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  /* ----- Right sidebar (page TOC) ----- */
+  .zotero-docs-toc {
+    font-size: 0.85em;
+    line-height: 1.45;
+    position: sticky;
+    top: 1em;
+    max-height: calc(100vh - 2em);
+    overflow-y: auto;
+  }
+  .zotero-docs-toc-title {
+    font-size: 0.9em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #555;
+    margin: 0 0 0.5em;
+    padding-left: 0.4em;
+  }
+  .zotero-docs-page-meta {
+    margin-top: 1.5em;
+    padding: 1.2em 0.4em 0;
+    border-top: 1px solid #eee;
+    font-size: 0.85em;
+    color: #555;
+  }
+  /* No TOC above? The meta block is the only child of the aside and
+     doesn't need its separator line / top padding. */
+  .zotero-docs-page-meta:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+  .zotero-docs-modified {
+    margin-bottom: 0.6em;
+  }
+  .zotero-docs-edit {
+    display: inline-flex;
+    align-items: center;
+    color: #555;
+    text-decoration: none;
+  }
+  .zotero-docs-edit svg {
+    margin-right: 0.6em;
+  }
+  .zotero-docs-edit:hover { color: #000; }
+  .zotero-docs-toc ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  /* Outer ul draws the 2px guide line; nested ones just indent. The hover
+     bar (a ::before on the hovered <a>) is offset back by the cumulative
+     nested padding so it always lands on the outer guide line. */
+  .zotero-docs-toc > ul {
+    border-left: 2px solid #eee;
+  }
+  .zotero-docs-toc ul ul {
+    padding-left: 0.8em;
+  }
+  .zotero-docs-toc li { display: block; margin: 0; }
+  .zotero-docs-toc a {
+    color: #555;
+    text-decoration: none;
+    display: block;
+    padding: 0.15em 0.6em;
+    position: relative;
+  }
+  .zotero-docs-toc a:hover {
+    color: #000;
+  }
+  /* Scope to TOC entries (inside the ul) only — the Edit-on-GitHub link
+     is a sibling anchor in the same aside but shouldn't get the bar. */
+  .zotero-docs-toc ul a:hover::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #aaa;
+  }
+  .zotero-docs-toc > ul > li > a:hover::before { left: -2px; }
+  .zotero-docs-toc > ul > li > ul > li > a:hover::before { left: calc(-0.8em - 2px); }
+  .zotero-docs-toc > ul > li > ul > li > ul > li > a:hover::before { left: calc(-1.6em - 2px); }
+  .zotero-docs-toc > ul > li > ul > li > ul > li > ul > li > a:hover::before { left: calc(-2.4em - 2px); }
+</style>
+
+
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Lunr-based search, running off the main thread in a Web Worker so typing
+  // stays smooth while the index processes queries.
+  var input = document.getElementById('zotero-docs-search-input');
+  var resultsEl = document.getElementById('zotero-docs-search-results');
+  var SEARCH_BASE = '/support/fragments/search/';
+  var WORKER_URL = '/support/fragments/search-worker.js';
+  var URL_PREFIX = '/support/';
+  var workerReady = null;
+  var searchWorker = null;
+  var docsById = {};
+  var pageTitles = {};  // location (no anchor) → page title
+  var pendingResolvers = {};
+  var nextRequestId = 0;
+  var latestRequestId = -1;
+
+  function loadLunr() {
+    if (workerReady) return workerReady;
+    workerReady = fetch(SEARCH_BASE + 'search_index.json')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        data.docs.forEach(function(d, i) {
+          docsById[i] = d;
+          if (d.location && d.location.indexOf('#') === -1) {
+            pageTitles[d.location] = d.title;
+          }
+        });
+        return new Promise(function(resolve) {
+          searchWorker = new Worker(WORKER_URL);
+          searchWorker.onmessage = function(e) {
+            if (e.data.type === 'ready') {
+              searchWorker.onmessage = onWorkerResults;
+              resolve();
+            }
+          };
+          searchWorker.postMessage({ type: 'init', docs: data.docs });
+        });
+      });
+    return workerReady;
+  }
+
+  function onWorkerResults(e) {
+    var resolver = pendingResolvers[e.data.requestId];
+    if (resolver) {
+      delete pendingResolvers[e.data.requestId];
+      resolver(e.data);
+    }
+  }
+
+  function runSearch(rawQuery) {
+    return loadLunr().then(function() {
+      return new Promise(function(resolve) {
+        var id = nextRequestId++;
+        latestRequestId = id;
+        pendingResolvers[id] = resolve;
+        searchWorker.postMessage({
+          type: 'query',
+          query: rawQuery,
+          requestId: id
+        });
+      });
+    });
+  }
+
+  function render(results, query) {
+    if (!results.length) {
+      resultsEl.innerHTML = '<div class="zotero-docs-search-empty">No results for “' +
+        escapeHtml(query) + '”</div>';
+      resultsEl.classList.add('open');
+      return;
+    }
+    // Collapse multiple matches from the same page to a single result. For
+    // each page, keep the highest-ranked entry by default, BUT if the page-
+    // level entry's title contains a query word, prefer it — Lunr's BM25
+    // tends to rank short section anchors above the bare page for general
+    // terms, even when the page's own title is the obvious match.
+    var queryWords = query.toLowerCase().split(/\s+/).filter(Boolean);
+    function titleMatchesQuery(title) {
+      var t = (title || '').toLowerCase();
+      return queryWords.some(function(w) { return t.indexOf(w) !== -1; });
+    }
+    var byPage = {};
+    results.forEach(function(r) {
+      var pageKey = (docsById[r.ref].location || '').split('#')[0];
+      (byPage[pageKey] = byPage[pageKey] || []).push(r);
+    });
+    var seenPages = {};
+    var deduped = [];
+    results.forEach(function(r) {
+      var pageKey = (docsById[r.ref].location || '').split('#')[0];
+      if (seenPages[pageKey]) return;
+      seenPages[pageKey] = true;
+      var bare = byPage[pageKey].find(function(e) {
+        return docsById[e.ref].location.indexOf('#') === -1;
+      });
+      if (bare && titleMatchesQuery(docsById[bare.ref].title)) {
+        deduped.push(bare);
+      } else {
+        deduped.push(r);
+      }
+    });
+    var html = deduped.slice(0, 10).map(function(r) {
+      var d = docsById[r.ref];
+      var url = URL_PREFIX + d.location.replace(/^\//, '');
+      var snippet = (d.text || '').slice(0, 140);
+      var hashIdx = d.location.indexOf('#');
+      var titleHtml = escapeHtml(d.title);
+      // For section-anchor results, prepend the parent page title so the
+      // same heading text on multiple pages is distinguishable.
+      if (hashIdx !== -1) {
+        var pageKey = d.location.slice(0, hashIdx);
+        var parent = pageTitles[pageKey];
+        if (parent && parent !== d.title) {
+          titleHtml = '<span class="zotero-docs-search-context">' +
+            escapeHtml(parent) + ' ›</span> ' + titleHtml;
+        }
+      }
+      return '<article><h3><a href="' + escapeHtml(url) + '">' +
+        titleHtml + '</a></h3><p>' + escapeHtml(snippet) + '…</p></article>';
+    }).join('');
+    resultsEl.innerHTML = html;
+    resultsEl.classList.add('open');
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function(c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  var debounceTimer;
+  function onInput() {
+    clearTimeout(debounceTimer);
+    var rawQuery = input.value.trim();
+    if (!rawQuery) { resultsEl.classList.remove('open'); return; }
+    debounceTimer = setTimeout(function() {
+      runSearch(rawQuery).then(function(response) {
+        // Drop stale responses if the user has typed more since
+        if (response.requestId !== latestRequestId) return;
+        render(response.results || [], rawQuery);
+      });
+    }, 120);
+  }
+  input.addEventListener('input', onInput);
+  input.addEventListener('focus', function() { if (input.value.trim()) onInput(); });
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.zotero-docs-search')) {
+      resultsEl.classList.remove('open');
+    }
+  });
+
+  function resultLinks() {
+    return Array.prototype.slice.call(resultsEl.querySelectorAll('h3 a'));
+  }
+
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowDown') {
+      var links = resultLinks();
+      if (links.length) { e.preventDefault(); links[0].focus(); }
+    } else if (e.key === 'Escape') {
+      resultsEl.classList.remove('open');
+    }
+  });
+
+  resultsEl.addEventListener('keydown', function(e) {
+    var links = resultLinks();
+    var i = links.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (i < links.length - 1) links[i + 1].focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (i > 0) {
+        links[i - 1].focus();
+      } else {
+        input.focus();
+      }
+    } else if (e.key === 'Escape') {
+      resultsEl.classList.remove('open');
+      input.focus();
+    }
+  });
+});
+</script>
+<div class="zotero-docs">
+  <nav class="zotero-docs-nav" aria-label="Documentation">
+    <div class="zotero-docs-search">
+      <input type="search" id="zotero-docs-search-input"
+             placeholder="Search documentation…" autocomplete="off">
+      <div class="zotero-docs-search-results" id="zotero-docs-search-results"></div>
+    </div>
+    <ul>
+      
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/">Home</a>
+    
+  </li>
+
+  <li class=" has-children">
+    
+      <details >
+        <summary>Getting Started</summary>
+        <ul>
+          
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/installation">Installation</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/quick_start_guide">Quick Start Guide</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/system_requirements">System Requirements</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/frequently_asked_questions">Frequently Asked Questions</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/changelog">Version History</a>
+    
+  </li>
+
+        </ul>
+      </details>
+    
+  </li>
+
+  <li class=" has-children">
+    
+      <details >
+        <summary>Adding to Your Library</summary>
+        <ul>
+          
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/adding_items_to_zotero">Adding Items</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/attaching_files">Adding Files</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/feeds">Feeds</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/retrieve_pdf_metadata">Retrieve PDF Metadata</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/moving_to_zotero">Importing from Other Tools</a>
+    
+  </li>
+
+        </ul>
+      </details>
+    
+  </li>
+
+  <li class=" has-children">
+    
+      <details >
+        <summary>Organizing & Taking Notes</summary>
+        <ul>
+          
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/collections_and_tags">Collections and Tags</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/searching">Searching</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/sorting">Sorting</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/pdf_reader">PDF Reader</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/notes">Notes</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/related">Related Items</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/duplicate_detection">Duplicate Detection</a>
+    
+  </li>
+
+        </ul>
+      </details>
+    
+  </li>
+
+  <li class=" has-children">
+    
+      <details >
+        <summary>Citations & Bibliographies</summary>
+        <ul>
+          
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/creating_bibliographies">Creating Bibliographies</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/word_processor_integration">Word Processor Integration</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/styles">Citation Styles</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/reports">Reports</a>
+    
+  </li>
+
+        </ul>
+      </details>
+    
+  </li>
+
+  <li class=" has-children">
+    
+      <details >
+        <summary>Syncing & Collaboration</summary>
+        <ul>
+          
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/sync">Data and File Syncing</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/groups">Groups</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/my_publications">My Publications</a>
+    
+  </li>
+
+        </ul>
+      </details>
+    
+  </li>
+
+  <li class=" has-children">
+    
+      <details >
+        <summary>Preferences</summary>
+        <ul>
+          
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/preferences">Preferences</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/connector_preferences">Connector Preferences</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/supported_languages">Languages</a>
+    
+  </li>
+
+        </ul>
+      </details>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/kb">Knowledge Base</a>
+    
+  </li>
+
+  <li class=" has-children">
+    
+      <details >
+        <summary>Troubleshooting</summary>
+        <ul>
+          
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/getting_help">Getting Help</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/zotero_data">Library Data Issues</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/troubleshooting_translator_issues">Web Saving Issues</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/word_processor_plugin_troubleshooting">Word Processor Plugin Issues</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/kb/changes_not_syncing">Data Sync Issues</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/kb/files_not_syncing">File Sync Issues</a>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/kb/file_handling_issues">File Handling Issues</a>
+    
+  </li>
+
+        </ul>
+      </details>
+    
+  </li>
+
+  <li class="">
+    
+      
+      
+      
+      <a href="/support/dev">Developers</a>
+    
+  </li>
+
+    </ul>
+  </nav>
+  <article class="zotero-docs-content">
+    <h1 id="zotero_7_for_developers">Zotero 7 for Developers<a class="headerlink" href="#zotero_7_for_developers" title="Permanent link">#</a></h1>
+<p>Zotero 7 includes a major internal upgrade of the Mozilla platform on which Zotero is based, incorporating changes from Firefox 60 through Firefox 115. This upgrade brings major performance gains, new JavaScript and HTML features, better OS compatibility and platform integration, and native support for Apple Silicon Macs.</p>
+<p>While this upgrade required a massive rewrite of the Zotero code base and will require many plugin changes due to technical changes in the Mozilla platform, going forward we expect to keep Zotero current with Firefox Extended Support Release (ESR) versions, with comparatively fewer technical changes between versions.</p>
+<p><strong>See also:</strong> <a href="/support/dev/zotero_8_for_developers">Zotero 8 for Developers</a></p>
+<h2 id="feedback">Feedback<a class="headerlink" href="#feedback" title="Permanent link">#</a></h2>
+<p>If you have questions about anything on this page or encounter other problems while updating your plugin, let us know on the <a href="https://groups.google.com/g/zotero-dev">dev list</a>. Please don’t post to the Zotero Forums about Zotero 7 at this time.</p>
+<h2 id="dev_builds">Dev Builds<a class="headerlink" href="#dev_builds" title="Permanent link">#</a></h2>
+<p><span style="color: red; font-weight: bold">WARNING:</span> These are test builds based on Firefox 115 intended solely for use by Zotero plugin developers and <strong>should not be used in production</strong>. We strongly recommend using a <a href="https://www.zotero.org/support/kb/multiple_profiles">separate profile and data directory</a> for development.</p>
+<p>The <code>dev</code> channel has been paused. Use <a href="/support/beta_builds">Zotero 7 beta builds</a> for development.</p>
+<!--
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=mac|Mac]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=linux-x86_64|Linux 64-bit]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=win-x64-zip|Windows 64-bit ZIP]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=win-x64|Windows 64-bit Installer]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=win-arm64-zip|Windows ARM64 ZIP]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=win-arm64|Windows ARM64 Installer]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=win32-zip|Windows 32-bit ZIP]]
+  * [[https://www.zotero.org/download/client/dl?channel=dev&platform=win32|Windows 32-bit Installer]]-->
+
+<h2 id="sample_plugin">Sample Plugin<a class="headerlink" href="#sample_plugin" title="Permanent link">#</a></h2>
+<p>We’ve created a very simple plugin, <a href="https://github.com/zotero/make-it-red">Make It Red</a>, to demonstrate some of the concepts discussed in this document. It makes things red.</p>
+<p>We’ll update the plugin as we continue developing the Zotero 7 plugin framework and address issues from the dev list.</p>
+<h2 id="using_the_firefox_developer_tools">Using the Firefox Developer Tools<a class="headerlink" href="#using_the_firefox_developer_tools" title="Permanent link">#</a></h2>
+<p>Since Zotero is based on Firefox, it’s possible to use the Firefox Developer Tools to interact with the DOM, set code breakpoints, follow network requests, and more.</p>
+<p>Zotero 7 beta builds include the Firefox 115 devtools. To start a beta build with the Browser Toolbox open, pass the <code>-jsdebugger</code> flag on the command line:</p>
+<div class="codehilite"><pre><span></span><code>$ /Applications/Zotero\ Beta.app/Contents/MacOS/zotero -ZoteroDebugText -jsdebugger
+</code></pre></div>
+
+<p>When running Zotero from source, passing <code>-d</code> flag to the <a href="/support/dev/client_coding/building_the_desktop_app#helper_script">build_and_run script</a> will rebuild (<code>-r</code>) with the devtools included and pass <code>-jsdebugger</code>.</p>
+<h2 id="plugin_changes">Plugin Changes<a class="headerlink" href="#plugin_changes" title="Permanent link">#</a></h2>
+<p><strong>All Zotero plugins will need to be updated for Zotero 7.</strong></p>
+<p>Zotero 7 plugins continue to provide full access to platform internals (XPCOM, file access, etc.), but the Mozilla platform itself no longer supports similar extensions. All Firefox extensions are now based on the much more limited WebExtensions API shared with Chrome and other browsers, which provides sandboxed APIs for common integration points.</p>
+<p>We have no plans to make similar restrictions in Zotero. However, due to the Mozilla platform changes, some integration techniques are no longer available, and all plugins will need to change the way they register themselves in Zotero.</p>
+<h3 id="installrdf_manifestjson">install.rdf → manifest.json<a class="headerlink" href="#installrdf_manifestjson" title="Permanent link">#</a></h3>
+<p>The legacy install.rdf manifest must be replaced with a <a href="https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json">WebExtension-style manifest.json file</a>. Most WebExtension manifest.json keys are not relevant in Zotero, but you should transfer the main metadata from install.rdf.</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;manifest_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Make It Red&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.1&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Makes everything red&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;author&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Zotero&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;icons&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;48&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;icon.png&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;96&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;icon@2x.png&quot;</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;applications&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;zotero&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;make-it-red@zotero.org&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;update_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://www.zotero.org/download/plugins/make-it-red/updates.json&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;strict_min_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;6.999&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;strict_max_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;7.0.*&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><code>applications.zotero</code> is based on <code>browser_specific_settings.gecko</code> and must be present for Zotero to install your plugin. You should set <code>strict_max_version</code> to <code>x.x.*</code> of the latest minor version that you have tested your plugin with. (You can later update compatibility via your update manifest without distributing a new version if no changes are required.)</p>
+<p>Use <code>"strict_min_version": "6.999"</code> to allow your plugin to be installed on Zotero 7 betas.</p>
+<h4 id="transition_process">Transition Process<a class="headerlink" href="#transition_process" title="Permanent link">#</a></h4>
+<p>Plugins can be made to work in both Zotero 6 and Zotero 7 by including both install.rdf and manifest.json files. Zotero 6 will use install.rdf, while Zotero 7 will use manifest.json.</p>
+<p>You can load overlay code for Zotero 6 and bootstrap code (as described below) for Zotero 7, or you can create a single bootstrapped version by adding <code>&lt;em:bootstrap&gt;true&lt;/em:bootstrap&gt;</code> to install.rdf for Zotero 6.</p>
+<h3 id="updaterdf_updatesjson">update.rdf → updates.json<a class="headerlink" href="#updaterdf_updatesjson" title="Permanent link">#</a></h3>
+<p>The legacy RDF update manifest for specifying updates must be replaced with a <a href="https://extensionworkshop.com/documentation/manage/updating-your-extension/">Mozilla-style JSON update manifest</a>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;addons&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;make-it-red@zotero.org&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;updates&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2.0&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;update_link&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://download.zotero.org/plugins/make-it-red/make-it-red-2.0.xpi&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;update_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sha256:4a6dd04c197629a02a9c6beaa9ebd52a69bb683f8400243bcdf95847f0ee254a&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;applications&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;zotero&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">              </span><span class="nt">&quot;strict_min_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;6.999&quot;</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">          </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">      </span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>Zotero 6 also supports this manifest format with a slight variation: you must specify minimum and maximum versions using <code>applications.gecko</code> instead of <code>applications.zotero</code>, and you must use the Firefox platform version instead of the Zotero app version. Since Zotero 6 is based on Firefox 60.9.0 ESR, you can use <code>60.9</code> for <code>strict_min_version</code> and <code>strict_max_version</code>.</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;addons&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;make-it-red@zotero.org&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;updates&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;update_link&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://download.zotero.org/plugins/make-it-red/make-it-red-1.0.xpi&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;update_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sha256:8f383546844b17eb43bd7f95423d7f9a65dfbc0b4eb5cb2e7712fb88a41d02e3&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;applications&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;gecko&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">              </span><span class="nt">&quot;strict_min_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;60.9&quot;</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">&quot;strict_max_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;60.9&quot;</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">          </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">      </span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>In this example, version 1.2 is compatible with both Zotero 6 and 7, and version 2.0 is compatible only with Zotero 7:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;addons&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;make-it-red@zotero.org&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;updates&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.2&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;update_link&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://download.zotero.org/plugins/make-it-red/make-it-red-1.2.xpi&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;update_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sha256:9b0546d5cf304adcabf39dd13c9399e2702ace8d76882b0b37379ef283c7db13&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;applications&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;gecko&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">              </span><span class="nt">&quot;strict_min_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;60.9&quot;</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">&quot;strict_max_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;60.9&quot;</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="nt">&quot;zotero&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">              </span><span class="nt">&quot;strict_min_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;6.999&quot;</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">&quot;strict_max_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;7.0.*&quot;</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">          </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2.0&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;update_link&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://download.zotero.org/plugins/make-it-red/make-it-red-2.0.xpi&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;update_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sha256:4a6dd04c197629a02a9c6beaa9ebd52a69bb683f8400243bcdf95847f0ee254a&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;applications&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;zotero&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">              </span><span class="nt">&quot;strict_min_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;6.999&quot;</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">&quot;strict_max_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;7.0.*&quot;</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">          </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">      </span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h4 id="transition_process_1">Transition Process<a class="headerlink" href="#transition_process_1" title="Permanent link">#</a></h4>
+<p>Since Zotero 6 already supports the new JSON update manifest, we recommend creating a JSON manifest now and pointing new versions of your plugin at its URL in install.rdf, even before you’ve updated your plugin for Zotero 7. As described above, you can serve a manifest that offers a version that supports only Zotero 6 now and later add a version that supports both Zotero 6 and 7 and/or a version that supports only Zotero 7, all from the same file.</p>
+<p>However, since you can’t be sure that all of your users will upgrade to your new version that points to a JSON URL before they upgrade to Zotero 7, and since Zotero 7 will no longer be able to parse RDF update manifests, there’s a risk of users getting stranded on an old version. To avoid this, you can simply make the new JSON manifest available from the old RDF URL as well. Even with the .rdf extension, Zotero will detect that it’s a JSON manifest and process it properly.</p>
+<h3 id="xul_overlays_bootstrapjs">XUL Overlays → bootstrap.js<a class="headerlink" href="#xul_overlays_bootstrapjs" title="Permanent link">#</a></h3>
+<p>This will likely be the biggest change for most plugin developers.</p>
+<p>Zotero 6 and earlier supported two types of plugins:</p>
+<ol>
+<li>Overlay plugins, which use XUL overlays to inject elements — including <code>&lt;script&gt;</code> elements — into the DOM of existing windows</li>
+<li>Bootstrapped plugins, which programmatically insert themselves into the app and modify the DOM as necessary, and which can be enabled and disabled without restarting Zotero</li>
+</ol>
+<p>These correspond to the two types of legacy Firefox extensions up through Firefox 56.</p>
+<p>The Mozilla platform no longer supports either type of extension — instead supporting WebExtensions (or MailExtensions in Thunderbird) — and no longer supports XUL overlays. We don’t feel that restrictive WebExtension-style APIs are a good fit for the Zotero plugin ecosystem, so we’ve reimplemented support for bootstrapped extensions for Zotero plugins to use going forward.</p>
+<p>Most existing Zotero plugins use overlays and will need to be rewritten to work as bootstrapped plugins.</p>
+<p>Bootstrapped Zotero plugins in Zotero 7 require two components:</p>
+<ol>
+<li>A WebExtension-style manifest.json file, as described above</li>
+<li>A bootstrap.js file containing functions to handle various events:<ul>
+<li>Plugin lifecycle hooks</li>
+<li>Window hooks</li>
+</ul>
+</li>
+</ol>
+<h4 id="plugin_lifecycle_hooks">Plugin Lifecycle Hooks<a class="headerlink" href="#plugin_lifecycle_hooks" title="Permanent link">#</a></h4>
+<p>Plugin lifecycle hooks are modeled after the legacy Mozilla <a href="http://www.devdoc.net/web/developer.mozilla.org/en-US/docs/Mozilla/Add-ons/Bootstrapped_Extensions.html#Bootstrap_entry_points">bootstrapped-extension framework</a>:</p>
+<ul>
+<li><code>startup()</code></li>
+<li><code>shutdown()</code></li>
+<li><code>install()</code></li>
+<li><code>uninstall()</code></li>
+</ul>
+<p>Plugin lifecycle hooks are passed two parameters:</p>
+<ul>
+<li>An object with these properties:<ul>
+<li><code>id</code>, the plugin id</li>
+<li><code>version</code>, the plugin version</li>
+<li><code>rootURI</code>, a string URL pointing to the plugin’s files. For XPIs, this will be a <code>jar:file:///</code> URL. This value will always end in a slash, so you can append a relative path to get a URL for a file bundled with your plugin (e.g., <code>rootURI + 'style.css'</code>).</li>
+</ul>
+</li>
+<li>A number representing the reason for the event, which can be checked against the following constants: <code>APP_STARTUP</code>, <code>APP_SHUTDOWN</code>, <code>ADDON_ENABLE</code>, <code>ADDON_DISABLE</code>, <code>ADDON_INSTALL</code>, <code>ADDON_UNINSTALL</code>, <code>ADDON_UPGRADE</code>, <code>ADDON_DOWNGRADE</code></li>
+</ul>
+<p>Any initialization unrelated to specific windows should be triggered by <code>startup</code>, and removal should be triggered by <code>shutdown</code>.</p>
+<p>Note that Zotero 6 provides a <code>resourceURI</code> nsIURI object instead of a <code>rootURI</code> string, so for Zotero 6 compatibility you’ll want to assign <code>resourceURI.spec</code> to <code>rootURI</code> if <code>rootURI</code> isn’t provided.</p>
+<p>In Zotero 7, the <code>install()</code> and <code>startup()</code> bootstrap methods are called only after Zotero has initialized, and the <code>Zotero</code> object is automatically made available in the bootstrap scope, along with <code>Services</code>, <code>Cc</code>, <code>Ci</code>, and other Mozilla and browser objects. This isn’t the case in Zotero 6, in which these functions can load before the <code>Zotero</code> object is available and won’t automatically get <code>window</code> properties such as <code>URL</code>. (<code>Zotero</code> also isn’t available in <code>uninstall()</code> in Zotero 6.) The sample plugin provides an example of <a href="https://github.com/zotero/make-it-red/blob/main/src-1.2/bootstrap.js">waiting for availability of the <code>Zotero</code> object</a> and <a href="https://github.com/zotero/make-it-red/blob/main/src-1.2/make-it-red.js">importing global properties</a> in a bootstrapped plugin that works in both Zotero 6 and 7.</p>
+<p>Bootstrapped plugins can be disabled or uninstalled without restarting Zotero, so you’ll need to make sure you remove all functionality in the <code>shutdown()</code> function.</p>
+<h4 id="window_hooks">Window Hooks<a class="headerlink" href="#window_hooks" title="Permanent link">#</a></h4>
+<p>Window hooks, available only in Zotero 7, are called on the opening and closing of the main Zotero window:</p>
+<ul>
+<li><code>onMainWindowLoad()</code></li>
+<li><code>onMainWindowUnload()</code></li>
+</ul>
+<p>Window hooks are passed one parameter:</p>
+<ul>
+<li>An object with a <code>window</code> property containing the target window</li>
+</ul>
+<p>On some platforms, the main window can be opened and closed multiple times during a Zotero session, so any window-related activities, such as modifying the main UI, adding menus, or binding shortcuts must be performed by <code>onMainWindowLoad</code> so that new main windows contain your changes.</p>
+<p>You must then <strong>remove all references to a window or objects within it, cancel any timers, etc.</strong>, when <code>onMainWindowUnload</code> is called, or else you’ll risk creating a memory leak every time the window is closed. DOM elements added to a window will be automatically destroyed when the window is closed, so you only need to remove those in <code>shutdown()</code>, which you can do by cycling through all windows:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">function</span><span class="w"> </span><span class="nx">shutdown</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">windows</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">Zotero</span><span class="p">.</span><span class="nx">getMainWindows</span><span class="p">();</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">let</span><span class="w"> </span><span class="nx">win</span><span class="w"> </span><span class="k">of</span><span class="w"> </span><span class="nx">windows</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">win</span><span class="p">.</span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s1">&#39;make-it-red-stylesheet&#39;</span><span class="p">)</span><span class="o">?</span><span class="p">.</span><span class="nx">remove</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>(Currently, only one main window is supported, but some users may find ways to open multiple main windows, and this will be officially supported in a future version.)</p>
+<p>Some plugins may require additional hooks in Zotero itself to work well as bootstrapped plugins. If you’re having trouble accomplishing something you were doing previously via XUL overlays, let us know on <a href="https://groups.google.com/g/zotero-dev">zotero-dev</a>.</p>
+<h3 id="chromemanifest_runtime_chrome_registration">chrome.manifest → runtime chrome registration<a class="headerlink" href="#chromemanifest_runtime_chrome_registration" title="Permanent link">#</a></h3>
+<p>The Mozilla platform no longer supports chrome.manifest files for registration of resources.</p>
+<p>In many cases, you may no longer need to register <code>chrome://</code> URLs, as resources can be loaded by using a relative path directly or by appending a relative path to the <code>rootURI</code> string passed to your plugin’s <code>startup()</code> function. However, some functions, such as <code>ChromeUtils.import()</code> for JSMs (or, post–Firefox 102, ESMs), only accept <code>chrome://</code> content URLs. <code>.prop</code> and <code>.dtd</code> locale files also still need to be registered as chrome files. Registering <code>locale</code> folders isn’t necessary if using Fluent as explained in the next section.</p>
+<p>You can register <code>content</code> and <code>locale</code> resources in your plugin’s <code>startup</code> function:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">var</span><span class="w"> </span><span class="nx">chromeHandle</span><span class="p">;</span>
+
+<span class="kd">function</span><span class="w"> </span><span class="nx">startup</span><span class="p">({</span><span class="w"> </span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="nx">version</span><span class="p">,</span><span class="w"> </span><span class="nx">rootURI</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="nx">reason</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">aomStartup</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">Cc</span><span class="p">[</span><span class="s2">&quot;@mozilla.org/addons/addon-manager-startup;1&quot;</span><span class="p">].</span><span class="nx">getService</span><span class="p">(</span><span class="nx">Ci</span><span class="p">.</span><span class="nx">amIAddonManagerStartup</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">manifestURI</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">Services</span><span class="p">.</span><span class="nx">io</span><span class="p">.</span><span class="nx">newURI</span><span class="p">(</span><span class="nx">rootURI</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s2">&quot;manifest.json&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="nx">chromeHandle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">aomStartup</span><span class="p">.</span><span class="nx">registerChrome</span><span class="p">(</span><span class="nx">manifestURI</span><span class="p">,</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">[</span><span class="s2">&quot;content&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;make-it-red&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;chrome/content/&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="p">[</span><span class="s2">&quot;locale&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;make-it-red&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;en-US&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;chrome/locale/en-US/&quot;</span><span class="p">],</span>
+<span class="w">        </span><span class="p">[</span><span class="s2">&quot;locale&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;make-it-red&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;fr&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;chrome/locale/fr/&quot;</span><span class="p">]</span>
+<span class="w">    </span><span class="p">]);</span>
+</code></pre></div>
+
+<p>Deregister the files in <code>shutdown()</code> in case your plugin is disabled, remove, or upgraded:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">chromeHandle</span><span class="p">.</span><span class="nx">destruct</span><span class="p">();</span>
+<span class="nx">chromeHandle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+</code></pre></div>
+
+<h3 id="localization">Localization<a class="headerlink" href="#localization" title="Permanent link">#</a></h3>
+<p>Mozilla has introduced a new localization system called <a href="https://projectfluent.org/">Fluent</a>, which replaces both .dtd and .properties localization. While both .dtd and .properties are still supported in the current version of Zotero 7, Mozilla has removed .dtd files completely in Firefox 115 and is working to remove uses of .properties files. To ensure future compatibility, plugin authors should aim to use Fluent for localization going forward.</p>
+<p>See the <a href="https://projectfluent.org/fluent/guide/">Fluent Syntax Guide</a> for more information on creating Fluent files.</p>
+<h4 id="registering_fluent_files">Registering Fluent Files<a class="headerlink" href="#registering_fluent_files" title="Permanent link">#</a></h4>
+<p>To use Fluent in your plugin, create a <code>locale</code> folder in your plugin root with subfolders for each locale, and place .ftl files within each locale folder:</p>
+<div class="codehilite"><pre><span></span><code>locale/en-US/make-it-red.ftl
+locale/fr-FR/make-it-red.ftl
+locale/zh-CN/make-it-red.ftl
+</code></pre></div>
+
+<p>Any .ftl files you place in the locale subfolders will be automatically registered in Zotero’s localization system.</p>
+<h4 id="using_a_fluent_file_in_a_document">Using a Fluent File in a Document<a class="headerlink" href="#using_a_fluent_file_in_a_document" title="Permanent link">#</a></h4>
+<p>Fluent files you include with your plugin can be applied to a document with a <code>&lt;link&gt;</code> element.</p>
+<p>For example, a Fluent file located at</p>
+<p><code>[plugin root]/locale/en-US/make-it-red.ftl</code></p>
+<p>could be included in an XHTML file as</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;link</span><span class="w"> </span><span class="na">rel=</span><span class="s">&quot;localization&quot;</span><span class="w"> </span><span class="na">href=</span><span class="s">&quot;make-it-red.ftl&quot;</span><span class="nt">/&gt;</span>
+</code></pre></div>
+
+<p>If the document’s default namespace is XUL, include HTML as an alternative namespace (<code>xmlns:html="http://www.w3.org/1999/xhtml"</code>) and prefix the link:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;html:link</span><span class="w"> </span><span class="na">rel=</span><span class="s">&quot;localization&quot;</span><span class="w"> </span><span class="na">href=</span><span class="s">&quot;make-it-red.ftl&quot;</span><span class="nt">/&gt;</span>
+</code></pre></div>
+
+<p>If modifying an existing window, you can create a <code>&lt;link&gt;</code> element dynamically:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">MozXULElement</span><span class="p">.</span><span class="nx">insertFTLIfNeeded</span><span class="p">(</span><span class="s2">&quot;make-it-red.ftl&quot;</span><span class="p">);</span>
+</code></pre></div>
+
+<p>(<code>MozXULElement</code> will be a property of the window you’re modifying.)</p>
+<p>Please ensure that you have inserted the FTL into the window before making any changes to the DOM.</p>
+<p>If adding to an existing window, be sure to remove the <code>&lt;link&gt;</code> in your plugin’s <code>shutdown</code> function:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">doc</span><span class="p">.</span><span class="nx">querySelector</span><span class="p">(</span><span class="s1">&#39;[href=&quot;make-it-red.ftl&quot;]&#39;</span><span class="p">).</span><span class="nx">remove</span><span class="p">();</span>
+</code></pre></div>
+
+<h4 id="replacing_dtd_files">Replacing .dtd Files<a class="headerlink" href="#replacing_dtd_files" title="Permanent link">#</a></h4>
+<p>Fluent’s primary mode is a markup-based approach that automatically inserts localized strings into the DOM, which in its simplest form is similar to DTD entity substitution.</p>
+<p>Migrating strings will in most cases be trivial. For example, you might replace this XUL code containing a DTD entity:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;tab</span><span class="w"> </span><span class="na">label=</span><span class="s">&quot;&amp;make-it-red.tabs.advanced.label;&quot;</span><span class="nt">/&gt;</span>
+</code></pre></div>
+
+<p>with this code containing a Fluent identifier:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;tab</span><span class="w"> </span><span class="na">data-l10n-id=</span><span class="s">&quot;make-it-red-tabs-advanced&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+</code></pre></div>
+
+<p>You would then change the accompanying line in your .dtd file:</p>
+<div class="codehilite"><pre><span></span><code><span class="cp">&lt;!ENTITY make-it-red.tabs.advanced.label  &quot;Advanced&quot;&gt;</span>
+</code></pre></div>
+
+<p>into this Fluent statement in your .ftl file:</p>
+<div class="codehilite"><pre><span></span><code><span class="na">make-it-red-tabs-advanced</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="na">.label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">Advanced</span>
+</code></pre></div>
+
+<p>Note that the <code>.label</code> in the DTD entity is just a convention. In the Fluent identifier, <code>.label</code> specifies the <code>label</code> attribute as the target for the string substitution.</p>
+<p>Unlike with DTDs, you can also specify arguments for strings as JSON:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;tab</span><span class="w"> </span><span class="na">data-l10n-id=</span><span class="s">&quot;make-it-red-intro-message&quot;</span><span class="w"> </span><span class="na">data-l10n-args=</span><span class="s">&#39;{&quot;name&quot;: &quot;Stephanie&quot;}&#39;</span><span class="nt">/&gt;</span>
+</code></pre></div>
+
+<p>See the <a href="https://firefox-source-docs.mozilla.org/l10n/fluent/tutorial.html#markup-localization">Mozilla documentation</a> for more examples of using Fluent in markup.</p>
+<h4 id="replacing_properties_files">Replacing .properties Files<a class="headerlink" href="#replacing_properties_files" title="Permanent link">#</a></h4>
+<p>Fluent’s markup-based approach can also be used to set or update strings at runtime. Every DOM document contains a <code>document.l10n</code> property, which is an object of type <a href="https://searchfox.org/mozilla-esr102/source/dom/webidl/DOMLocalization.webidl">DOMLocalization</a>. Once you’ve added a <link> for your .ftl file to the document, you can call <code>document.l10n.setAttributes()</code> or <code>document.l10n.setArgs()</code> to dynamically set or update an element’s localization:</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">document</span><span class="p">.</span><span class="nx">l10n</span><span class="p">.</span><span class="nx">setAttributes</span><span class="p">(</span><span class="nx">element</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;make-it-red-alternative-color&quot;</span><span class="p">);</span>
+</code></pre></div>
+
+<p>This sets the <code>data-l10n-id</code> attribute of the element.</p>
+<p>You can also set the id and arguments (<code>data-l10n-args</code>) at the same time:</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">document</span><span class="p">.</span><span class="nx">l10n</span><span class="p">.</span><span class="nx">setAttributes</span><span class="p">(</span><span class="nx">element</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;make-it-red-alternative-color&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">color</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Green&#39;</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<p>Or you can update just the arguments:</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">document</span><span class="p">.</span><span class="nx">l10n</span><span class="p">.</span><span class="nx">setArgs</span><span class="p">(</span><span class="nx">element</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">color</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Green&#39;</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<p>For cases where you need to retrieve a string within the context of a window but not apply it to the DOM, such as to show a prompt with <code>confirmEx()</code>, you can use <code>document.l10n</code>’s <a href="https://searchfox.org/mozilla-esr102/source/dom/webidl/Localization.webidl">Localization</a> interface:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">var</span><span class="w"> </span><span class="nx">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nb">document</span><span class="p">.</span><span class="nx">l10n</span><span class="p">.</span><span class="nx">formatValue</span><span class="p">(</span><span class="s1">&#39;make-it-red-intro-message&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">name</span><span class="w"> </span><span class="p">});</span>
+<span class="nx">alert</span><span class="p">(</span><span class="nx">msg</span><span class="p">);</span>
+</code></pre></div>
+
+<p>If you really need to generate a localized string completely outside the context of a window, you can create a <code>Localization</code> object once within a given scope and then call that object’s <code>formatValue()</code> method (or one of the other <code>Localization</code> methods):</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">var</span><span class="w"> </span><span class="nx">l10n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Localization</span><span class="p">([</span><span class="s2">&quot;make-it-red.ftl&quot;</span><span class="p">]);</span>
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code><span class="kd">var</span><span class="w"> </span><span class="nx">caption</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">l10n</span><span class="p">.</span><span class="nx">formatValue</span><span class="p">(</span><span class="s1">&#39;make-it-red-prefs-color-caption&#39;</span><span class="p">);</span>
+</code></pre></div>
+
+<p>To include arguments, pass an object instead of a string:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">var</span><span class="w"> </span><span class="nx">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">l10n</span><span class="p">.</span><span class="nx">formatValue</span><span class="p">(</span><span class="s1">&#39;make-it-red-welcome-message&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;Stephanie&quot;</span><span class="w"> </span><span class="p">});</span>
+</code></pre></div>
+
+<p>Additional functions are also available for retrieving multiple values at once (<code>formatValues</code>) and for retrieving attributes when strings are shared with the markup-based approach. See the <a href="https://searchfox.org/mozilla-esr102/source/dom/webidl/Localization.webidl">Localization interface definition</a> for full details.</p>
+<p>(It’s also possible to use the <code>Localization</code> interface synchronously by passing <code>true</code> as the second parameter to the constructor and using synchronous methods such as <code>formatValueSync()</code>, but this performs synchronous IO and is strongly discouraged by Mozilla.)</p>
+<h4 id="avoiding_localization_conflicts">Avoiding Localization Conflicts<a class="headerlink" href="#avoiding_localization_conflicts" title="Permanent link">#</a></h4>
+<p><strong>Fluent identifiers within a given DOM document share a global namespace.</strong> If adding a Fluent file to a shared document — the main Zotero window, the Zotero preferences, etc. — you must prefix all identifiers in the file with your plugin’s name (e.g., <code>make-it-red-prefs-shade-of-red</code>). A prefix isn’t necessary if a Fluent file is only added to your own document.</p>
+<p><strong>Fluent filenames also share a global namespace.</strong> If you don’t name your .ftl files after your plugin, you must place them within a subfolder of each locale folder to avoid conflicts:</p>
+<div class="codehilite"><pre><span></span><code>locale/en-US/make-it-red/main.ftl
+locale/en-US/make-it-red/preferences.ftl
+locale/fr-FR/make-it-red/main.ftl
+locale/fr-FR/make-it-red/preferences.ftl
+locale/zh-CN/make-it-red/main.ftl
+locale/zh-CN/make-it-red/preferences.ftl
+</code></pre></div>
+
+<p>If using a subfolder, include the subfolder when referencing the file (e.g., <code>href="/support/dev/zotero_7_for_developers/make-it-red/preferences.ftl"</code>).</p>
+<p>For most plugins, a single file named after the plugin is likely a better approach.</p>
+<h3 id="default_preferences">Default Preferences<a class="headerlink" href="#default_preferences" title="Permanent link">#</a></h3>
+<p>In Zotero 6, default preferences could be set by creating .js files in your plugin’s <code>defaults/preferences/</code> folder:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">pref</span><span class="p">(</span><span class="s2">&quot;extensions.make-it-red.intensity&quot;</span><span class="p">,</span><span class="w"> </span><span class="mf">100</span><span class="p">);</span>
+</code></pre></div>
+
+<p>These default preferences are loaded automatically at startup. While this works fine for overlay plugins, which require a restart, bootstrapped plugins can be installed or enabled at any time, and their default preferences are not read until Zotero is restarted.</p>
+<p><strong>In Zotero 7, default preferences should be placed in a <code>prefs.js</code> file in the plugin root</strong>, following the same format as above. These preferences will be read when plugins are installed or enabled and then on every startup.</p>
+<h4 id="transition_process_2">Transition Process<a class="headerlink" href="#transition_process_2" title="Permanent link">#</a></h4>
+<p>If your plugin will work in overlay mode in Zotero 6 and bootstrap mode in Zotero 7, create <code>defaults/preferences/prefs.js</code> and add a step to your build process to copy it to <code>prefs.js</code> in the plugin root.</p>
+<p>If your plugin is a bootstrapped plugin for both Zotero 6 and 7, create only <code>prefs.js</code> in your plugin root. You can then force Zotero 6 to read preferences from that file every time it starts up. See <a href="https://github.com/zotero/make-it-red/blob/32cf7816c2bab487dbf06d08fc75c722222d9f38/src-1.2/bootstrap.js#L61-L82">setDefaultPrefs()</a> and the <a href="https://github.com/zotero/make-it-red/blob/32cf7816c2bab487dbf06d08fc75c722222d9f38/src-1.2/bootstrap.js#L101-L104">conditional call in startup()</a> from Make It Red 1.2 for an example.</p>
+<h3 id="preference_panes">Preference Panes<a class="headerlink" href="#preference_panes" title="Permanent link">#</a></h3>
+<p>Zotero now includes a built-in function to register a preference pane. In your plugin’s <code>startup</code> function:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">Zotero</span><span class="p">.</span><span class="nx">PreferencePanes</span><span class="p">.</span><span class="nx">register</span><span class="p">({</span>
+<span class="w">    </span><span class="nx">pluginID</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;make-it-red@zotero.org&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">src</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;prefs.xhtml&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">scripts</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;prefs.js&#39;</span><span class="p">],</span>
+<span class="w">    </span><span class="nx">stylesheets</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;prefs.css&#39;</span><span class="p">],</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<p><a href="https://github.com/zotero/zotero/blob/main/chrome/content/zotero/xpcom/preferencePanes.js">More advanced options are supported.</a></p>
+<p>The pane’s <code>src</code> should point to a file containing a XUL/XHTML fragment. Fragments cannot have a <code>&lt;!DOCTYPE</code>. The default namespace is XUL, and HTML tags are accessible under <code>html:</code>. A simple pane could look like:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;vbox</span><span class="w"> </span><span class="na">onload=</span><span class="s">&quot;MakeItRed_Preferences.init()&quot;</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;groupbox&gt;</span>
+<span class="w">        </span><span class="nt">&lt;label&gt;&lt;html:h2&gt;</span>Colors<span class="nt">&lt;/html:h2&gt;&lt;/label&gt;</span>
+<span class="w">        </span><span class="cm">&lt;!-- [...] --&gt;</span>
+<span class="w">    </span><span class="nt">&lt;/groupbox&gt;</span>
+<span class="nt">&lt;/vbox&gt;</span>
+</code></pre></div>
+
+<p>Organizing your pane as a sequence of top-level <code>&lt;groupbox&gt;</code>es ’ will optimize it for the new preferences search mechanism. By default, all text in the DOM is searchable. If you want to manually add keywords to an element (for example, a button that opens a dialog), set its <code>data-search-strings-raw</code> property to a comma-separated list.</p>
+<p>To use Fluent for <a href="#localization">localization</a>, include one or more HTML <code>&lt;link&gt;</code> elements within a XUL <code>&lt;linkset&gt;</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;linkset&gt;</span>
+<span class="w">    </span><span class="nt">&lt;html:link</span><span class="w"> </span><span class="na">rel=</span><span class="s">&quot;localization&quot;</span><span class="w"> </span><span class="na">href=</span><span class="s">&quot;make-it-red.ftl&quot;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;/linkset&gt;</span>
+</code></pre></div>
+
+<p>Note that all <code>class</code>, <code>id</code>, and <code>data-l10n-id</code> in the preference pane should be namespaced to avoid conflicting between plugins.</p>
+<h4 id="preference_tags_and_preference_binding">&lt;preference&gt; Tags and Preference Binding<a class="headerlink" href="#preference_tags_and_preference_binding" title="Permanent link">#</a></h4>
+<p>Zotero 6 preference panes use <code>&lt;preference&gt;</code> tags to assign pane-local IDs to preference keys and bind form fields to them. For example, a Zotero 6 pane might have included:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;preferences&gt;</span>
+<span class="w">    </span><span class="nt">&lt;preference</span><span class="w"> </span><span class="na">id=</span><span class="s">&quot;pref-makeItRed-color&quot;</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;extensions.zotero.makeItRed.color&quot;</span><span class="w"> </span><span class="na">type=</span><span class="s">&quot;string&quot;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;/preferences&gt;</span>
+<span class="cm">&lt;!-- ... --&gt;</span>
+<span class="nt">&lt;html:input</span><span class="w"> </span><span class="na">type=</span><span class="s">&quot;text&quot;</span><span class="w"> </span><span class="na">preference=</span><span class="s">&quot;pref-makeItRed-color&quot;</span><span class="nt">/&gt;</span>
+</code></pre></div>
+
+<p>That markup would create a textbox whose value is bound to <code>extensions.zotero.makeItRed.color</code>.</p>
+<p>Zotero 7 supports binding fields to preferences in almost the same way, without the <code>&lt;preference&gt;</code> tag. Instead, the field is bound directly to the preference key. For example:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;html:input</span><span class="w"> </span><span class="na">type=</span><span class="s">&quot;text&quot;</span><span class="w"> </span><span class="na">preference=</span><span class="s">&quot;extensions.zotero.makeItRed.color&quot;</span><span class="nt">/&gt;</span>
+</code></pre></div>
+
+<p>Zotero 6 also supported getting and setting preferences through <code>&lt;preferences&gt;</code> tags. For example, in the Zotero 6 example above, JavaScript code could get the value of <code>extensions.zotero.makeItRed.color</code> by calling <code>document.getElementById('pref-makeItRed-color').value</code>. This is no longer supported — call <code>Zotero.Prefs.get()</code> directly.</p>
+<h3 id="custom_item_tree_columns">Custom Item Tree Columns<a class="headerlink" href="#custom_item_tree_columns" title="Permanent link">#</a></h3>
+<p>Zotero 7 adds an API for creating custom columns in the item tree. The item tree is widely used in Zotero for displaying a table of items (e.g., the items list in the main library view and the search results in the Advanced Search window).</p>
+<p>If you were previously using monkey-patching to add custom columns in Zotero 6, please switch to using the official API in Zotero 7.</p>
+<p>The example below shows how to register a custom column with the item title reversed. <code>dataKey</code>, <code>label</code>, and <code>pluginID</code> are required.</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">registeredDataKey</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">Zotero</span><span class="p">.</span><span class="nx">ItemTreeManager</span><span class="p">.</span><span class="nx">registerColumn</span><span class="p">({</span>
+<span class="w">    </span><span class="nx">dataKey</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;rtitle&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Reversed Title&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">pluginID</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;make-it-red@zotero.org&#39;</span><span class="p">,</span><span class="w"> </span><span class="c1">// Replace with your plugin ID</span>
+<span class="w">    </span><span class="nx">dataProvider</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">item</span><span class="p">,</span><span class="w"> </span><span class="nx">dataKey</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">item</span><span class="p">.</span><span class="nx">getField</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">).</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">).</span><span class="nx">reverse</span><span class="p">().</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<p>More advanced options are documented in the <a href="https://github.com/zotero/zotero/blob/main/chrome/content/zotero/xpcom/pluginAPI/itemTreeManager.js">source code</a>.</p>
+<p>When the plugin is disabled or uninstalled, custom columns with the corresponding <code>pluginID</code> will be automatically removed. If you want to unregister a custom column manually, you can use <code>unregisterColumn()</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">await</span><span class="w"> </span><span class="nx">Zotero</span><span class="p">.</span><span class="nx">ItemTreeManager</span><span class="p">.</span><span class="nx">unregisterColumn</span><span class="p">(</span><span class="nx">registeredDataKey</span><span class="p">);</span>
+</code></pre></div>
+
+<p>If you encounter any problem with this API, please let us know on the <a href="https://groups.google.com/g/zotero-dev">dev list</a>.</p>
+<h3 id="custom_item_pane_sections">Custom Item Pane Sections<a class="headerlink" href="#custom_item_pane_sections" title="Permanent link">#</a></h3>
+<p>The item pane in Zotero 7 has undergone a complete redesign, with the horizontal tabs (Info, Tags, Notes, etc.) replaced by collapsible vertical sections and a side navigation bar for quick access to specific sections.</p>
+<p>A new API in Zotero 7 allows plugins to create custom sections. Plugins should use this official API rather than manually injecting content into the item pane.</p>
+<p>The example below shows how to register a custom section with the item details (e.g., <code>id</code> and <code>editable</code>) displayed. <code>paneID</code>, <code>pluginID</code>, <code>header</code>, and <code>sidenav</code> are required.</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">registeredID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">Zotero</span><span class="p">.</span><span class="nx">ItemPaneManager</span><span class="p">.</span><span class="nx">registerSection</span><span class="p">({</span>
+<span class="w">    </span><span class="nx">paneID</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;custom-section-example&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">pluginID</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;example@example.com&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">header</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">l10nID</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;example-item-pane-header&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">icon</span><span class="o">:</span><span class="w"> </span><span class="nx">rootURI</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s2">&quot;icons/16/universal/book.svg&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nx">sidenav</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">l10nID</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;example-item-pane-header&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">icon</span><span class="o">:</span><span class="w"> </span><span class="nx">rootURI</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s2">&quot;icons/20/universal/book.svg&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nx">onRender</span><span class="o">:</span><span class="w"> </span><span class="p">({</span><span class="w"> </span><span class="nx">body</span><span class="p">,</span><span class="w"> </span><span class="nx">item</span><span class="p">,</span><span class="w"> </span><span class="nx">editable</span><span class="p">,</span><span class="w"> </span><span class="nx">tabType</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">body</span><span class="p">.</span><span class="nx">textContent</span>
+<span class="w">            </span><span class="o">=</span><span class="w"> </span><span class="nb">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">({</span>
+<span class="w">                </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="nx">item</span><span class="o">?</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span>
+<span class="w">                </span><span class="nx">editable</span><span class="p">,</span>
+<span class="w">                </span><span class="nx">tabType</span><span class="p">,</span>
+<span class="w">            </span><span class="p">});</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<p>More advanced options are documented in the <a href="https://github.com/zotero/zotero/blob/main/chrome/content/zotero/xpcom/pluginAPI/itemPaneManager.js">source code</a>.</p>
+<p>When the plugin is disabled or uninstalled, custom sections with the corresponding <code>pluginID</code> will be automatically removed. If you want to unregister a custom column manually, you can use <code>unregisterSection()</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">Zotero</span><span class="p">.</span><span class="nx">ItemPaneManager</span><span class="p">.</span><span class="nx">unregisterSection</span><span class="p">(</span><span class="nx">registeredID</span><span class="p">);</span>
+</code></pre></div>
+
+<p>If you encounter any problem with this API, please let us know on the <a href="https://groups.google.com/g/zotero-dev">dev list</a>.</p>
+<h3 id="custom_item_pane_info_section_rows">Custom Item Pane Info Section Rows<a class="headerlink" href="#custom_item_pane_info_section_rows" title="Permanent link">#</a></h3>
+<p>A new API allows plugins to create custom sections. Plugins should use this official API rather than manually injecting content into the item pane’s info section.</p>
+<p>The example below shows registering a custom row, which displays the reversed title of the item.</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">registeredID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">Zotero</span><span class="p">.</span><span class="nx">ItemPaneManager</span><span class="p">.</span><span class="nx">registerInfoRow</span><span class="p">({</span>
+<span class="w">    </span><span class="nx">rowID</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;custom-info-row-example&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">pluginID</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;example@example.com&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">l10nID</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;general-print&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nx">position</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;afterCreators&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">multiline</span><span class="o">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">nowrap</span><span class="o">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">editable</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">onGetData</span><span class="p">({</span><span class="w"> </span><span class="nx">rowID</span><span class="p">,</span><span class="w"> </span><span class="nx">item</span><span class="p">,</span><span class="w"> </span><span class="nx">tabType</span><span class="p">,</span><span class="w"> </span><span class="nx">editable</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">item</span><span class="p">.</span><span class="nx">getField</span><span class="p">(</span><span class="s2">&quot;title&quot;</span><span class="p">).</span><span class="nx">split</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">).</span><span class="nx">reverse</span><span class="p">().</span><span class="nx">join</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nx">onSetData</span><span class="p">({</span><span class="w"> </span><span class="nx">rowID</span><span class="p">,</span><span class="w"> </span><span class="nx">item</span><span class="p">,</span><span class="w"> </span><span class="nx">tabType</span><span class="p">,</span><span class="w"> </span><span class="nx">editable</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">Zotero</span><span class="p">.</span><span class="nx">debug</span><span class="p">(</span><span class="sb">`Set custom info row </span><span class="si">${</span><span class="nx">rowID</span><span class="si">}</span><span class="sb"> of item </span><span class="si">${</span><span class="nx">item</span><span class="p">.</span><span class="nx">id</span><span class="si">}</span><span class="sb"> to </span><span class="si">${</span><span class="nx">value</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<p>More advanced options are documented in the <a href="https://github.com/zotero/zotero/blob/main/chrome/content/zotero/xpcom/pluginAPI/itemPaneManager.js">source code</a>.</p>
+<p>When the plugin is disabled or uninstalled, custom rows with the corresponding <code>pluginID</code> will be automatically removed. If you want to unregister a custom row manually, you can use <code>unregisterInfoRow()</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">Zotero</span><span class="p">.</span><span class="nx">ItemPaneManager</span><span class="p">.</span><span class="nx">unregisterInfoRow</span><span class="p">(</span><span class="nx">registeredID</span><span class="p">);</span>
+</code></pre></div>
+
+<p>If you encounter any problem with this API, please let us know on the <a href="https://groups.google.com/g/zotero-dev">dev list</a>.</p>
+<h3 id="custom_reader_event_handlers">Custom Reader Event Handlers<a class="headerlink" href="#custom_reader_event_handlers" title="Permanent link">#</a></h3>
+<p>Zotero 7 adds an API for creating custom reader event handlers. Available event types are:</p>
+<ul>
+<li><code>renderTextSelectionPopup</code>: inject DOM event, triggered when the selection popup is rendered</li>
+<li><code>renderSidebarAnnotationHeader</code>: inject DOM event, triggered when the left sidebar’s annotation header line is rendered</li>
+<li><code>renderToolbar</code>: inject DOM event, triggered when the reader’s top toolbar is rendered</li>
+<li><code>createColorContextMenu</code>: context menu event, triggered when the top toolbar’s color picker menu is created</li>
+<li><code>createViewContextMenu</code>: context menu event, triggered when the viewer’s right-click menu is created</li>
+<li><code>createAnnotationContextMenu</code>: context menu event, triggered when the left sidebar’s annotation right-click menu is created</li>
+<li><code>createThumbnailContextMenu</code>: context menu event, triggered when the left sidebar’s thumbnail right-click menu is created</li>
+<li><code>createSelectorContextMenu</code>: context menu event, triggered when the left sidebar’s tag selector right-click menu is created</li>
+</ul>
+<p>With the corresponding type of event handler registered, you can inject DOM nodes to reader UI parts:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">let</span><span class="w"> </span><span class="nx">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;renderTextSelectionPopup&quot;</span><span class="p">;</span><span class="w"> </span><span class="c1">// Or other inject DOM event</span>
+<span class="kd">let</span><span class="w"> </span><span class="nx">handler</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">event</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">reader</span><span class="p">,</span><span class="w"> </span><span class="nx">doc</span><span class="p">,</span><span class="w"> </span><span class="nx">params</span><span class="p">,</span><span class="w"> </span><span class="nx">append</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">event</span><span class="p">;</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">container</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">doc</span><span class="p">.</span><span class="nx">createElement</span><span class="p">(</span><span class="s2">&quot;div&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="nx">container</span><span class="p">.</span><span class="nx">append</span><span class="p">(</span><span class="s2">&quot;Loading…&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="nx">append</span><span class="p">(</span><span class="nx">container</span><span class="p">);</span>
+<span class="w">    </span><span class="nx">setTimeout</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">container</span><span class="p">.</span><span class="nx">replaceChildren</span><span class="p">(</span><span class="s2">&quot;Translated text: &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">params</span><span class="p">.</span><span class="nx">annotation</span><span class="p">.</span><span class="nx">text</span><span class="p">),</span><span class="w"> </span><span class="mf">1000</span><span class="p">);</span>
+<span class="p">};</span>
+<span class="kd">let</span><span class="w"> </span><span class="nx">pluginID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;make-it-red@zotero.org&quot;</span><span class="p">;</span><span class="w"> </span><span class="c1">// Use your plugin ID</span>
+<span class="nx">Zotero</span><span class="p">.</span><span class="nx">Reader</span><span class="p">.</span><span class="nx">registerEventListener</span><span class="p">(</span><span class="nx">type</span><span class="p">,</span><span class="w"> </span><span class="nx">handler</span><span class="p">,</span><span class="w"> </span><span class="nx">pluginID</span><span class="p">);</span>
+</code></pre></div>
+
+<p>or add options to context menus:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">let</span><span class="w"> </span><span class="nx">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;createAnnotationContextMenu&quot;</span><span class="p">;</span><span class="w"> </span><span class="c1">// Or other context menu event</span>
+<span class="kd">let</span><span class="w"> </span><span class="nx">handler</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">event</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">reader</span><span class="p">,</span><span class="w"> </span><span class="nx">params</span><span class="p">,</span><span class="w"> </span><span class="nx">append</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">event</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">append</span><span class="p">({</span>
+<span class="w">        </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;Test&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">onCommand</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">reader</span><span class="p">.</span><span class="nx">_iframeWindow</span><span class="p">.</span><span class="nx">alert</span><span class="p">(</span><span class="s2">&quot;Selected annotations: &quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">params</span><span class="p">.</span><span class="nx">ids</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="p">));</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="p">};</span>
+<span class="kd">let</span><span class="w"> </span><span class="nx">pluginID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;make-it-red@zotero.org&quot;</span><span class="p">;</span><span class="w"> </span><span class="c1">// Use your plugin ID</span>
+<span class="nx">Zotero</span><span class="p">.</span><span class="nx">Reader</span><span class="p">.</span><span class="nx">registerEventListener</span><span class="p">(</span><span class="nx">type</span><span class="p">,</span><span class="w"> </span><span class="nx">handler</span><span class="p">,</span><span class="w"> </span><span class="nx">pluginID</span><span class="p">);</span>
+</code></pre></div>
+
+<p>When the plugin is disabled or uninstalled, custom event handlers with the corresponding <code>pluginID</code> will be automatically removed. If you want to unregister manually:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">Zotero</span><span class="p">.</span><span class="nx">Reader</span><span class="p">.</span><span class="nx">unregisterEventListener</span><span class="p">(</span><span class="nx">type</span><span class="p">,</span><span class="w"> </span><span class="nx">handler</span><span class="p">);</span>
+</code></pre></div>
+
+<p>More details are in the <a href="https://github.com/zotero/zotero/blob/main/chrome/content/zotero/xpcom/reader.js">source code</a>.</p>
+<p>If you encounter any problem with this API, please let us know on the <a href="https://groups.google.com/g/zotero-dev">dev list</a>.</p>
+<h2 id="other_platform_changes">Other Platform Changes<a class="headerlink" href="#other_platform_changes" title="Permanent link">#</a></h2>
+<p>Mozilla made many other changes between Firefox 60 and Firefox 115 that affect both Zotero code and plugin code, and Zotero 7 includes other API changes as well.</p>
+<h3 id="mozilla_platform">Mozilla Platform<a class="headerlink" href="#mozilla_platform" title="Permanent link">#</a></h3>
+<p>The following list includes nearly all Mozilla changes that affected Zotero code. You may encounter other breaking changes if you use APIs not used in Zotero. <a href="https://searchfox.org/">Searchfox</a> is the best resource for identifying current correct usage in Mozilla code and changes between Firefox 60 and Firefox 115.</p>
+<p>Earlier Zotero 7 beta releases were based on Firefox 102, so we’ve listed changes for Firefox 102 and 115.</p>
+<h4 id="firefox_60_firefox_102">Firefox 60 → Firefox 102<a class="headerlink" href="#firefox_60_firefox_102" title="Permanent link">#</a></h4>
+<ul>
+<li>All <code>.xul</code> files must be renamed to <code>.xhtml</code></li>
+<li>Some XUL elements were removed; others were converted to Custom Elements that can be used more or less the same way</li>
+<li>File operations beyond <a href="https://github.com/zotero/zotero/blob/main/chrome/content/zotero/xpcom/file.js">Zotero.File</a> methods should use <a href="https://firefox-source-docs.mozilla.org/dom/ioutils_migration.html">IOUtils</a> and <a href="https://searchfox.org/mozilla-esr102/source/dom/chrome-webidl/PathUtils.webidl">PathUtils</a> instead of OS.File and OS.Path</li>
+<li><code>&lt;wizard&gt;</code> is now placed within a <code>&lt;window&gt;</code> and has some API changes (<a href="https://github.com/zotero/zotero/pull/2862">example</a>)</li>
+<li><code>createElement()</code>/<code>createElementNS()</code> → <code>createXULElement()</code> for remaining XUL elements (<a href="https://github.com/zotero/zotero/commit/f81b4b071f337728edc3deedda3a5534a676cab3">example</a>)</li>
+<li>Top-level <code>&lt;dialog&gt;…&lt;/dialog&gt;</code> → <code>&lt;window&gt;&lt;dialog&gt;…&lt;/dialog&gt;&lt;/window&gt;</code> and dialog button/event changes (<a href="https://github.com/zotero/zotero/commit/516c76a4ab0ebb176805876447c7e40a2db857ac">example</a>)</li>
+<li>XBL support removed — convert to Custom Elements (<a href="https://github.com/zotero/zotero/commit/db0ac723fad1c879501cfa2c3c032eb3d1677664">example</a>)</li>
+<li><code>nsIDOMParser</code> → <code>new DOMParser()</code> (<a href="https://github.com/zotero/zotero/commit/dd2ff63019b5c9704ac43c869bd68e7ea7f610a8">example</a>)</li>
+<li><code>nsIDOMSerializer</code> → <code>new XMLSerializer()</code> (<a href="https://github.com/zotero/zotero/commit/55fe6f33f542ddab38a06dd48d6f36041a6be254">example</a>)</li>
+<li>XUL <code>document.getElementsByAttribute()</code> → <code>document.querySelectorAll()</code> (<a href="https://github.com/zotero/zotero/commit/13b9837524b5fa47c2f2c81a0be503326a3884ee">example</a>)</li>
+<li><code>openPopup(anchor, position, clientX, clientY, isContextMenu)</code> → <code>openPopupAtScreen(screenX, screenY, isContextMenu)</code> (<a href="https://github.com/zotero/zotero/commit/7c458b9bd35ab90f45c8dbb2f4988ef589da0225">example</a>)</li>
+<li><code>.boxObject</code> removed (<a href="https://github.com/zotero/zotero/commit/26c4bea4fd29a94ee3779503ee85bde925e703b6">example</a>)</li>
+<li><code>&lt;browser&gt;</code> → <code>&lt;browser maychangeremoteness="true"&gt;</code> when loading HTML content (<a href="https://github.com/zotero/zotero/commit/f05d6fe0e0bfea59825af68e8687bbf665876d55">example</a>)</li>
+<li><code>nsIIdleService</code> → <code>nsIUserIdleService</code> (<a href="https://github.com/zotero/zotero/commit/f91bf49aae8bb5d3790b545f8f03325befc38c85">example</a>)</li>
+<li><code>XPCOMUtils.generateQI()</code> → <code>ChromeUtils.generateQI()</code> (<a href="https://github.com/zotero/zotero/commit/ccbc78549901400deeb6f395e1df9f34d98d14ca">example</a>)</li>
+<li><code>nsIWebNavigation::loadURI()</code> signature change (<a href="https://github.com/zotero/zotero/commit/1bb99a6bc8c149f550b16c6fb6357d94d5aec67d">example</a>)</li>
+<li><code>&lt;textbox type="search"&gt;</code> → <code>&lt;search-textbox&gt;</code> (<a href="https://github.com/zotero/zotero/commit/a54da965a7c85c42d23644f1053594c45e640783">example</a>)</li>
+<li>XUL <code>textbox</code> → HTML <code>&lt;input type="text"&gt;</code> (<a href="https://github.com/zotero/zotero/commit/7ee40c46827b60ea04e27eb2a7c5329d8816f283">example</a>)</li>
+<li>XUL <code>&lt;progressmeter&gt;</code> → HTML <code>&lt;progress&gt;</code> (<a href="https://github.com/zotero/zotero/commit/29b270e7618e6b166da2fbefca1617dddf387aed">example</a>)</li>
+<li><code>&lt;label&gt;</code> → <code>&lt;label&gt;&lt;html:h2&gt;</code> within <code>&lt;groupbox&gt;</code> (<a href="https://github.com/zotero/zotero/commit/29bc36c02a194dc447b30c2675a7d7d00f626b43">example</a>)</li>
+<li><code>XULDocument</code> → <code>XMLDocument</code> (<a href="https://github.com/zotero/zotero/commit/fb8984c94757f7b324f697facabd1066d5018c76">example</a>)</li>
+<li><code>Components.interfaces.nsIDOMXULElement</code> → <code>XULElement</code></li>
+<li>XUL tree: <code>tree.treeBoxObject</code> removal and <code>getCellAt()</code> signature change (<a href="https://github.com/zotero/zotero/commit/b6f5d7183f9005b451117e590c2ac766415ba8d7">example</a>)</li>
+<li><code>Components.classes["@mozilla.org/network/standard-url;1"].createInstance(Components.interfaces.nsIURL)</code><br />
+    → <code>Services.io.newURI(url).QueryInterface(Ci.nsIURL)</code> (<a href="https://github.com/zotero/zotero/commit/87decd0f8df4a68c63783a5ebc84211f0baf28d5">example</a>)</li>
+<li><code>getURLSpecFromFile()</code> → <code>Zotero.File.pathToFileURI()</code> (<a href="https://github.com/zotero/zotero/commit/8f7a160ba14d260f2e2f36d2cef2ab155d56adc1">example</a>)</li>
+<li><code>initKeyEvent()</code> → <code>new KeyboardEvent()</code> (<a href="https://github.com/zotero/zotero/commit/f827b9ef50af6fdbc9066201dd2726d50b39bdd2">example</a>)</li>
+<li><code>context</code> removed from <code>onStartRequest()</code>/<code>onDataAvailable()</code>/<code>onStopRequest()</code>/<code>asyncRead()</code> (<a href="https://github.com/zotero/zotero/commit/94c7e0674dfda4c8f1662078269972c898b5e44a">example</a>)</li>
+<li>Use <code>native="true"</code> for native form elements (<a href="https://github.com/zotero/zotero/commit/89587e6b76e043e74d21bbe713d97fb162215040">example</a>)</li>
+<li><code>nsIWebNavigation.loadURI()</code> signature change (<a href="https://github.com/zotero/zotero/commit/abfa09df51cc7a71e34afb77b459a2e24aa64ee4">example</a>)</li>
+<li><code>nsILoginManager::findLogins()</code> signature change (<a href="https://github.com/zotero/zotero/commit/f4675c02dffb4f0dcaa668c77ea1318d278fd646">example</a>)</li>
+<li><code>nsIURI.clone()</code> was removed</li>
+<li><code>AddonManager.getAllAddons()</code> now returns a promise (<a href="https://github.com/zotero/zotero/commit/d635fdda41d382e34dd53cdf4dadaf5071eb38a7">example</a>)</li>
+<li>Custom protocol handler changes (<a href="https://github.com/zotero/zotero/commit/66a60eea649a680a13d64fd290b60b9c450a74c1">example</a>)</li>
+<li><code>goQuitApplication()</code> now takes an <code>event</code> argument (<a href="https://github.com/zotero/zotero/commit/2e26703b5099c054d0043bfb85c4e37f399c8874">example</a>)</li>
+<li><code>Services.console.getMessageArray()</code> returns an actual array (<a href="https://github.com/zotero/zotero/commit/004d5db2c35a83e878e20c98d0118af6755ebbd4">example</a>)</li>
+<li><code>OS.Path.join()</code> silently drops Number arguments (<a href="https://github.com/zotero/zotero/commit/f57c462b8588b466f8f95ba8d1c9bc358134763a">example</a>)</li>
+</ul>
+<h4 id="firefox_102_firefox_115">Firefox 102 → Firefox 115<a class="headerlink" href="#firefox_102_firefox_115" title="Permanent link">#</a></h4>
+<ul>
+<li><code>OS.File</code>, <code>OS.Path</code>, and <code>OS.Constants.Path</code> have been removed in favor of <a href="https://firefox-source-docs.mozilla.org/dom/ioutils_migration.html">IOUtils</a> and <a href="https://searchfox.org/mozilla-esr115/source/dom/chrome-webidl/PathUtils.webidl">PathUtils</a> (which were already available in Firefox 102). To help developers get their code running on 115 as quickly as possible, we’ve created <a href="https://github.com/zotero/zotero/blob/main/chrome/content/zotero/osfile.mjs">shims</a> for most functions, which you can use by adding this line to your files:<br />
+<code>var { OS } = ChromeUtils.importESModule("chrome://zotero/content/osfile.mjs");</code><br />
+    You should update your code to use <code>IOUtils</code> and <code>PathUtils</code> as soon as possible rather than relying on these shims long-term. (<a href="https://github.com/zotero/zotero/commit/920461cd9de098b230c9298015e6c9563123f558">examples</a>)</li>
+<li>UI now uses modern flexbox instead of XUL layout, so Mozilla CSS properties need to be replaced with standard properties (e.g., <code>-moz-box-flex: 1</code> → <code>flex: 1</code>) and there are various layout differences (<a href="https://github.com/zotero/zotero/commit/de42dce16ed155b5d180587d965f4745093353ed">example</a>; <a href="https://groups.google.com/a/mozilla.org/g/firefox-dev/c/9sGpF1TNbLk/m/QpU3oTUuAgAJ">details</a>)</li>
+<li>Most Mozilla JSM modules have been renamed to <code>.sys.mjs</code> and must be imported with <code>ChromeUtils.importESModule()</code> or <code>ChromeUtils.defineESModuleGetters()</code></li>
+<li><code>nsIPromptService</code> → <code>Services.prompt</code> (<a href="https://github.com/zotero/zotero/commit/b6a597a7f920e98b22ff369bcadea8d7dc1f09e6">example</a>)</li>
+<li><code>loadURI()</code> signature change (<a href="https://github.com/zotero/zotero/commit/e76c6c6a1a83df3cc9e04129d1c785c28ab57ae4">example</a>)</li>
+<li><code>width</code> and <code>height</code> attributes are no longer recognized on XUL elements (<code>window</code>, <code>wizard</code>, <code>box</code>, etc.). Can be replaced with CSS rules (<code>min-width</code>, <code>width</code>, <code>max-width</code>, etc.). (<a href="https://github.com/zotero/zotero/commit/db499fdf2bd51489eaeea1f93f085816f65d5292">example</a>)</li>
+</ul>
+<p>Additionally, while a Zotero-specific change, the import line for <code>FilePicker</code> has changed for Firefox 115:<br />
+<code>var { FilePicker } = ChromeUtils.importESModule('chrome://zotero/content/modules/filePicker.mjs');</code></p>
+<h3 id="zotero_platform">Zotero Platform<a class="headerlink" href="#zotero_platform" title="Permanent link">#</a></h3>
+<ul>
+<li><code>DB.executeTransaction()</code> no longer takes generator functions — use <code>async</code>/<code>await</code> (<a href="https://github.com/zotero/zotero/commit/03242e89846fe88e1c111a302793335bcf6c682a">example</a>)</li>
+<li><code>tooltiptext</code> → <code>title</code> — works automatically in existing windows; in new windows, requires a <a href="https://docs.huihoo.com/mozilla/xul/elemref/ref_tooltip.html">XUL &lt;tooltip id=”html-tooltip”&gt; element</a> and a <code>tooltip="html-tooltip"</code> attribute on the <code>&lt;window&gt;</code> (<a href="https://github.com/zotero/zotero/commit/d018133e9bf691434e061c1f7f5b093cce09be09">example</a>)</li>
+<li><code>Zotero.Browser</code> → <code>HiddenBrowser.jsm</code> — post on dev list for further discussion if you’re currently relying on a hidden browser (<a href="https://github.com/zotero/zotero/commit/6a2949be8a87aebe5ddadd881e4ea22d8b5a8f60">details</a>)</li>
+<li>The import line for <code>FilePicker</code> has changed:<br />
+<code>var { FilePicker } = ChromeUtils.importESModule('chrome://zotero/content/modules/filePicker.mjs');</code></li>
+<li><code>Zotero.platform</code> and <code>Zotero.oscpu</code> have been removed; use <code>Zotero.isWin/isMac/isLinux</code> for platform conditionals, <code>Zotero.getOSVersion()</code> for the OS version, and <code>Zotero.arch</code> for the architecture</li>
+<li>In an upcoming beta, most PNG icons will be removed or replaced by their SVG versions. You can search for the new icons in <code>chrome/skin/default/zotero</code>.</li>
+</ul>
+  </article>
+  
+  
+  
+  
+    <aside class="zotero-docs-toc">
+      
+      <div class="zotero-docs-toc-title">On this page</div>
+      <ul>
+        
+  <li>
+    <a href="#zotero_7_for_developers">Zotero 7 for Developers</a>
+    
+      <ul>
+        
+  <li>
+    <a href="#feedback">Feedback</a>
+    
+  </li>
+
+  <li>
+    <a href="#dev_builds">Dev Builds</a>
+    
+  </li>
+
+  <li>
+    <a href="#sample_plugin">Sample Plugin</a>
+    
+  </li>
+
+  <li>
+    <a href="#using_the_firefox_developer_tools">Using the Firefox Developer Tools</a>
+    
+  </li>
+
+  <li>
+    <a href="#plugin_changes">Plugin Changes</a>
+    
+      <ul>
+        
+  <li>
+    <a href="#installrdf_manifestjson">install.rdf → manifest.json</a>
+    
+      <ul>
+        
+  <li>
+    <a href="#transition_process">Transition Process</a>
+    
+  </li>
+
+      </ul>
+    
+  </li>
+
+  <li>
+    <a href="#updaterdf_updatesjson">update.rdf → updates.json</a>
+    
+      <ul>
+        
+  <li>
+    <a href="#transition_process_1">Transition Process</a>
+    
+  </li>
+
+      </ul>
+    
+  </li>
+
+  <li>
+    <a href="#xul_overlays_bootstrapjs">XUL Overlays → bootstrap.js</a>
+    
+      <ul>
+        
+  <li>
+    <a href="#plugin_lifecycle_hooks">Plugin Lifecycle Hooks</a>
+    
+  </li>
+
+  <li>
+    <a href="#window_hooks">Window Hooks</a>
+    
+  </li>
+
+      </ul>
+    
+  </li>
+
+  <li>
+    <a href="#chromemanifest_runtime_chrome_registration">chrome.manifest → runtime chrome registration</a>
+    
+  </li>
+
+  <li>
+    <a href="#localization">Localization</a>
+    
+      <ul>
+        
+  <li>
+    <a href="#registering_fluent_files">Registering Fluent Files</a>
+    
+  </li>
+
+  <li>
+    <a href="#using_a_fluent_file_in_a_document">Using a Fluent File in a Document</a>
+    
+  </li>
+
+  <li>
+    <a href="#replacing_dtd_files">Replacing .dtd Files</a>
+    
+  </li>
+
+  <li>
+    <a href="#replacing_properties_files">Replacing .properties Files</a>
+    
+  </li>
+
+  <li>
+    <a href="#avoiding_localization_conflicts">Avoiding Localization Conflicts</a>
+    
+  </li>
+
+      </ul>
+    
+  </li>
+
+  <li>
+    <a href="#default_preferences">Default Preferences</a>
+    
+      <ul>
+        
+  <li>
+    <a href="#transition_process_2">Transition Process</a>
+    
+  </li>
+
+      </ul>
+    
+  </li>
+
+  <li>
+    <a href="#preference_panes">Preference Panes</a>
+    
+      <ul>
+        
+  <li>
+    <a href="#preference_tags_and_preference_binding">&lt;preference&gt; Tags and Preference Binding</a>
+    
+  </li>
+
+      </ul>
+    
+  </li>
+
+  <li>
+    <a href="#custom_item_tree_columns">Custom Item Tree Columns</a>
+    
+  </li>
+
+  <li>
+    <a href="#custom_item_pane_sections">Custom Item Pane Sections</a>
+    
+  </li>
+
+  <li>
+    <a href="#custom_item_pane_info_section_rows">Custom Item Pane Info Section Rows</a>
+    
+  </li>
+
+  <li>
+    <a href="#custom_reader_event_handlers">Custom Reader Event Handlers</a>
+    
+  </li>
+
+      </ul>
+    
+  </li>
+
+  <li>
+    <a href="#other_platform_changes">Other Platform Changes</a>
+    
+      <ul>
+        
+  <li>
+    <a href="#mozilla_platform">Mozilla Platform</a>
+    
+      <ul>
+        
+  <li>
+    <a href="#firefox_60_firefox_102">Firefox 60 → Firefox 102</a>
+    
+  </li>
+
+  <li>
+    <a href="#firefox_102_firefox_115">Firefox 102 → Firefox 115</a>
+    
+  </li>
+
+      </ul>
+    
+  </li>
+
+  <li>
+    <a href="#zotero_platform">Zotero Platform</a>
+    
+  </li>
+
+      </ul>
+    
+  </li>
+
+      </ul>
+    
+  </li>
+
+      </ul>
+      
+      
+      <div class="zotero-docs-page-meta">
+        
+          <div class="zotero-docs-modified">Last updated 2026-05-23</div>
+        
+        
+          <a class="zotero-docs-edit" href="https://github.com/zotero/zotero-docs/edit/main/content/dev/zotero_7_for_developers.md">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm.176 4.823L9.75 4.81l-6.286 6.287a.253.253 0 0 0-.064.108l-.558 1.953 1.953-.558a.253.253 0 0 0 .108-.064L11.189 6.25Zm2.95-2.12-1.086-1.086a.25.25 0 0 0-.354 0l-1.012 1.012 1.44 1.44 1.012-1.013a.25.25 0 0 0 0-.353Z"/></svg>Edit on GitHub
+          </a>
+        
+      </div>
+      
+    </aside>
+  
+</div>  </div>
+</main>
+
+            <footer class="main-footer">
+				<div class="container">
+					<nav>
+						<ul class="footer-nav">
+							<li class="nav-item"><a href="https://www.zotero.org/support/" class="nav-link">Documentation</a></li>
+							<li class="nav-item"><a href="https://forums.zotero.org/" class="nav-link">Forums</a></li>
+							<li class="nav-item"><a href="https://www.zotero.org/blog/" class="nav-link">Blog</a></li>
+							<li class="nav-item"><a href="https://www.zotero.org/support/privacy" class="nav-link">Privacy</a></li>
+							<li class="nav-item"><a href="https://www.zotero.org/support/terms/terms_of_service" class="nav-link">Terms of Service</a></li>
+							<li class="nav-item"><a href="https://www.zotero.org/getinvolved/" class="nav-link">Get Involved</a></li>
+							<li class="nav-item"><a href="https://www.zotero.org/support/dev/start" class="nav-link">Developers</a></li>
+							<li class="nav-item"><a href="https://www.zotero.org/jobs" class="nav-link">Jobs</a></li>
+						</ul>
+						<ul class="social-nav">
+							<li class="nav-item follow-us">Follow us</li>
+							<li class="nav-item mastodon"><a href="https://fosstodon.org/@zotero/"><img alt="Mastodon icon" width='24px' src="/static/images/icons/mastodon-logo-white.svg"></a></li>
+						</ul>
+					</nav>
+					<div class="credits">
+						<p class="about">Zotero is a project of <a href="http://digitalscholar.org/">Digital Scholar</a>, a nonprofit organization dedicated to the development of software and services for researchers and cultural heritage institutions, and is developed by a <a href="/support/credits_and_acknowledgments">global community</a>.</p>
+					</div>
+				</div>
+			</footer>
+		</div>
+	</body>
+</html>

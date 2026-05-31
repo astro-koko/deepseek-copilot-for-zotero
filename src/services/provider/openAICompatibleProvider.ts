@@ -46,17 +46,20 @@ export function createOpenAICompatibleProvider(
 
     async function* streamGenerator(): AsyncGenerator<string> {
       const decoder = new TextDecoder();
+      let buffer = "";
       try {
         while (true) {
           const { done, value } = await reader!.read(undefined as any);
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n");
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
 
           for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const data = line.slice(6);
+            const trimmedLine = line.trim();
+            if (!trimmedLine.startsWith("data: ")) continue;
+            const data = trimmedLine.slice(6);
             if (data === "[DONE]") return;
 
             try {

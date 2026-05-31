@@ -3,10 +3,14 @@ import type { Thread, Message } from "../../types/thread";
 import { EmptyState } from "./EmptyState";
 
 interface ThreadViewProps {
+  hasScope?: boolean;
   thread: Thread | null;
 }
 
-export const ThreadView: React.FC<ThreadViewProps> = ({ thread }) => {
+export const ThreadView: React.FC<ThreadViewProps> = ({
+  hasScope = false,
+  thread,
+}) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -14,8 +18,6 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ thread }) => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [thread?.messages.length]);
-
-  const hasScope = thread?.scopeSnapshot != null;
 
   if (!thread || thread.messages.length === 0) {
     return (

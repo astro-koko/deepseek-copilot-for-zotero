@@ -1,0 +1,262 @@
+import { describe, expect, it, vi } from "vitest";
+
+import type { ScopeContext } from "../types/scope";
+import type { Thread } from "../types/thread";
+import { createChatSessionStore } from "./chatSession";
+
+function makeThread(
+  overrides: Partial<Thread> = {},
+): Thread {
+  return {
+    id: "thread-1",
+    title: "New Conversation",
+    createdAt: 1,
+    updatedAt: 1,
+    messages: [],
+    ...overrides,
+  };
+}
+
+function makeScope(overrides: Partial<ScopeContext> = {}): ScopeContext {
+  return {
+    type: "paper",
+    id: "paper-1",
+    label: "Paper 1",
+    itemIds: [1],
+    ...overrides,
+  };
+}
+
+async function* streamChunks(...chunks: string[]) {
+  for (const chunk of chunks) {
+    yield chunk;
+  }
+}
+
+describe("chatSession", () => {
+  it("keeps one active thread while the scope changes between surfaces", async () => {
+    const initialScope = makeScope();
+    const nextScope = makeScope({
+      id: "pdf-1",
+      label: "Current PDF",
+      type: "pdf",
+      readerAttachmentId: 99,
+    });
+    const initialThread = makeThread({ scopeSnapshot: initialScope });
+    const transitionedThread = makeThread({
+      id: initialThread.id,
+      scopeSnapshot: nextScope,
+      messages: [
+        {
+          id: "sys-1",
+          role: "system",
+          content: "Context switched to: Current PDF",
+          timestamp: 2,
+        },
+      ],
+      updatedAt: 2,
+    });
+
+    const store = createChatSessionStore({
+      appendMessage: vi.fn(),
+      createThread: vi.fn().mockResolvedValue(initialThread),
+      recordScopeTransition: vi.fn().mockResolvedValue(transitionedThread),
+      sendChatMessage: vi.fn(),
+    });
+
+    await store.newThread(initialScope);
+    await store.syncScope(nextScope);
+
+    expect(store.getSnapshot().activeThread?.id).toBe(initialThread.id);
+    expect(store.getSnapshot().activeThread?.scopeSnapshot).toEqual(nextScope);
+  });
+
+  it("creates a thread and sends the very first message in one action", async () => {
+    const scope = makeScope();
+    const emptyThread = makeThread({ scopeSnapshot: scope });
+    const threadWithUser = makeThread({
+      scopeSnapshot: scope,
+      messages: [
+        {
+          id: "msg-user-1",
+          role: "user",
+          content: "Summarize this paper",
+          timestamp: 2,
+        },
+      ],
+      updatedAt: 2,
+    });
+    const finalThread = makeThread({
+      scopeSnapshot: scope,
+      messages: [
+        ...threadWithUser.messages,
+        {
+          id: "msg-assistant-1",
+          role: "assistant",
+          content: "Here is a summary.",
+          timestamp: 3,
+        },
+      ],
+      updatedAt: 3,
+    });
+
+    const createThread = vi.fn().mockResolvedValue(emptyThread);
+    const appendMessage = vi
+      .fn()
+      .mockResolvedValueOnce(threadWithUser)
+      .mockResolvedValueOnce(finalThread);
+    const sendChatMessage = vi.fn().mockResolvedValue({
+      abort: vi.fn(),
+      stream: streamChunks("Here is ", "a summary."),
+    });
+
+    const store = createChatSessionStore({
+      appendMessage,
+      createThread,
+      recordScopeTransition: vi.fn(),
+      sendChatMessage,
+    });
+
+    await store.send("Summarize this paper", scope);
+
+    expect(createThread).toHaveBeenCalledWith(scope);
+    expect(appendMessage).toHaveBeenNthCalledWith(1, emptyThread.id, {
+      role: "user",
+      content: "Summarize this paper",
+    });
+    expect(sendChatMessage).toHaveBeenCalledWith(
+      threadWithUser,
+      scope,
+      expect.any(AbortSignal),
+    );
+    expect(appendMessage).toHaveBeenNthCalledWith(2, emptyThread.id, {
+      role: "assistant",
+      content: "Here is a summary.",
+    });
+    expect(store.getSnapshot().activeThread).toEqual(finalThread);
+    expect(store.getSnapshot().isStreaming).toBe(false);
+    expect(store.getSnapshot().streamingContent).toBe("");
+  });
+
+  it("does not let an aborted request restore the old thread after starting a new one", async () => {
+    const firstScope = makeScope();
+    const secondScope = makeScope({
+      id: "paper-2",
+      itemIds: [2],
+      label: "Paper 2",
+    });
+    const firstThread = makeThread({ scopeSnapshot: firstScope });
+    const firstThreadWithUser = makeThread({
+      scopeSnapshot: firstScope,
+      messages: [
+        {
+          id: "msg-user-1",
+          role: "user",
+          content: "Explain this section",
+          timestamp: 2,
+        },
+      ],
+      updatedAt: 2,
+    });
+    const abortedThread = makeThread({
+      scopeSnapshot: firstScope,
+      messages: [
+        ...firstThreadWithUser.messages,
+        {
+          id: "msg-assistant-err",
+          role: "assistant",
+          content: "Error: aborted",
+          timestamp: 3,
+        },
+      ],
+      updatedAt: 3,
+    });
+    const secondThread = makeThread({
+      id: "thread-2",
+      scopeSnapshot: secondScope,
+    });
+
+    const createThread = vi
+      .fn()
+      .mockResolvedValueOnce(firstThread)
+      .mockResolvedValueOnce(secondThread);
+    const appendMessage = vi
+      .fn()
+      .mockResolvedValueOnce(firstThreadWithUser)
+      .mockResolvedValueOnce(abortedThread);
+    const sendChatMessage = vi.fn(
+      async (_thread: Thread, _scope: ScopeContext | undefined, signal?: AbortSignal) =>
+        new Promise<{ abort: () => void; stream: AsyncIterable<string> }>(
+          (_resolve, reject) => {
+            signal?.addEventListener("abort", () => reject(new Error("aborted")));
+          },
+        ),
+    );
+
+    const store = createChatSessionStore({
+      appendMessage,
+      createThread,
+      recordScopeTransition: vi.fn(),
+      sendChatMessage,
+    });
+
+    const firstSend = store.send("Explain this section", firstScope);
+    await vi.waitFor(() => {
+      expect(sendChatMessage).toHaveBeenCalledTimes(1);
+    });
+
+    await store.newThread(secondScope);
+    await firstSend;
+
+    expect(store.getSnapshot().activeThread).toEqual(secondThread);
+    expect(store.getSnapshot().isStreaming).toBe(false);
+  });
+
+  it("stops streaming without appending an abort error message", async () => {
+    const scope = makeScope();
+    const emptyThread = makeThread({ scopeSnapshot: scope });
+    const threadWithUser = makeThread({
+      scopeSnapshot: scope,
+      messages: [
+        {
+          id: "msg-user-1",
+          role: "user",
+          content: "Stop this response",
+          timestamp: 2,
+        },
+      ],
+      updatedAt: 2,
+    });
+
+    const createThread = vi.fn().mockResolvedValue(emptyThread);
+    const appendMessage = vi.fn().mockResolvedValue(threadWithUser);
+    const sendChatMessage = vi.fn(
+      async (_thread: Thread, _scope: ScopeContext | undefined, signal?: AbortSignal) =>
+        new Promise<{ abort: () => void; stream: AsyncIterable<string> }>(
+          (_resolve, reject) => {
+            signal?.addEventListener("abort", () => reject(new Error("aborted")));
+          },
+        ),
+    );
+
+    const store = createChatSessionStore({
+      appendMessage,
+      createThread,
+      recordScopeTransition: vi.fn(),
+      sendChatMessage,
+    });
+
+    const sendPromise = store.send("Stop this response", scope);
+    await vi.waitFor(() => {
+      expect(sendChatMessage).toHaveBeenCalledTimes(1);
+    });
+
+    store.cancel();
+    await sendPromise;
+
+    expect(appendMessage).toHaveBeenCalledTimes(1);
+    expect(store.getSnapshot().activeThread).toEqual(threadWithUser);
+    expect(store.getSnapshot().error).toBeNull();
+    expect(store.getSnapshot().isStreaming).toBe(false);
+  });
+});

@@ -1,5 +1,11 @@
 import { defineConfig } from "zotero-plugin-scaffold";
 import pkg from "./package.json";
+import { buildDevServerStartArgs } from "./src/config/devServerArgs";
+
+const prefsPrefix = pkg.config.prefsPrefix;
+const devApiKey = process.env.DEEPSEEK_API_KEY || process.env.API_KEY;
+const devModel = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
+const devStartArgs = buildDevServerStartArgs(process.env.ZOTERO_DEBUGGER);
 
 export default defineConfig({
   source: ["src", "addon"],
@@ -44,6 +50,19 @@ export default defineConfig({
   },
 
   server: {
-    startArgs: ["-no-remote"],
+    // Keep dev-only bootstrap here so the built addon never reads from .env.
+    // On macOS we still need the explicit flag to avoid falling back to the daily profile.
+    startArgs: devStartArgs,
+    asProxy: true,
+    createProfileIfMissing: true,
+    prefs: {
+      ...(devApiKey
+        ? {
+            [`${prefsPrefix}.apiKey`]: devApiKey,
+          }
+        : {}),
+      [`${prefsPrefix}.model`]: devModel,
+      [`${prefsPrefix}.maxContextBudget`]: 4000,
+    },
   },
 });

@@ -8,11 +8,13 @@
  * Dispatches events via __aiAssistantEventBus so the UI can respond.
  */
 
+import type { ReaderActionDetail } from "../ui/readerActionFlow";
+
 let popupHandler: ((event: any) => void) | null = null;
 let contextMenuHandler: ((event: any) => void) | null = null;
 
 function dispatchReaderAction(
-  action: "explain" | "ask",
+  action: ReaderActionDetail["action"],
   text: string,
   page: number,
   readerItemID: number,
@@ -20,10 +22,19 @@ function dispatchReaderAction(
   const win = Zotero.getMainWindow();
   const eventBus = (win as any)?.__aiAssistantEventBus;
   if (!eventBus) return;
+  const normalizedText = text.trim();
+  if (!normalizedText) return;
+
+  const detail: ReaderActionDetail = {
+    action,
+    text: normalizedText,
+    page,
+    readerItemID,
+  };
 
   eventBus.dispatchEvent(
     new win.CustomEvent("readerSelectionAction", {
-      detail: { action, text, page, readerItemID },
+      detail,
     }),
   );
 }
@@ -45,7 +56,7 @@ function onRenderTextSelectionPopup(event: any): void {
   container.style.cssText = "display: flex; flex-direction: column; gap: 2px;";
 
   const label = doc.createElement("span");
-  label.textContent = "AI Assistant";
+  label.textContent = "DS Copilot";
   label.style.cssText = "font-size: 11px; color: #888; user-select: none; padding-left: 4px;";
   container.appendChild(label);
 
@@ -108,7 +119,7 @@ function onCreateViewContextMenu(event: any): void {
 
   append(
     {
-      label: "Explain with AI Assistant",
+      label: "Explain with DS Copilot",
       disabled: !hasSelection,
       persistent: true,
       onCommand: () => {
@@ -118,7 +129,7 @@ function onCreateViewContextMenu(event: any): void {
       },
     },
     {
-      label: "Ask AI Assistant...",
+      label: "Ask DS Copilot...",
       disabled: !hasSelection,
       persistent: true,
       onCommand: () => {

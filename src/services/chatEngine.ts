@@ -6,10 +6,10 @@ import type {
 } from "./provider/types";
 import { createOpenAICompatibleProvider } from "./provider/openAICompatibleProvider";
 import { assembleContext } from "./contextAssembler";
-import { getPref } from "../utils/prefs";
+import { getSettings } from "./settingsManager";
 
 export function buildSystemPrompt(scope: ScopeContext | undefined): string {
-  const basePrompt = `You are an AI reading assistant operating inside Zotero. You help researchers understand papers, compare findings, and explore their literature collections.
+  const basePrompt = `You are DS Copilot, an AI reading assistant operating inside Zotero. You help researchers understand papers, compare findings, and explore their literature collections.
 
 Key rules:
 - You only have access to the explicitly provided context scope.
@@ -39,7 +39,10 @@ export function buildMessages(
   if (scope) {
     try {
       const assembled = assembleContext(scope);
-      contextContent = `\n\n=== CONTEXT ===\n${assembled.metadata}`;
+      contextContent =
+        `\n\n=== CONTEXT STATUS ===\nAvailability: ${assembled.availability}\n` +
+        `Warnings: ${assembled.warnings.length > 0 ? assembled.warnings.join(" | ") : "none"}`;
+      contextContent += `\n\n=== CONTEXT ===\n${assembled.metadata}`;
       if (assembled.selectedText) {
         contextContent += `\n\n=== SELECTED TEXT ===\n${assembled.selectedText}`;
       }
@@ -70,13 +73,10 @@ export function buildMessages(
 
 export async function sendChatMessage(
   thread: Thread,
-  userMessage: string,
   scope: ScopeContext | undefined,
   signal?: AbortSignal,
 ): Promise<StreamingResponse> {
-  const baseURL = (getPref("baseURL") || "https://api.openai.com/v1") as string;
-  const apiKey = (getPref("apiKey") || "") as string;
-  const model = (getPref("model") || "gpt-4o-mini") as string;
+  const { baseURL, apiKey, model } = getSettings();
 
   if (!apiKey) {
     throw new Error("API key not configured. Please set it in Settings.");
@@ -85,7 +85,5 @@ export async function sendChatMessage(
   const provider = createOpenAICompatibleProvider({ baseURL, apiKey, model });
 
   const messages = buildMessages(thread, scope);
-  messages.push({ role: "user", content: userMessage });
-
   return provider.sendChat(messages, signal);
 }

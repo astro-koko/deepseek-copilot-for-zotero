@@ -8,10 +8,8 @@ declare namespace _ZoteroTypes {
   interface Prefs {
     PluginPrefsMap: {
       "apiKey": string;
-      "baseURL": string;
       "model": string;
       "maxContextBudget": number;
-      "keyboardShortcut": string;
     };
   }
 }

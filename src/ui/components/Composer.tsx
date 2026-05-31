@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { PRESETS, getPresetWarning, applyPreset } from "../../services/presets";
 import type { ScopeType } from "../../types/scope";
 
@@ -7,6 +7,12 @@ interface ComposerProps {
   onCancel?: () => void;
   isStreaming: boolean;
   currentScopeType: ScopeType | null;
+  disabled?: boolean;
+  disabledReason?: string | null;
+  placeholder?: string;
+  draftValue?: string;
+  focusNonce?: number;
+  onDraftChange?: (value: string) => void;
 }
 
 export const Composer: React.FC<ComposerProps> = ({
@@ -14,19 +20,51 @@ export const Composer: React.FC<ComposerProps> = ({
   onCancel,
   isStreaming,
   currentScopeType,
+  disabled = false,
+  disabledReason = null,
+  placeholder = "Ask about this paper... (type / for presets)",
+  draftValue,
+  focusNonce,
+  onDraftChange,
 }) => {
   const [input, setInput] = useState("");
   const [showPresets, setShowPresets] = useState(false);
   const [selectedPresetIndex, setSelectedPresetIndex] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  useEffect(() => {
+    if (draftValue === undefined) {
+      return;
+    }
+
+    setInput(draftValue);
+    if (draftValue === "/") {
+      setShowPresets(true);
+      setSelectedPresetIndex(0);
+      return;
+    }
+
+    if (!draftValue.startsWith("/")) {
+      setShowPresets(false);
+    }
+  }, [draftValue]);
+
+  useEffect(() => {
+    if (focusNonce === undefined) {
+      return;
+    }
+
+    inputRef.current?.focus();
+  }, [focusNonce]);
+
   const handleSubmit = useCallback(() => {
     const trimmed = input.trim();
-    if (!trimmed || isStreaming) return;
+    if (!trimmed || isStreaming || disabled) return;
     onSend(trimmed);
     setInput("");
+    onDraftChange?.("");
     setShowPresets(false);
-  }, [input, isStreaming, onSend]);
+  }, [disabled, input, isStreaming, onDraftChange, onSend]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -62,13 +100,19 @@ export const Composer: React.FC<ComposerProps> = ({
         handleSubmit();
       }
     },
-    [showPresets, selectedPresetIndex, handleSubmit]
+    [showPresets, selectedPresetIndex, handleSubmit],
   );
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const value = e.target.value;
       setInput(value);
+      onDraftChange?.(value);
+
+      if (disabled) {
+        setShowPresets(false);
+        return;
+      }
 
       if (value === "/") {
         setShowPresets(true);
@@ -77,7 +121,7 @@ export const Composer: React.FC<ComposerProps> = ({
         setShowPresets(false);
       }
     },
-    []
+    [disabled, onDraftChange],
   );
 
   const applyPresetToInput = useCallback(
@@ -92,11 +136,12 @@ export const Composer: React.FC<ComposerProps> = ({
       if (preset) {
         const augmented = applyPreset(preset.id, "");
         setInput(augmented);
+        onDraftChange?.(augmented);
         inputRef.current?.focus();
       }
       setShowPresets(false);
     },
-    [currentScopeType]
+    [currentScopeType, onDraftChange],
   );
 
   return (
@@ -127,8 +172,9 @@ export const Composer: React.FC<ComposerProps> = ({
           value={input}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder="Ask about this paper... (type / for presets)"
-          rows={1}
+          placeholder={placeholder}
+          rows={4}
+          disabled={disabled}
         />
         {isStreaming ? (
           <button style={styles.cancelBtn} onClick={onCancel}>
@@ -138,15 +184,16 @@ export const Composer: React.FC<ComposerProps> = ({
           <button
             style={{
               ...styles.sendBtn,
-              opacity: input.trim() ? 1 : 0.5,
+              opacity: input.trim() && !disabled ? 1 : 0.5,
             }}
             onClick={handleSubmit}
-            disabled={!input.trim()}
+            disabled={!input.trim() || disabled}
           >
             Send
           </button>
         )}
       </div>
+      {disabledReason && <div style={styles.disabledReason}>{disabledReason}</div>}
     </div>
   );
 };
@@ -170,7 +217,8 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "8px",
     fontSize: "14px",
     resize: "none",
-    maxHeight: "120px",
+    minHeight: "88px",
+    maxHeight: "180px",
     fontFamily: "inherit",
   },
   sendBtn: {
@@ -224,5 +272,11 @@ const styles: Record<string, React.CSSProperties> = {
   presetDesc: {
     fontSize: "12px",
     color: "#888",
+  },
+  disabledReason: {
+    marginTop: "8px",
+    fontSize: "12px",
+    color: "#7f7461",
+    lineHeight: 1.4,
   },
 };

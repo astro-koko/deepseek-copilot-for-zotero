@@ -1,4 +1,4 @@
-ai-assistant-sidebar-title = AI Assistant
+ai-assistant-sidebar-title = DS Copilot
 ai-assistant-empty-state = Select a paper or collection to start chatting
 ai-assistant-scope-pdf = Current PDF
 ai-assistant-scope-paper = Paper

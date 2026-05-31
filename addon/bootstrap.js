@@ -1,5 +1,5 @@
 /**
- * Bootstrap script for Zotero AI Assistant plugin.
+ * Bootstrap script for the DS Copilot plugin.
  * Based on Zotero team's Make It Red example and zotero-plugin-toolkit patterns.
  */
 

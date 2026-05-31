@@ -1,5 +1,24 @@
 # Zotero AI Assistant Implementation Plan
 
+## Current Execution Focus: 2026-05-31
+
+The repository is currently executing against a narrower, more urgent target than the broader roadmap below.
+
+Current priority:
+
+- stabilize the Zotero frontend host surfaces first
+- make `DS Copilot` reliably usable in Add-ons, Settings, Library, Reader, and Reader handoff flows
+- treat packaged `.xpi` plus full Zotero restart as the meaningful acceptance gate
+
+Current execution documents:
+
+- [Host-First Frontend Stabilization Design](/Users/Liang/project/agentpaper_zotero/docs/superpowers/specs/2026-05-31-ds-copilot-host-first-frontend-design.md)
+- [Host-First Frontend Task Board](/Users/Liang/project/agentpaper_zotero/docs/superpowers/plans/2026-05-31-ds-copilot-host-first-frontend-task-board.md)
+- [Zotero Dev Workbench](/Users/Liang/project/agentpaper_zotero/docs/zotero-dev-workbench.md)
+- [Zotero Dev Smoke Checklist](/Users/Liang/project/agentpaper_zotero/docs/zotero-dev-smoke-checklist.md)
+
+Interpret the rest of this file as the broader product roadmap, not as the immediate execution gate.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task.
 
 **Goal:** Build a Zotero-native AI reading assistant that works in both library and reader surfaces, supports single-paper and collection-scoped Q&A, and replaces the “upload PDF to external chat” workflow.
@@ -171,12 +190,11 @@ Replace the old cloud run model with a local conversation controller that unders
 
 **Outcome**
 
-Add a minimal but production-shaped model provider layer so the plugin can stream answers from a user-configured OpenAI-compatible endpoint.
+Add a minimal but production-shaped model provider layer so the plugin can stream answers from plugin-configured DeepSeek settings.
 
 **Core implementation**
 
 - Build a provider abstraction around:
-  - `baseURL`
   - `apiKey`
   - `model`
   - optional model capability flags

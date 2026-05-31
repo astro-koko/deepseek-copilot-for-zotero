@@ -3,24 +3,31 @@
 <vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
       xmlns:html="http://www.w3.org/1999/xhtml">
   <groupbox>
-    <label value="AI Provider Settings" style="font-weight: bold; margin-bottom: 8px;"/>
-    <vbox style="gap: 8px;">
+    <label value="DS Copilot Configuration" style="font-weight: bold; margin-bottom: 8px;"/>
+    <vbox style="gap: 10px;">
+      <description style="font-size: 12px; color: #666; line-height: 1.5;">
+        Configure DS Copilot to use your DeepSeek API key and choose the model used for chat.
+      </description>
       <hbox align="center">
         <label value="API Key:" style="width: 100px;"/>
         <textbox id="ai-assistant-api-key" type="password" preference="extensions.zotero.zotero-ai-assistant.apiKey" style="flex: 1;"/>
       </hbox>
       <hbox align="center">
-        <label value="Base URL:" style="width: 100px;"/>
-        <textbox id="ai-assistant-base-url" preference="extensions.zotero.zotero-ai-assistant.baseURL" style="flex: 1;"/>
-      </hbox>
-      <hbox align="center">
         <label value="Model:" style="width: 100px;"/>
-        <textbox id="ai-assistant-model" preference="extensions.zotero.zotero-ai-assistant.model" style="flex: 1;"/>
+        <menulist id="ai-assistant-model" preference="extensions.zotero.zotero-ai-assistant.model" style="flex: 1;">
+          <menupopup>
+            <menuitem label="deepseek-v4-flash" value="deepseek-v4-flash"/>
+            <menuitem label="deepseek-v4-pro" value="deepseek-v4-pro"/>
+          </menupopup>
+        </menulist>
       </hbox>
       <hbox align="center">
         <label value="Max Context:" style="width: 100px;"/>
         <textbox id="ai-assistant-max-context" preference="extensions.zotero.zotero-ai-assistant.maxContextBudget" type="number" style="flex: 1;"/>
       </hbox>
+      <description style="font-size: 11px; color: #777;">
+        Supported models: deepseek-v4-flash, deepseek-v4-pro
+      </description>
     </vbox>
   </groupbox>
 </vbox>
