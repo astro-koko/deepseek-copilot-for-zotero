@@ -3,9 +3,9 @@ import type { Root } from "react-dom/client";
 export type SidebarLocation = "library" | "reader";
 export type SidebarHostMount = HTMLElement;
 export type SidebarAttachmentTarget =
-  | "official"
-  | "library-fallback"
-  | "reader-fallback"
+  | "native-library"
+  | "native-reader"
+  | "section-fallback"
   | null;
 
 export interface SidebarSurfaceHost {
@@ -16,6 +16,12 @@ export interface SidebarSurfaceHost {
   bootstrapped: boolean;
 }
 
+interface NativePaneLike {
+  appendChild(node: unknown): unknown;
+  children?: ArrayLike<unknown>;
+  querySelectorAll?(selector: string): unknown;
+}
+
 export type SidebarHostState = Partial<
   Record<SidebarLocation, SidebarSurfaceHost>
 >;
@@ -24,11 +30,6 @@ interface SidebarBodyLike {
   appendChild?(node: unknown): unknown;
   contains(node: unknown): boolean;
   replaceChildren(...nodes: unknown[]): void;
-}
-
-interface LibraryFallbackPaneLike extends SidebarBodyLike {
-  render?(node: unknown): unknown;
-  renderCustomHead?(): void;
 }
 
 type SidebarDocumentFactory = Pick<Document, "createElement"> &
@@ -86,38 +87,41 @@ export function syncSidebarHost(
   const hostState =
     state[location] ?? createSidebarHost(win.document as SidebarDocumentFactory, location);
   state[location] = hostState;
-  hostState.attachmentTarget = "official";
+  hostState.attachmentTarget = "section-fallback";
   return {
     hostState,
     didAttach: attachSidebarHost(body, hostState),
   };
 }
 
-export function attachSidebarHostToLibraryFallback(
-  messagePane: LibraryFallbackPaneLike,
+export function attachSidebarHostToNativePane(
+  pane: NativePaneLike,
   host: SidebarSurfaceHost,
+  location: SidebarLocation,
 ): boolean {
   const attachableNode = getAttachableNode(host);
-  messagePane.renderCustomHead?.();
+  const previousParent =
+    attachableNode &&
+    typeof attachableNode === "object" &&
+    "parentElement" in (attachableNode as object)
+      ? ((attachableNode as { parentElement?: HTMLElement | null }).parentElement ?? null)
+      : null;
 
-  if (typeof messagePane.render === "function") {
-    messagePane.render(attachableNode);
-    host.attachmentTarget = "library-fallback";
-    return true;
+  if (previousParent && previousParent !== pane) {
+    setElementsVisible(listPaneSiblings(previousParent, host.mountPoint.id), true);
   }
 
-  const didAttach = attachSidebarHost(messagePane, host);
-  host.attachmentTarget = "library-fallback";
-  return didAttach;
-}
+  if (Array.isArray((pane as { children?: unknown[] }).children)) {
+    const children = Array.from((pane as { children?: ArrayLike<unknown> }).children || []);
+    if (children.includes(attachableNode)) {
+      return false;
+    }
+  }
 
-export function attachSidebarHostToReaderFallback(
-  container: SidebarBodyLike,
-  host: SidebarSurfaceHost,
-): boolean {
-  const didAttach = attachSidebarHost(container, host);
-  host.attachmentTarget = "reader-fallback";
-  return didAttach;
+  pane.appendChild(attachableNode);
+  host.attachmentTarget =
+    location === "library" ? "native-library" : "native-reader";
+  return true;
 }
 
 export function resolveReaderFallbackContainer(
@@ -127,6 +131,52 @@ export function resolveReaderFallbackContainer(
     (doc.getElementById("zotero-context-pane-inner") as HTMLElement | null) ||
     (doc.getElementById("zotero-context-pane") as HTMLElement | null)
   );
+}
+
+export function getLibraryNativePane(
+  doc: Pick<Document, "getElementById">,
+): HTMLElement | null {
+  return doc.getElementById("zotero-item-pane") as HTMLElement | null;
+}
+
+export function getReaderNativePane(
+  doc: Pick<Document, "getElementById">,
+): HTMLElement | null {
+  return (
+    (doc.getElementById("zotero-context-pane-inner") as HTMLElement | null) ||
+    (doc.getElementById("zotero-context-pane") as HTMLElement | null)
+  );
+}
+
+export function listPaneSiblings(
+  pane: ParentNode | null,
+  hostId: string,
+): HTMLElement[] {
+  if (!pane || !("children" in pane)) {
+    return [];
+  }
+
+  return Array.from((pane as Element).children).filter(
+    (child): child is HTMLElement =>
+      typeof child === "object" &&
+      child !== null &&
+      "style" in child &&
+      "id" in child &&
+      (child as HTMLElement).id !== hostId,
+  );
+}
+
+export function setElementsVisible(
+  elements: Iterable<HTMLElement>,
+  visible: boolean,
+): void {
+  for (const element of elements) {
+    if (visible) {
+      element.style.removeProperty("display");
+    } else {
+      element.style.display = "none";
+    }
+  }
 }
 
 function createSidebarHost(

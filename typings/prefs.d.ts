@@ -10,6 +10,7 @@ declare namespace _ZoteroTypes {
       "apiKey": string;
       "model": string;
       "maxContextBudget": number;
+      "sidebarVisible": boolean;
     };
   }
 }

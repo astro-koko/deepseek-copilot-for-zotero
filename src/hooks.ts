@@ -9,6 +9,7 @@ import { chatSessionStore } from "./services/chatSession";
 import { EventBus } from "./utils/eventBus";
 import { createRefCountedRegistration, createWindowEventDispatcher } from "./utils/windowLifecycle";
 import { buildStartupDiagnostic } from "./utils/startupDiagnostics";
+import { registerPreferencesPane } from "./modules/preferencesPane";
 
 let scopeChangeCallback: ((scope: any) => void) | null = null;
 const scopeChangeDispatcher = createWindowEventDispatcher<
@@ -222,6 +223,9 @@ async function onNotify(
 async function onPrefsEvent(type: string, data: { [key: string]: any }) {
   switch (type) {
     case "load":
+      if (data.window) {
+        registerPreferencesPane(data.window as Window);
+      }
       break;
     default:
       return;

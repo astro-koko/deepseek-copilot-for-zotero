@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   attachSidebarHost,
-  attachSidebarHostToLibraryFallback,
-  attachSidebarHostToReaderFallback,
+  attachSidebarHostToNativePane,
   createFallbackSidebarHost,
   ensureSidebarHostState,
+  getLibraryNativePane,
+  getReaderNativePane,
+  listPaneSiblings,
   resolveSidebarLocation,
   resolveReaderFallbackContainer,
+  setElementsVisible,
   syncSidebarHost,
   type SidebarHostMount,
   type SidebarHostState,
@@ -34,7 +37,11 @@ class FakeElement {
   className = "";
   dataset = {} as Record<string, string>;
   textContent = "";
-  style = {} as Record<string, string>;
+  style = {
+    removeProperty: (name: string) => {
+      delete (this.style as Record<string, string | ((name: string) => void)>)[name];
+    },
+  } as Record<string, string | ((name: string) => void)>;
   children: unknown[] = [];
 
   setAttribute(name: string, value: string) {
@@ -50,22 +57,6 @@ class FakeElement {
 
   remove() {
     this.children = [];
-  }
-}
-
-class FakeLibraryMessagePane extends FakeBody {
-  rendered: unknown[] = [];
-  renderCustomHeadCalls = 0;
-
-  ownerDocument = {} as Document;
-
-  render(node: unknown) {
-    this.rendered.push(node);
-    this.replaceChildren(node);
-  }
-
-  renderCustomHead() {
-    this.renderCustomHeadCalls += 1;
   }
 }
 
@@ -85,6 +76,13 @@ class FakeWindow {
     createElementNS: (_ns: string, _tagName: string) => new FakeElement(),
     createXULElement: (_tagName: string) => new FakeElement(),
   };
+}
+
+class FakePane extends FakeElement {
+  override appendChild(child: unknown) {
+    this.children.push(child);
+    return child;
+  }
 }
 
 describe("sidebarSection helpers", () => {
@@ -120,7 +118,7 @@ describe("sidebarSection helpers", () => {
     expect(first.hostState).toBe(second.hostState);
     expect(first.didAttach).toBe(true);
     expect(second.didAttach).toBe(true);
-    expect(first.hostState.attachmentTarget).toBe("official");
+    expect(first.hostState.attachmentTarget).toBe("section-fallback");
     expect(libraryBodyA.children).toEqual([first.hostState.mountPoint]);
     expect(libraryBodyB.children).toEqual([first.hostState.mountPoint]);
   });
@@ -152,35 +150,34 @@ describe("sidebarSection helpers", () => {
     expect(body.children).toEqual([fallbackA.mountPoint]);
   });
 
-  it("attaches a shared host through the Zotero library message pane render API", () => {
+  it("attaches a shared host to the native library pane", () => {
     const host = createFallbackSidebarHost(
       "library",
       new FakeWindow().document as unknown as Pick<Document, "createElement">,
     );
-    const messagePane = new FakeLibraryMessagePane();
+    const pane = new FakePane();
 
-    expect(attachSidebarHostToLibraryFallback(messagePane, host)).toBe(true);
-    expect(messagePane.renderCustomHeadCalls).toBe(1);
-    expect(messagePane.rendered).toEqual([host.mountPoint]);
-    expect(host.attachmentTarget).toBe("library-fallback");
+    expect(attachSidebarHostToNativePane(pane, host, "library")).toBe(true);
+    expect(pane.children).toEqual([host.mountPoint]);
+    expect(host.attachmentTarget).toBe("native-library");
   });
 
-  it("attaches a shared host through the direct reader fallback container", () => {
+  it("attaches a shared host to the native reader pane", () => {
     const host = createFallbackSidebarHost(
       "reader",
       new FakeWindow().document as unknown as Pick<Document, "createElement">,
     );
-    const container = new FakeBody();
+    const pane = new FakePane();
 
-    expect(attachSidebarHostToReaderFallback(container, host)).toBe(true);
-    expect(container.children).toEqual([host.mountPoint]);
-    expect(host.attachmentTarget).toBe("reader-fallback");
+    expect(attachSidebarHostToNativePane(pane, host, "reader")).toBe(true);
+    expect(pane.children).toEqual([host.mountPoint]);
+    expect(host.attachmentTarget).toBe("native-reader");
   });
 
-  it("reuses the same reader host when moving from fallback back to the official surface", () => {
+  it("reuses the same reader host when moving from native pane back to the section fallback", () => {
     const win = new FakeWindow() as unknown as Window;
     const state: SidebarHostState = {};
-    const fallbackContainer = new FakeBody();
+    const nativePane = new FakePane();
     const officialBody = new FakeBody();
 
     const host = createFallbackSidebarHost(
@@ -189,11 +186,11 @@ describe("sidebarSection helpers", () => {
     );
     state.reader = host;
 
-    attachSidebarHostToReaderFallback(fallbackContainer, host);
+    attachSidebarHostToNativePane(nativePane, host, "reader");
     const attached = syncSidebarHost(win, state, "reader", officialBody);
 
     expect(attached.hostState).toBe(host);
-    expect(attached.hostState.attachmentTarget).toBe("official");
+    expect(attached.hostState.attachmentTarget).toBe("section-fallback");
     expect(officialBody.children).toEqual([host.mountPoint]);
   });
 
@@ -206,6 +203,41 @@ describe("sidebarSection helpers", () => {
     }) as unknown as Pick<Document, "getElementById">;
 
     expect(resolveReaderFallbackContainer(doc)).toBe(inner as unknown as HTMLElement);
+  });
+
+  it("resolves native library and reader panes from Zotero host ids", () => {
+    const library = new FakeElement();
+    const outer = new FakeElement();
+    const inner = new FakeElement();
+    const doc = new FakeDocument({
+      "zotero-item-pane": library,
+      "zotero-context-pane": outer,
+      "zotero-context-pane-inner": inner,
+    }) as unknown as Pick<Document, "getElementById">;
+
+    expect(getLibraryNativePane(doc)).toBe(library as unknown as HTMLElement);
+    expect(getReaderNativePane(doc)).toBe(inner as unknown as HTMLElement);
+  });
+
+  it("lists non-host siblings and toggles their visibility", () => {
+    const first = new FakeElement() as unknown as HTMLElement;
+    const host = new FakeElement();
+    host.id = "ai-assistant-pane-library-mount";
+    const second = new FakeElement() as unknown as HTMLElement;
+    const pane = {
+      children: [first, host as unknown as HTMLElement, second],
+    } as unknown as ParentNode;
+
+    const siblings = listPaneSiblings(pane, host.id);
+    expect(siblings).toEqual([first, second]);
+
+    setElementsVisible(siblings, false);
+    expect((first as any).style.display).toBe("none");
+    expect((second as any).style.display).toBe("none");
+
+    setElementsVisible(siblings, true);
+    expect((first as any).style.display).toBeUndefined();
+    expect((second as any).style.display).toBeUndefined();
   });
 
   it("creates fallback hosts from the provided document factory using a XUL mount and an inner react root", () => {
