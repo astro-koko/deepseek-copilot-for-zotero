@@ -6,9 +6,11 @@ Status: Saved handoff state for the next window
 ## Product Decision Captured
 
 - release-facing Settings should be simplified to `API key` only
+- `Model` should stop being user-configurable
 - `Max Context` should stop being user-configurable
-- DeepSeek defaults should remain internal
+- DeepSeek defaults should remain internal, including the default request budget
 - long contexts should be handled by automatic truncation / compression in the context pipeline
+- the current visible `Model` / `Max Context` fields are a temporary debug-stage artifact, not the release contract
 
 ## Real Runtime Facts Verified In Zotero
 
@@ -21,6 +23,15 @@ Status: Saved handoff state for the next window
 - typing into Reader composer enables `Send`
 - clicking `Send` is no longer inert: the draft clears, so the frontend event path is firing
 - recent chats are visible, so thread persistence is at least partially alive
+
+## Current Surface Status
+
+- `Settings`
+  The pane is mounted and editable in the daily profile, but the release-facing contract has not yet been simplified to `API key` only.
+- `Library`
+  Native-host acceptance is still pending on both a regular library item and a PDF attachment item in the daily profile.
+- `Reader`
+  The native host is visible and interactive enough to type and click `Send`, but the post-send thread state still does not settle visibly.
 
 ## Current Main Problem
 
@@ -37,6 +48,11 @@ Most likely next failure layers:
 3. `persistence.ts` read-after-write behavior
 4. session state not being reflected back into `Sidebar.tsx`
 
+The strongest current hypothesis is:
+
+- the first user message is not surviving the create-thread plus append-message path cleanly
+- the failure is likely being swallowed or only logged, so the draft clears without a visible thread or inline error state
+
 ## Best Next Debug Pass
 
 Start the next window by instrumenting only the send/session path:
@@ -49,9 +65,17 @@ Start the next window by instrumenting only the send/session path:
 
 ## Suggested First Code Slice In The Next Window
 
-- first unblock visible send/thread behavior
-- once manual send is stable, remove `Max Context` from the user-facing Settings pane
+- first unblock visible send/thread behavior and make any first-message failure visible in the UI
+- once manual send is stable, remove `Model` and `Max Context` from the user-facing Settings pane
+- keep DeepSeek default model selection and default context budget internal in `settingsManager`
+- move any overflow handling into automatic truncation / compression instead of exposing a budget knob
 - keep toolbar-placement redesign out of scope until host surfaces are stable
+
+## Release-Handoff Notes
+
+- Do not call the plugin usable-for-GitHub until the visible host surfaces and the first real send both work after packaged `.xpi` restart.
+- Do not treat the current top-toolbar toggle as final placement; it is only a temporary debug affordance.
+- Do not expand into provider polish until `Settings`, `Library`, `Reader`, and manual send form a stable host loop in the daily profile.
 
 ## Focused Validation Already Run
 

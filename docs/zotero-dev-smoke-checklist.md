@@ -38,6 +38,7 @@ Provider quality is secondary until the host loop is stable.
 
 - `Settings` is visible again and no longer blank in the daily profile.
 - `API Key` and `Max Context` are now real editable controls in the daily profile.
+- the current `Model` / `Max Context` controls are no longer the target release contract; they are temporary while the host loop is still being stabilized.
 - Reader scope now resolves from the active PDF tab instead of stale Reader context.
 - the sidebar shell can mount in Reader and show the expected shell chrome.
 - the Reader composer now accepts typed input and unlocks `Send`.
@@ -47,7 +48,7 @@ Provider quality is secondary until the host loop is stable.
 ## Current blockers
 
 - `Settings` still needs edit/save/reopen validation in the daily profile and restart validation in packaged smoke.
-- the final Settings contract should be reduced to `API key` only; `Max Context` should move behind an internal default/compression strategy.
+- the final Settings contract should be reduced to `API key` only; `Model` and `Max Context` should move behind an internal DeepSeek-default strategy plus automatic context compression.
 - `Library` still needs explicit daily-profile verification on both regular items and PDF attachment items.
 - manual send still does not settle into a visible thread/response state, even though the draft clears.
 - toolbar-only discovery is still a failure for release readiness.
@@ -56,8 +57,8 @@ Provider quality is secondary until the host loop is stable.
 
 Treat the next smoke run as an evidence-collection pass, not a vibe check. Capture explicit pass/fail notes for:
 
-1. Settings edit, save, reopen, and packaged-restart persistence for `apiKey`, `model`, and `maxContextBudget`.
-2. a follow-up simplification pass that removes `model` / `maxContextBudget` from the final user-facing Settings contract.
+1. Settings edit, save, reopen, and packaged-restart persistence for the final `API key`-only contract.
+2. confirmation that `Model` and `Max Context` are now internal defaults rather than user-facing controls.
 3. Library native-host behavior on one regular item and one PDF attachment item.
 4. Reader native-host behavior after switching between at least two PDF tabs.
 5. `Explain` auto-send behavior plus post-handoff interactivity.
@@ -73,11 +74,11 @@ Treat the next smoke run as an evidence-collection pass, not a vibe check. Captu
 4. Install the built `.xpi` through Zotero's plugin manager.
 5. In Zotero, confirm `DS Copilot` appears in the plugin/add-ons list with the new icon.
 6. Open Zotero Settings and confirm the `DS Copilot` pane exists.
-7. Confirm the settings pane already has a usable API key state and model from the dev-profile preload, or enter a real API key for packaged smoke.
+7. Confirm the settings pane already has a usable API key state from the dev-profile preload, or enter a real API key for packaged smoke.
 8. Select a real library item and confirm the DS Copilot native right-pane host appears and is visibly correct.
 9. Open a real PDF Reader tab and confirm the DS Copilot Reader host appears, uses the active tab scope, and is visibly correct.
-10. Open Zotero Settings and verify `apiKey`, `model`, and `maxContextBudget` can be edited, saved, and persisted when you reopen the pane.
-11. Record whether the release-facing Settings contract should now be simplified to `API key` only.
+10. Open Zotero Settings and verify the `API key` can be edited, saved, and persisted when you reopen the pane.
+11. Record whether the release-facing Settings contract is now truly `API key` only, with no user-facing `Model` or `Max Context`.
 12. In Reader, select text and confirm the popup shows `Explain` and `Ask...`.
 13. Right-click selected Reader text and confirm `Explain with DS Copilot` and `Ask DS Copilot...` appear.
 14. Trigger `Explain` once and confirm the sidebar opens and enters the send flow.
@@ -98,7 +99,7 @@ Collect the following facts during host debugging:
 Still-missing evidence for the current branch:
 
 - a captured Settings round-trip result after reopen
-- a captured decision point for removing user-facing `Max Context`
+- a captured implementation pass that removes user-facing `Model` and `Max Context`
 - a captured packaged `.xpi` restart result
 - a captured Library pass on both regular and attachment items
 - a captured post-handoff interactivity result for `Explain` and `Ask...`

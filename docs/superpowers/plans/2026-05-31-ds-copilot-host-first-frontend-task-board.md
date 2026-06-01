@@ -26,11 +26,13 @@
   - Library native-host acceptance still needs an explicit daily-profile pass on regular items and PDF attachment items
   - Reader and Library tab-switch churn still need wider regression coverage
   - manual send still does not settle into a visible active-thread state after the draft clears
+  - the current `Model` / `Max Context` settings UI still needs to be collapsed into the final `API key`-only release contract
   - no frontend milestone beyond `M0` should be treated as complete until packaged smoke proves it
 
 ## Current Blockers
 
 - `Settings` renders again and is editable, but save/reopen/restart validation in the daily profile is still required before `M1` can turn green.
+- the release-facing Settings contract is now explicitly `API key` only, but the temporary `Model` / `Max Context` controls are still present in the current checkpoint.
 - the sidebar shell mounts and accepts input, but there is still a send/session-state issue to resolve before `M4` is acceptable.
 - `Library` native-host behavior still needs explicit daily-profile verification on both regular items and PDF attachment items before `M2` can turn green.
 - the top-toolbar toggle remains a temporary debug/fallback control and is not acceptable as the final discovery contract.
@@ -153,6 +155,7 @@ The current dirty worktree is concentrated in the host-first tranche:
 - [ ] Make `onPrefsEvent("load")` safe to call repeatedly without double-binding.
 - [ ] Verify `apiKey`, `model`, and `maxContextBudget` round-trip between UI and prefs.
 - [ ] Simplify the release-facing Settings contract to `API key` only after the current send/session blocker is solved.
+  Keep DeepSeek default model selection and default context budget internal, and handle overflow through automatic truncation / compression.
 - [ ] Ensure the pane never renders blank due to missing initialization order.
 - [ ] Keep the pane intentionally narrow: only fields needed for the first usable frontend.
 - [ ] Add or refine tests for hydration, save, reopen, and persistence behavior.
