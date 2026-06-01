@@ -1,7 +1,7 @@
 # DS Copilot Beaver-Style Source Composer Design
 
 Date: 2026-06-01
-Status: Proposed for implementation review
+Status: Approved for implementation
 Scope: Researcher-first conversation composer for Zotero Library and Reader surfaces
 
 ## Goal
@@ -285,7 +285,7 @@ operations.
 ### Tranche 1: Core Source Composer
 
 - move model switching from the header into the composer footer
-- render stable chips for current PDF, paper, note, and selected text
+- render stable chips for current PDF, paper, and selected text
 - introduce typed temporary source state
 - add removable paper, PDF, note, annotation, and collection chips
 - add a compact `+` source menu with recent and current Zotero items
@@ -296,6 +296,7 @@ operations.
 
 - add `@` source search
 - add nested library, collection, tag, and note views
+- resolve a selected child note into stable `Current Note` context
 - add keyboard behavior
 - add source-row overflow preview
 
