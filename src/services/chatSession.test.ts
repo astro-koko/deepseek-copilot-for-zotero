@@ -335,4 +335,31 @@ describe("chatSession", () => {
     );
     expect(store.getSnapshot().activeThread).toEqual(finalThread);
   });
+
+  it("surfaces a first-message persistence failure without entering a fake streaming state", async () => {
+    const scope = makeScope();
+    const emptyThread = makeThread({ scopeSnapshot: scope });
+    const createThread = vi.fn().mockResolvedValue(emptyThread);
+    const appendMessage = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Failed to save user message"));
+    const sendChatMessage = vi.fn();
+
+    const store = createChatSessionStore({
+      appendMessage,
+      createThread,
+      recordScopeTransition: vi.fn(),
+      sendChatMessage,
+    });
+
+    await expect(store.send("Explain this excerpt", scope)).resolves.toBeUndefined();
+
+    expect(sendChatMessage).not.toHaveBeenCalled();
+    expect(store.getSnapshot()).toMatchObject({
+      activeThread: emptyThread,
+      error: "Failed to save user message",
+      isStreaming: false,
+      streamingContent: "",
+    });
+  });
 });

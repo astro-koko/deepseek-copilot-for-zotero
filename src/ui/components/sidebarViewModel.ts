@@ -75,7 +75,7 @@ export function buildSidebarViewModel({
   settingsIssue,
 }: BuildSidebarViewModelArgs): SidebarViewModel {
   const locationLabel = location === "reader" ? "Reader" : "Library";
-  const providerLabel = `DeepSeek · ${settings.model}`;
+  const providerLabel = "DeepSeek";
   const filteredRecentThreads = recentThreads.filter(
     (thread) => thread.id !== session.activeThread?.id,
   );

@@ -172,35 +172,40 @@ export function createChatSessionStore(
       }
 
       setState({ error: null });
-
-      let thread = state.activeThread;
-      if (!thread) {
-        thread = await deps.createThread(scope || undefined);
-        setState({ activeThread: thread });
-      }
-
-      thread = await ensureScopedThread(thread, scope);
-
-      const threadWithUserMessage = await deps.appendMessage(thread.id, {
-        role: "user",
-        content: trimmed,
-      });
-
-      if (!threadWithUserMessage) {
-        throw new Error("Failed to save user message");
-      }
-
-      thread = threadWithUserMessage;
-      abortController = new AbortController();
-      const version = ++requestVersion;
-      setState({
-        activeThread: thread,
-        error: null,
-        isStreaming: true,
-        streamingContent: "",
-      });
+      let thread: Thread | null = null;
+      let version: number | null = null;
+      let shouldPersistFailureMessage = false;
+      let assistantMessagePersistenceAttempted = false;
 
       try {
+        thread = state.activeThread;
+        if (!thread) {
+          thread = await deps.createThread(scope || undefined);
+          setState({ activeThread: thread });
+        }
+
+        thread = await ensureScopedThread(thread, scope);
+
+        const threadWithUserMessage = await deps.appendMessage(thread.id, {
+          role: "user",
+          content: trimmed,
+        });
+
+        if (!threadWithUserMessage) {
+          throw new Error("Failed to save user message");
+        }
+
+        thread = threadWithUserMessage;
+        abortController = new AbortController();
+        version = ++requestVersion;
+        shouldPersistFailureMessage = true;
+        setState({
+          activeThread: thread,
+          error: null,
+          isStreaming: true,
+          streamingContent: "",
+        });
+
         const response = await deps.sendChatMessage(
           thread,
           scope || undefined,
@@ -217,14 +222,9 @@ export function createChatSessionStore(
           setState({ streamingContent: fullResponse });
         }
 
+        assistantMessagePersistenceAttempted = true;
         await persistAssistantMessage(thread, fullResponse, version);
-      } catch (error) {
-        const messageText = buildErrorMessage(error);
-        if (isCurrentRequest(version)) {
-          setState({ error: messageText });
-        }
-        await persistAssistantMessage(thread, `Error: ${messageText}`, version);
-      } finally {
+
         if (isCurrentRequest(version)) {
           abortController = null;
           setState({
@@ -232,6 +232,42 @@ export function createChatSessionStore(
             streamingContent: "",
           });
         }
+      } catch (error) {
+        const messageText = buildErrorMessage(error);
+
+        if (version == null) {
+          setState({
+            error: messageText,
+            isStreaming: false,
+            streamingContent: "",
+          });
+          abortController = null;
+          return;
+        }
+
+        if (!isCurrentRequest(version)) {
+          return;
+        }
+
+        setState({ error: messageText });
+
+        if (
+          thread &&
+          shouldPersistFailureMessage &&
+          !assistantMessagePersistenceAttempted
+        ) {
+          try {
+            await persistAssistantMessage(thread, `Error: ${messageText}`, version);
+          } catch (persistError) {
+            ztoolkit.log("Failed to persist assistant error message:", persistError);
+          }
+        }
+
+        abortController = null;
+        setState({
+          isStreaming: false,
+          streamingContent: "",
+        });
       }
     },
 

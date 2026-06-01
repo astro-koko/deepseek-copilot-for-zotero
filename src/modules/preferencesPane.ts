@@ -1,5 +1,4 @@
 import {
-  DEFAULT_SETTINGS,
   type PersistedSettings,
   getSettings,
   saveSettings,
@@ -39,8 +38,6 @@ export interface PreferencesPaneDeps {
 
 const ROOT_ID = "zotero-ai-assistant-prefs";
 const API_KEY_ID = "zotero-ai-assistant-pref-api-key";
-const MODEL_ID = "zotero-ai-assistant-pref-model";
-const MAX_CONTEXT_ID = "zotero-ai-assistant-pref-max-context";
 const SAVE_BUTTON_ID = "zotero-ai-assistant-pref-save";
 const VALIDATE_BUTTON_ID = "zotero-ai-assistant-pref-validate";
 const STATUS_ID = "zotero-ai-assistant-pref-status";
@@ -100,9 +97,6 @@ export function registerPreferencesPane(
   };
 
   bindFieldEvent(doc, API_KEY_ID, "change", persist);
-  bindFieldEvent(doc, MODEL_ID, "command", persist);
-  bindFieldEvent(doc, MODEL_ID, "change", persist);
-  bindFieldEvent(doc, MAX_CONTEXT_ID, "change", persist);
   bindFieldEvent(doc, SAVE_BUTTON_ID, "command", persist);
   bindFieldEvent(doc, VALIDATE_BUTTON_ID, "command", () => {
     void validate();
@@ -114,32 +108,17 @@ function hydrateForm(
   settings: ReturnType<typeof getSettings>,
 ): void {
   const apiKeyField = getField(doc, API_KEY_ID);
-  const modelField = getField(doc, MODEL_ID);
-  const maxContextField = getField(doc, MAX_CONTEXT_ID);
 
   if (apiKeyField) {
     apiKeyField.value = settings.apiKey;
-  }
-  if (modelField) {
-    modelField.value = settings.model;
-  }
-  if (maxContextField) {
-    maxContextField.value = String(settings.maxContextBudget);
   }
 }
 
 function readFormValues(doc: PreferencesDocument): Partial<PersistedSettings> {
   const apiKeyField = getField(doc, API_KEY_ID);
-  const modelField = getField(doc, MODEL_ID);
-  const maxContextField = getField(doc, MAX_CONTEXT_ID);
-  const parsedBudget = Number(maxContextField?.value || "");
 
   return {
     apiKey: apiKeyField?.value?.trim?.() ?? "",
-    model: modelField?.value ?? DEFAULT_SETTINGS.model,
-    maxContextBudget: Number.isFinite(parsedBudget)
-      ? parsedBudget
-      : DEFAULT_SETTINGS.maxContextBudget,
   };
 }
 

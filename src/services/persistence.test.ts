@@ -120,4 +120,19 @@ describe("persistence", () => {
       },
     ]);
   });
+
+  it("throws when thread persistence fails so callers can surface the real error", async () => {
+    const thread: Thread = {
+      id: "thread-1",
+      title: "Thread 1",
+      createdAt: 1,
+      updatedAt: 2,
+      scopeSnapshot: undefined,
+      messages: [],
+    };
+
+    queryAsync.mockRejectedValueOnce(new Error("db write failed"));
+
+    await expect(saveThread(thread)).rejects.toThrow("db write failed");
+  });
 });

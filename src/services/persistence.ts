@@ -29,6 +29,7 @@ export async function initDatabase(): Promise<void> {
     ztoolkit.log("Database initialized");
   } catch (e) {
     ztoolkit.log("Database init error:", e);
+    throw e;
   }
 }
 
@@ -54,6 +55,7 @@ export async function saveThread(thread: Thread): Promise<void> {
     );
   } catch (e) {
     ztoolkit.log("Failed to save thread:", e);
+    throw e;
   }
 }
 

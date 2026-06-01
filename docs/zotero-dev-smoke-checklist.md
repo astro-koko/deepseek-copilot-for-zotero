@@ -37,12 +37,12 @@ Provider quality is secondary until the host loop is stable.
 ## Current verified state
 
 - `Settings` is visible again and no longer blank in the daily profile.
-- `API Key` and `Max Context` are now real editable controls in the daily profile.
-- the current `Model` / `Max Context` controls are no longer the target release contract; they are temporary while the host loop is still being stabilized.
+- the user-facing settings form is now being simplified in code to `API Key` only.
 - Reader scope now resolves from the active PDF tab instead of stale Reader context.
 - the sidebar shell can mount in Reader and show the expected shell chrome.
 - the Reader composer now accepts typed input and unlocks `Send`.
 - clicking `Send` now clears the draft, so the frontend interaction path is live.
+- first-message persistence failures now surface through session error state in tests instead of failing silently.
 - the top-toolbar toggle is still temporary and does not count as final UX acceptance.
 
 ## Current blockers
@@ -100,6 +100,7 @@ Still-missing evidence for the current branch:
 
 - a captured Settings round-trip result after reopen
 - a captured implementation pass that removes user-facing `Model` and `Max Context`
+- a captured real-Zotero confirmation that first-message failures are now visible inline
 - a captured packaged `.xpi` restart result
 - a captured Library pass on both regular and attachment items
 - a captured post-handoff interactivity result for `Explain` and `Ask...`

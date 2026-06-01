@@ -16,8 +16,7 @@ Status: Saved handoff state for the next window
 
 - `Settings` is no longer blank in the real daily profile
 - `API Key` is now a real secure text field in Zotero Settings
-- `Max Context` is now a real editable numeric control in Zotero Settings
-- `Tab` focus reaches `API Key`, `Model`, and `Max Context` in order
+- the settings pane has now been simplified in code toward the release-facing `API key`-only contract
 - Reader host remains mounted on active PDF tabs and shows `Ready`
 - Reader composer accepts real typed input
 - typing into Reader composer enables `Send`
@@ -27,7 +26,7 @@ Status: Saved handoff state for the next window
 ## Current Surface Status
 
 - `Settings`
-  The pane is mounted and editable in the daily profile, but the release-facing contract has not yet been simplified to `API key` only.
+  The pane is mounted and the user-facing form is now reduced to `API Key`, but packaged restart and daily-profile revalidation are still pending.
 - `Library`
   Native-host acceptance is still pending on both a regular library item and a PDF attachment item in the daily profile.
 - `Reader`
@@ -53,6 +52,12 @@ The strongest current hypothesis is:
 - the first user message is not surviving the create-thread plus append-message path cleanly
 - the failure is likely being swallowed or only logged, so the draft clears without a visible thread or inline error state
 
+Code-level progress now made against that hypothesis:
+
+- `saveThread()` now throws on write failure instead of silently resolving
+- `chatSessionStore.send()` now surfaces a visible session error when the first user message fails before streaming starts
+- the sidebar provider pill no longer exposes the internal model choice as user-facing configuration state
+
 ## Best Next Debug Pass
 
 Start the next window by instrumenting only the send/session path:
@@ -65,8 +70,8 @@ Start the next window by instrumenting only the send/session path:
 
 ## Suggested First Code Slice In The Next Window
 
-- first unblock visible send/thread behavior and make any first-message failure visible in the UI
-- once manual send is stable, remove `Model` and `Max Context` from the user-facing Settings pane
+- first verify in the real daily profile that first-message failures now surface inline instead of failing silently
+- then verify whether successful sends now settle into a visible active thread in Reader and Library
 - keep DeepSeek default model selection and default context budget internal in `settingsManager`
 - move any overflow handling into automatic truncation / compression instead of exposing a budget knob
 - keep toolbar-placement redesign out of scope until host surfaces are stable
@@ -80,4 +85,6 @@ Start the next window by instrumenting only the send/session path:
 ## Focused Validation Already Run
 
 - `npx vitest run src/modules/preferencesPaneSource.test.ts src/modules/preferencesPane.test.ts`
+- result: passed
+- `npx vitest run src/services/chatSession.test.ts src/services/persistence.test.ts src/ui/components/sidebarViewModel.test.ts src/services/settingsManager.test.ts src/services/chatEngine.test.ts`
 - result: passed

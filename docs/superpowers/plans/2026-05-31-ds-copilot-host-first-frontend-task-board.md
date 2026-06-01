@@ -16,11 +16,12 @@
 - Management baseline checkpoint committed at `76598f1` (`docs: add host-first frontend execution baseline`)
 - Latest verified daily-profile facts:
   - `Settings` is no longer blank; the DS Copilot preferences pane renders real fields and actions
-  - the `Settings` pane now exposes a real secure `API Key` input and a real editable `Max Context` control in the daily profile
+  - the `Settings` pane now exposes a real secure `API Key` input, and the user-facing settings contract is being collapsed toward `API key` only
   - `Reader` scope resolution is now tied to the active PDF tab, so the native host no longer falls back to stale `Waiting for context` state there
   - the sidebar shell can mount in Reader with visible scope, suggested actions, and composer chrome
   - the Reader composer now accepts real typed input, and typing unlocks `Send`
   - clicking `Send` is no longer inert; the draft clears, which proves the frontend dispatch path is live
+  - send/session failures before streaming now surface through session error state in tests instead of failing silently
   - the top-toolbar toggle still exists and must be treated as a temporary debug/fallback affordance, not the final placement contract
 - Current project risk is now narrower:
   - Library native-host acceptance still needs an explicit daily-profile pass on regular items and PDF attachment items
@@ -32,7 +33,7 @@
 ## Current Blockers
 
 - `Settings` renders again and is editable, but save/reopen/restart validation in the daily profile is still required before `M1` can turn green.
-- the release-facing Settings contract is now explicitly `API key` only, but the temporary `Model` / `Max Context` controls are still present in the current checkpoint.
+- the release-facing Settings contract is now explicitly `API key` only; daily-profile and packaged verification still need to confirm the simplified pane behaves correctly.
 - the sidebar shell mounts and accepts input, but there is still a send/session-state issue to resolve before `M4` is acceptable.
 - `Library` native-host behavior still needs explicit daily-profile verification on both regular items and PDF attachment items before `M2` can turn green.
 - the top-toolbar toggle remains a temporary debug/fallback control and is not acceptable as the final discovery contract.
@@ -43,17 +44,18 @@ Verified now:
 
 - `Settings` opens a real DS Copilot pane in the daily profile instead of a blank surface.
 - `API Key` is a real secure text field in the daily profile.
-- `Max Context` is a real editable numeric control in the daily profile.
+- the settings pane source is now reduced in code to the release-facing `API key`-only contract.
 - Reader scope resolution follows the active PDF tab instead of a stale Reader tab.
 - the Reader shell can mount with visible chrome, scope, and composer affordances.
 - the Reader composer accepts typed input.
 - typing into the Reader composer unlocks `Send`.
 - clicking `Send` clears the draft, confirming that the frontend event path is firing.
+- first-message persistence failures now produce visible session-error state in tests.
 
 Still missing runtime evidence:
 
-- proof that editing `apiKey`, `model`, and `maxContextBudget` survives save, reopen, and full restart
-- proof that the release-facing Settings contract is narrowed to `API key` only, with DeepSeek defaults and automatic context compression handled internally
+- proof that editing `apiKey` survives save, reopen, and full restart
+- proof that the release-facing Settings contract is narrowed to `API key` only in the real daily profile and packaged path, with DeepSeek defaults and automatic context compression handled internally
 - proof that Library native-host behavior is correct for both regular items and PDF attachment items
 - proof that Reader and Library survive tab-switch churn without duplicate mounts or false-visible states
 - proof that `Explain` and `Ask...` leave the mounted shell interactive after handoff
@@ -153,8 +155,8 @@ The current dirty worktree is concentrated in the host-first tranche:
 - Test: `src/modules/preferencesPane.test.ts`
 
 - [ ] Make `onPrefsEvent("load")` safe to call repeatedly without double-binding.
-- [ ] Verify `apiKey`, `model`, and `maxContextBudget` round-trip between UI and prefs.
-- [ ] Simplify the release-facing Settings contract to `API key` only after the current send/session blocker is solved.
+- [ ] Verify `apiKey` round-trips between UI and prefs after the settings simplification pass.
+- [x] Simplify the release-facing Settings contract to `API key` only after the current send/session blocker is solved.
   Keep DeepSeek default model selection and default context budget internal, and handle overflow through automatic truncation / compression.
 - [ ] Ensure the pane never renders blank due to missing initialization order.
 - [ ] Keep the pane intentionally narrow: only fields needed for the first usable frontend.
