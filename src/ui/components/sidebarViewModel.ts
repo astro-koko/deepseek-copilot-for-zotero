@@ -100,7 +100,7 @@ export function buildSidebarViewModel({
       contextWarnings,
       heroBody:
         location === "reader"
-          ? "Open a PDF in Reader and this sidebar will become available here."
+          ? "Open one PDF in Reader to enable chat."
           : "Choose one paper in Library or open one PDF in Reader to begin.",
       heroTitle:
         location === "reader" ? "Open a PDF" : "Select an item",
@@ -142,9 +142,8 @@ export function buildSidebarViewModel({
       composerPlaceholder: "Add your API key in Settings to enable chat.",
       contextAvailabilityLabel,
       contextWarnings,
-      heroBody:
-        "Open Settings, add your DeepSeek API key, then return here to chat in place.",
-      heroTitle: "Add your API key",
+      heroBody: "Add your DeepSeek API key in Settings.",
+      heroTitle: "Configuration required",
       locationLabel,
       mode: "config-error",
       noticeText: settingsIssue,
@@ -174,7 +173,7 @@ export function buildSidebarViewModel({
       contextAvailabilityLabel,
       contextWarnings,
       heroBody:
-        "This sidebar only chats with one paper or the active PDF right now.",
+        "Use one paper or the active PDF.",
       heroTitle: "Choose one paper",
       locationLabel,
       mode: "empty",
@@ -212,8 +211,7 @@ export function buildSidebarViewModel({
       composerPlaceholder: buildComposerPlaceholder(scope),
       contextAvailabilityLabel,
       contextWarnings,
-      heroBody:
-        "Continue below or switch to a recent thread for this context.",
+      heroBody: "Continue the current thread.",
       heroTitle: "Thread",
       locationLabel,
       mode: "thread",
@@ -240,8 +238,7 @@ export function buildSidebarViewModel({
     composerPlaceholder: buildComposerPlaceholder(scope),
     contextAvailabilityLabel,
     contextWarnings,
-    heroBody:
-      "Pick an action below or ask a question about the current paper.",
+    heroBody: "Pick an action or ask about the current paper.",
     heroTitle: "Ready to chat",
     locationLabel,
     mode: "home",

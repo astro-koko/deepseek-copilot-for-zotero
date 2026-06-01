@@ -61,6 +61,7 @@ describe("buildSidebarViewModel", () => {
 
     expect(model.mode).toBe("empty");
     expect(model.heroTitle).toBe("Select an item");
+    expect(model.heroBody).toContain("Choose one paper");
     expect(model.composerDisabled).toBe(true);
     expect(model.showShell).toBe(true);
     expect(model.showSuggestedActions).toBe(false);
@@ -83,9 +84,10 @@ describe("buildSidebarViewModel", () => {
     expect(model.showShell).toBe(true);
     expect(model.composerDisabled).toBe(true);
     expect(model.noticeText).toContain("API key");
-    expect(model.heroTitle).toBe("Add your API key");
+    expect(model.noticeTitle).toBe("Configuration required");
+    expect(model.heroTitle).toBe("Configuration required");
     expect(model.heroBody).toBe(
-      "Open Settings, add your DeepSeek API key, then return here to chat in place.",
+      "Add your DeepSeek API key in Settings.",
     );
   });
 
@@ -107,7 +109,7 @@ describe("buildSidebarViewModel", () => {
     expect(model.composerDisabled).toBe(false);
     expect(model.heroTitle).toBe("Ready to chat");
     expect(model.heroBody).toBe(
-      "Pick an action below or ask a question about the current paper.",
+      "Pick an action or ask about the current paper.",
     );
     expect(model.providerLabel).toBe("DeepSeek Flash");
   });
@@ -189,7 +191,7 @@ describe("buildSidebarViewModel", () => {
     expect(model.mode).toBe("empty");
     expect(model.heroTitle).toBe("Choose one paper");
     expect(model.heroBody).toBe(
-      "This sidebar only chats with one paper or the active PDF right now.",
+      "Use one paper or the active PDF.",
     );
     expect(model.composerDisabledReason).toBe(
       "Choose one paper in Library or open one PDF in Reader to enable chat.",
