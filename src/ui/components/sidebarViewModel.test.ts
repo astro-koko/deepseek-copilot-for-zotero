@@ -111,8 +111,16 @@ describe("buildSidebarViewModel", () => {
     expect(model.heroBody).toBe(
       "Pick an action or ask about the current paper.",
     );
-    expect(model.providerLabel).toBe("DeepSeek Flash");
+    expect(model.providerLabel).toBe("DeepSeek");
+    expect(model.statusLabel).toBe("Ready");
   });
+
+  // Manual compact pane layout checklist:
+  // - Sidebar header renders as a compact title row, not a branded hero card.
+  // - Scope, notice, intro, suggested actions, recent chats, streaming, and error
+  //   surfaces render as neutral pane sections, not large rounded cards.
+  // - Suggested actions and recent chats stay compact stacked rows without
+  //   reintroducing promotional hero-card wording.
 
   it("switches to thread view once persisted messages exist", () => {
     const model = buildSidebarViewModel({
@@ -199,7 +207,7 @@ describe("buildSidebarViewModel", () => {
     expect(model.showSuggestedActions).toBe(false);
   });
 
-  it("maps the persisted pro model to a Deep mode provider label", () => {
+  it("keeps the provider label neutral when the pro model is persisted", () => {
     const model = buildSidebarViewModel({
       location: "reader",
       recentThreads: [],
@@ -209,6 +217,6 @@ describe("buildSidebarViewModel", () => {
       settingsIssue: null,
     });
 
-    expect(model.providerLabel).toBe("DeepSeek Pro");
+    expect(model.providerLabel).toBe("DeepSeek");
   });
 });
