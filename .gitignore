@@ -10,3 +10,4 @@ tsconfig.tsbuildinfo
 .claude/
 .playwright-mcp/
 .superpowers/
+.worktrees/
