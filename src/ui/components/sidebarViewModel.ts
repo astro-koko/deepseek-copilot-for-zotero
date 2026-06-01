@@ -75,7 +75,8 @@ export function buildSidebarViewModel({
   settingsIssue,
 }: BuildSidebarViewModelArgs): SidebarViewModel {
   const locationLabel = location === "reader" ? "Reader" : "Library";
-  const providerLabel = "DeepSeek";
+  const providerLabel =
+    settings.model === "deepseek-v4-pro" ? "DeepSeek Pro" : "DeepSeek Flash";
   const filteredRecentThreads = recentThreads.filter(
     (thread) => thread.id !== session.activeThread?.id,
   );
@@ -89,20 +90,20 @@ export function buildSidebarViewModel({
       composerDisabled: true,
       composerDisabledReason:
         location === "reader"
-          ? "Open a PDF in Zotero Reader to start chatting."
-          : "Select a single paper in Library or open a PDF to start chatting.",
+          ? "Choose one paper in Library or open one PDF in Reader to enable chat."
+          : "Choose one paper in Library or open one PDF in Reader to enable chat.",
       composerPlaceholder:
         location === "reader"
-          ? "Open a PDF to unlock the chat box."
-          : "Select a single paper in Library to unlock the chat box.",
+          ? "Open a PDF to start asking questions."
+          : "Select one paper to start asking questions.",
       contextAvailabilityLabel,
       contextWarnings,
       heroBody:
         location === "reader"
-          ? "The assistant appears here as soon as a PDF reader tab is active."
-          : "Choose a single paper in Library or open a PDF in Reader and the assistant will stay scoped to that context.",
+          ? "Open a PDF in Reader and this sidebar will become available here."
+          : "Choose one paper in Library or open one PDF in Reader to begin.",
       heroTitle:
-        location === "reader" ? "Open a PDF to begin" : "Select a Zotero item",
+        location === "reader" ? "Open a PDF" : "Select an item",
       locationLabel,
       mode: "empty",
       noticeText: null,
@@ -138,12 +139,12 @@ export function buildSidebarViewModel({
       composerDisabled: true,
       composerDisabledReason:
         "Open plugin Settings and add your DeepSeek API key before sending messages.",
-      composerPlaceholder: "Configure DeepSeek in Settings to enable chat.",
+      composerPlaceholder: "Add your API key in Settings to enable chat.",
       contextAvailabilityLabel,
       contextWarnings,
       heroBody:
-        "The sidebar is mounted correctly. Finish the plugin setup in Settings and the same panel will immediately become interactive.",
-      heroTitle: "DeepSeek setup required",
+        "Open Settings, add your DeepSeek API key, then return here to chat in place.",
+      heroTitle: "Add your API key",
       locationLabel,
       mode: "config-error",
       noticeText: settingsIssue,
@@ -167,14 +168,14 @@ export function buildSidebarViewModel({
     return {
       composerDisabled: true,
       composerDisabledReason:
-        "This minimal DS Copilot loop currently supports one single paper or the current PDF only.",
+        "Choose one paper in Library or open one PDF in Reader to enable chat.",
       composerPlaceholder:
-        "Select a single paper in Library or open a PDF in Reader to enable chat.",
+        "Choose one paper or the active PDF to enable chat.",
       contextAvailabilityLabel,
       contextWarnings,
       heroBody:
-        "This iteration is intentionally narrowed to the minimal AI loop. Select a single paper in Library or open one PDF in Reader to chat with grounded context.",
-      heroTitle: "Single paper or current PDF required",
+        "This sidebar only chats with one paper or the active PDF right now.",
+      heroTitle: "Choose one paper",
       locationLabel,
       mode: "empty",
       noticeText: null,
@@ -212,8 +213,8 @@ export function buildSidebarViewModel({
       contextAvailabilityLabel,
       contextWarnings,
       heroBody:
-        "Continue the active conversation below, or switch to a recent thread without leaving the official Zotero sidebar.",
-      heroTitle: session.activeThread?.title || "Active conversation",
+        "Continue below or switch to a recent thread for this context.",
+      heroTitle: "Thread",
       locationLabel,
       mode: "thread",
       noticeText: null,
@@ -240,8 +241,8 @@ export function buildSidebarViewModel({
     contextAvailabilityLabel,
     contextWarnings,
     heroBody:
-      "Use a suggested action to get moving fast, or type your own question in the composer below.",
-    heroTitle: "Start a conversation with this context",
+      "Pick an action below or ask a question about the current paper.",
+    heroTitle: "Ready to chat",
     locationLabel,
     mode: "home",
     noticeText: null,

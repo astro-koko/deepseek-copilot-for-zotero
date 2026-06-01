@@ -15,6 +15,7 @@ import {
   PREFERENCES_PANE_ID,
   getSettings,
   getSettingsIssue,
+  saveSettings,
 } from "../../services/settingsManager";
 import { chatSessionStore } from "../../services/chatSession";
 import { listThreads } from "../../services/threadController";
@@ -192,6 +193,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
     setShowRecentChats(false);
   };
 
+  const handleModelChange = (modelName: "deepseek-v4-flash" | "deepseek-v4-pro") => {
+    saveSettings({ model: modelName });
+    setSettings(getSettings());
+    eventBus.dispatchEvent(new Event("settingsChange"));
+  };
+
   const model = buildSidebarViewModel({
     contextSummary,
     location,
@@ -207,56 +214,69 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <div>
-          <div style={styles.eyebrow}>DS Copilot</div>
-          <div style={styles.headerTitle}>{model.locationLabel}</div>
+        <div style={styles.headerMain}>
+          <div style={styles.headerTitle}>DS Copilot</div>
+          <div style={styles.headerMeta}>
+            {model.locationLabel} · {model.providerLabel} · {model.statusLabel}
+          </div>
         </div>
-        <div style={styles.headerMeta}>
-          <span style={styles.providerPill}>{model.providerLabel}</span>
-          <span
+        <div style={styles.headerActions}>
+          <div style={styles.modelToggle} role="group" aria-label="Model selection">
+            <button
+              style={{
+                ...styles.modelToggleButton,
+                ...(settings.model === "deepseek-v4-flash"
+                  ? styles.modelToggleButtonActive
+                  : null),
+              }}
+              onClick={() => handleModelChange("deepseek-v4-flash")}
+            >
+              Light
+            </button>
+            <button
+              style={{
+                ...styles.modelToggleButton,
+                ...(settings.model === "deepseek-v4-pro"
+                  ? styles.modelToggleButtonActive
+                  : null),
+              }}
+              onClick={() => handleModelChange("deepseek-v4-pro")}
+            >
+              Deep
+            </button>
+          </div>
+          <button
             style={{
-              ...styles.statusPill,
-              ...(model.statusLabel === "Ready"
-                ? styles.statusReady
-                : styles.statusMuted),
+              ...styles.toolbarButton,
+              ...(isSupportedChatScope(scope) ? null : styles.toolbarButtonDisabled),
             }}
+            onClick={() => {
+              void handleNewThread();
+            }}
+            disabled={!isSupportedChatScope(scope) || session.isStreaming}
           >
-            {model.statusLabel}
-          </span>
+            New Thread
+          </button>
+          <button
+            style={{
+              ...styles.toolbarButton,
+              ...(model.recentThreads.length > 0 ? null : styles.toolbarButtonDisabled),
+            }}
+            onClick={() => setShowRecentChats((current) => !current)}
+            disabled={model.recentThreads.length === 0}
+          >
+            Recent Chats
+          </button>
+          <button style={styles.toolbarButton} onClick={handleOpenSettings}>
+            Settings
+          </button>
         </div>
       </div>
 
-      <div style={styles.toolbar}>
-        <button
-          style={{
-            ...styles.toolbarButton,
-            ...(isSupportedChatScope(scope) ? null : styles.toolbarButtonDisabled),
-          }}
-          onClick={() => {
-            void handleNewThread();
-          }}
-          disabled={!isSupportedChatScope(scope) || session.isStreaming}
-        >
-          New Thread
-        </button>
-        <button
-          style={{
-            ...styles.toolbarButton,
-            ...(model.recentThreads.length > 0 ? null : styles.toolbarButtonDisabled),
-          }}
-          onClick={() => setShowRecentChats((current) => !current)}
-          disabled={model.recentThreads.length === 0}
-        >
-          Recent Chats
-        </button>
-        <button style={styles.toolbarButton} onClick={handleOpenSettings}>
-          Settings
-        </button>
-      </div>
-
-      <div style={styles.scopeCard}>
+      <div style={styles.scopeSection}>
+        <div style={styles.sectionLabel}>Context</div>
         <div style={styles.scopeHeaderRow}>
-          <span style={styles.scopeChip}>{model.scopeTypeLabel}</span>
+          <span style={styles.scopeType}>{model.scopeTypeLabel}</span>
           <span style={styles.scopeLabel} title={model.scopeLabel}>
             {model.scopeLabel}
           </span>
@@ -290,7 +310,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
       </div>
 
       {model.noticeText && (
-        <div style={styles.noticeCard}>
+        <div style={styles.noticeSection}>
           <div style={styles.noticeTitle}>{model.noticeTitle}</div>
           <div style={styles.noticeText}>{model.noticeText}</div>
           <button style={styles.noticeButton} onClick={handleOpenSettings}>
@@ -300,26 +320,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
       )}
 
       <div style={styles.content}>
-        <section style={styles.heroCard}>
+        <section style={styles.introSection}>
+          <div style={styles.sectionLabel}>Chat</div>
           <div style={styles.heroTitle}>{model.heroTitle}</div>
           <div style={styles.heroBody}>{model.heroBody}</div>
         </section>
 
         {model.showSuggestedActions && (
-          <section style={styles.sectionCard}>
+          <section style={styles.section}>
             <div style={styles.sectionTitle}>Suggested actions</div>
-            <div style={styles.presetGrid}>
+            <div style={styles.list}>
               {model.suggestedActions.map((action) => (
                 <button
                   key={action.id}
-                  style={styles.presetButton}
+                  style={styles.listButton}
                   onClick={() => {
                     void handlePresetSend(action.prompt);
                   }}
                 >
-                  <span style={styles.presetButtonLabel}>{action.label}</span>
-                  <span style={styles.presetButtonDescription}>
-                    {action.description}
+                  <span style={styles.listRow}>
+                    <span style={styles.listPrimary}>{action.label}</span>
+                    <span style={styles.listSecondary}>
+                      {action.description}
+                    </span>
                   </span>
                 </button>
               ))}
@@ -328,26 +351,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
         )}
 
         {model.showThreadView && (
-          <div style={styles.threadViewWrap}>
+          <div style={styles.threadSection}>
             <ThreadView hasScope={scope != null} thread={session.activeThread} />
           </div>
         )}
 
         {isRecentChatsVisible && (
-          <section style={styles.sectionCard}>
+          <section style={styles.section}>
             <div style={styles.sectionTitle}>Recent chats</div>
-            <div style={styles.recentList}>
+            <div style={styles.list}>
               {model.recentThreads.map((thread) => (
                 <button
                   key={thread.id}
-                  style={styles.recentThreadButton}
+                  style={styles.listButton}
                   onClick={() => handleOpenThread(thread)}
                 >
-                  <span style={styles.recentThreadTitle}>{thread.title}</span>
-                  <span style={styles.recentThreadPreview}>
-                    {getThreadPreview(thread)}
+                  <span style={styles.listRow}>
+                    <span style={styles.listPrimary}>{thread.title}</span>
+                    <span style={styles.listSecondary}>
+                      {getThreadPreview(thread)}
+                    </span>
                   </span>
-                  <span style={styles.recentThreadTime}>
+                  <span style={styles.listMeta}>
                     {formatThreadTimestamp(thread.updatedAt)}
                   </span>
                 </button>
@@ -357,13 +382,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
         )}
 
         {session.isStreaming && session.streamingContent && (
-          <div style={styles.streamingCard}>
-            <div style={styles.streamingLabel}>AI is responding</div>
+          <div style={styles.streamingSection}>
+            <div style={styles.streamingLabel}>Responding</div>
             <div style={styles.streamingContent}>{session.streamingContent}</div>
           </div>
         )}
 
-        {session.error && <div style={styles.errorCard}>{session.error}</div>}
+        {session.error && <div style={styles.errorSection}>{session.error}</div>}
       </div>
 
       <Composer
@@ -427,109 +452,116 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     height: "100%",
-    background:
-      "linear-gradient(180deg, #fffdf7 0%, #fcfaf5 24%, #f7f4ee 100%)",
-    color: "#1f2937",
+    background: "#f6f6f6",
+    color: "#222",
     fontFamily:
       '"SF Pro Text", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
     minHeight: "0",
   },
   header: {
     display: "flex",
-    justifyContent: "space-between",
-    gap: "12px",
-    padding: "14px 14px 8px",
-    alignItems: "flex-start",
+    flexDirection: "column",
+    gap: "8px",
+    padding: "10px 12px 8px",
+    alignItems: "stretch",
+    borderBottom: "1px solid #d7d7d7",
+    background: "#f6f6f6",
   },
-  eyebrow: {
-    fontSize: "11px",
-    fontWeight: 700,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    color: "#8b6b2e",
-  },
-  headerTitle: {
-    fontSize: "18px",
-    fontWeight: 700,
-    color: "#241b0d",
-    marginTop: "2px",
-  },
-  headerMeta: {
+  headerMain: {
     display: "flex",
     flexDirection: "column",
-    alignItems: "flex-end",
-    gap: "6px",
+    gap: "2px",
+    minWidth: 0,
+    flex: 1,
   },
-  providerPill: {
-    background: "rgba(118, 82, 24, 0.08)",
-    color: "#6b4f19",
-    borderRadius: "999px",
-    padding: "5px 10px",
-    fontSize: "11px",
+  headerTitle: {
+    fontSize: "13px",
     fontWeight: 600,
+    color: "#222",
   },
-  statusPill: {
-    borderRadius: "999px",
-    padding: "5px 10px",
+  headerMeta: {
     fontSize: "11px",
-    fontWeight: 700,
+    color: "#666",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
   },
-  statusReady: {
-    background: "#e8f5e9",
-    color: "#1b5e20",
-  },
-  statusMuted: {
-    background: "#f4efe3",
-    color: "#7b6841",
-  },
-  toolbar: {
+  headerActions: {
     display: "flex",
-    gap: "8px",
-    padding: "0 14px 12px",
+    gap: "6px",
+    alignItems: "center",
+    flexWrap: "wrap",
+    minWidth: 0,
+  },
+  modelToggle: {
+    display: "flex",
+    alignItems: "center",
+    border: "1px solid #c9c9c9",
+    borderRadius: "6px",
+    overflow: "hidden",
+    background: "#fbfbfb",
+  },
+  modelToggleButton: {
+    appearance: "none",
+    border: "none",
+    background: "transparent",
+    color: "#555",
+    padding: "4px 8px",
+    fontSize: "11px",
+    fontWeight: 500,
+    cursor: "pointer",
+  },
+  modelToggleButtonActive: {
+    background: "#e9eef5",
+    color: "#1f3f66",
   },
   toolbarButton: {
     appearance: "none",
-    border: "1px solid rgba(72, 57, 28, 0.15)",
-    borderRadius: "10px",
-    background: "#fffefb",
-    color: "#2f2416",
-    padding: "8px 11px",
-    fontSize: "12px",
-    fontWeight: 600,
+    border: "1px solid #c9c9c9",
+    borderRadius: "6px",
+    background: "#fbfbfb",
+    color: "#333",
+    padding: "4px 8px",
+    fontSize: "11px",
+    fontWeight: 500,
     cursor: "pointer",
-    boxShadow: "0 1px 0 rgba(30, 20, 5, 0.03)",
   },
   toolbarButtonDisabled: {
     opacity: 0.45,
     cursor: "not-allowed",
   },
-  scopeCard: {
-    margin: "0 14px",
-    padding: "12px",
-    borderRadius: "14px",
-    border: "1px solid rgba(130, 98, 37, 0.18)",
-    background: "rgba(255, 252, 245, 0.95)",
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.6)",
+  scopeSection: {
+    padding: "8px 12px 10px",
+    borderBottom: "1px solid #e0e0e0",
+    background: "#f6f6f6",
+  },
+  sectionLabel: {
+    fontSize: "10px",
+    fontWeight: 700,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    color: "#7a7a7a",
+    marginBottom: "4px",
   },
   scopeHeaderRow: {
     display: "flex",
     gap: "8px",
     alignItems: "center",
+    minWidth: 0,
   },
-  scopeChip: {
+  scopeType: {
     flexShrink: 0,
-    background: "#ead8ac",
-    color: "#5c4315",
-    borderRadius: "999px",
-    padding: "4px 9px",
+    color: "#666",
     fontSize: "11px",
-    fontWeight: 700,
+    fontWeight: 600,
     textTransform: "uppercase",
   },
   scopeLabel: {
-    fontSize: "13px",
+    minWidth: 0,
+    flex: 1,
+    fontSize: "12px",
     fontWeight: 600,
-    color: "#2f2416",
+    color: "#222",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -537,210 +569,194 @@ const styles: Record<string, React.CSSProperties> = {
   scopeMetaRow: {
     display: "flex",
     gap: "8px",
-    marginTop: "8px",
+    marginTop: "6px",
     flexWrap: "wrap",
   },
   scopeMeta: {
-    color: "#7a6641",
-    fontSize: "12px",
+    color: "#666",
+    fontSize: "11px",
   },
   selectionBadge: {
-    color: "#0f766e",
-    background: "rgba(15, 118, 110, 0.08)",
-    borderRadius: "999px",
-    padding: "3px 8px",
+    color: "#2a5a86",
+    background: "#edf4fb",
+    border: "1px solid #d6e5f4",
+    borderRadius: "5px",
+    padding: "1px 6px",
     fontSize: "11px",
-    fontWeight: 700,
+    fontWeight: 500,
   },
   contextAvailabilityBadge: {
-    color: "#7c4d0f",
-    background: "rgba(214, 174, 72, 0.16)",
-    borderRadius: "999px",
-    padding: "3px 8px",
+    color: "#6d5a1f",
+    background: "#f7f1dc",
+    border: "1px solid #e7dfc3",
+    borderRadius: "5px",
+    padding: "1px 6px",
     fontSize: "11px",
-    fontWeight: 700,
+    fontWeight: 500,
   },
   contextWarningList: {
     display: "flex",
     flexDirection: "column",
-    gap: "6px",
+    gap: "4px",
     width: "100%",
   },
   contextWarningBadge: {
-    color: "#92400e",
-    background: "rgba(251, 191, 36, 0.14)",
-    border: "1px solid rgba(217, 119, 6, 0.16)",
-    borderRadius: "10px",
-    padding: "6px 8px",
+    color: "#7b5d17",
+    background: "#f7f3e6",
+    border: "1px solid #e5dcc0",
+    borderRadius: "6px",
+    padding: "5px 6px",
     fontSize: "11px",
     lineHeight: 1.4,
+  },
+  noticeSection: {
+    margin: "8px 12px 0",
+    padding: "8px 10px",
+    border: "1px solid #e4dac0",
+    background: "#faf7ef",
+    borderRadius: "6px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+  },
+  noticeTitle: {
+    fontSize: "12px",
+    fontWeight: 600,
+    color: "#5d4d23",
+  },
+  noticeText: {
+    fontSize: "11px",
+    lineHeight: 1.4,
+    color: "#6f6138",
+  },
+  noticeButton: {
+    alignSelf: "flex-start",
+    padding: "4px 8px",
+    borderRadius: "6px",
+    border: "1px solid #d4c8a5",
+    background: "#fffdf8",
+    cursor: "pointer",
+    fontSize: "11px",
+    fontWeight: 500,
   },
   content: {
     flex: 1,
     minHeight: "0",
     overflow: "auto",
-    padding: "12px 14px 0",
+    padding: "8px 12px 0",
     display: "flex",
     flexDirection: "column",
-    gap: "12px",
+    gap: "8px",
   },
-  heroCard: {
-    padding: "16px",
-    borderRadius: "16px",
-    background:
-      "linear-gradient(135deg, rgba(252, 242, 211, 0.92) 0%, rgba(255, 255, 255, 0.94) 100%)",
-    border: "1px solid rgba(130, 98, 37, 0.14)",
+  introSection: {
+    padding: "8px 0 2px",
   },
   heroTitle: {
-    fontSize: "18px",
-    fontWeight: 700,
-    color: "#23180d",
+    fontSize: "13px",
+    fontWeight: 600,
+    color: "#222",
   },
   heroBody: {
-    marginTop: "8px",
-    fontSize: "13px",
-    lineHeight: 1.6,
-    color: "#5a4a2a",
+    marginTop: "4px",
+    fontSize: "12px",
+    lineHeight: 1.45,
+    color: "#666",
   },
-  sectionCard: {
-    padding: "14px",
-    borderRadius: "16px",
-    background: "rgba(255, 255, 255, 0.8)",
-    border: "1px solid rgba(130, 98, 37, 0.12)",
+  section: {
+    borderTop: "1px solid #e2e2e2",
+    paddingTop: "8px",
   },
   sectionTitle: {
-    fontSize: "13px",
-    fontWeight: 700,
-    color: "#332615",
-    marginBottom: "10px",
-  },
-  presetGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr",
-    gap: "8px",
-  },
-  presetButton: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-    alignItems: "flex-start",
-    width: "100%",
-    padding: "11px 12px",
-    borderRadius: "12px",
-    border: "1px solid rgba(130, 98, 37, 0.14)",
-    background: "#fffdfa",
-    cursor: "pointer",
-    textAlign: "left",
-  },
-  presetButtonLabel: {
-    fontSize: "13px",
-    fontWeight: 700,
-    color: "#2f2416",
-  },
-  presetButtonDescription: {
-    fontSize: "12px",
-    color: "#756241",
-    lineHeight: 1.5,
-  },
-  recentList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-  },
-  recentThreadButton: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-    gap: "4px",
-    width: "100%",
-    padding: "10px 12px",
-    borderRadius: "12px",
-    border: "1px solid rgba(130, 98, 37, 0.14)",
-    background: "#fffdfa",
-    cursor: "pointer",
-    textAlign: "left",
-  },
-  recentThreadTitle: {
-    fontSize: "13px",
-    fontWeight: 700,
-    color: "#2f2416",
-  },
-  recentThreadPreview: {
-    fontSize: "12px",
-    lineHeight: 1.5,
-    color: "#7a6641",
-  },
-  recentThreadTime: {
-    fontSize: "11px",
-    color: "#9a8968",
-  },
-  threadViewWrap: {
-    display: "flex",
-    flexDirection: "column",
-    minHeight: "220px",
-    flex: 1,
-    borderRadius: "16px",
-    border: "1px solid rgba(130, 98, 37, 0.12)",
-    background: "rgba(255, 255, 255, 0.82)",
-    overflow: "hidden",
-  },
-  noticeCard: {
-    margin: "12px 14px 0",
-    padding: "12px",
-    borderRadius: "14px",
-    background: "#fff7df",
-    border: "1px solid #f0d17a",
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-  },
-  noticeTitle: {
-    fontSize: "13px",
-    fontWeight: 700,
-    color: "#8a5a00",
-  },
-  noticeText: {
-    fontSize: "12px",
-    lineHeight: 1.5,
-    color: "#7a5a10",
-  },
-  noticeButton: {
-    alignSelf: "flex-start",
-    padding: "7px 11px",
-    borderRadius: "8px",
-    border: "1px solid #d9be62",
-    background: "#fffef7",
-    cursor: "pointer",
     fontSize: "12px",
     fontWeight: 600,
+    color: "#333",
+    marginBottom: "6px",
   },
-  streamingCard: {
-    padding: "12px 14px",
-    borderRadius: "16px",
-    background: "#f8fbff",
-    border: "1px solid #d7e8ff",
+  list: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: "1px",
+    border: "1px solid #dddddd",
+    borderRadius: "6px",
+    overflow: "hidden",
+    background: "#dddddd",
+  },
+  listButton: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: "4px",
+    width: "100%",
+    padding: "8px 10px",
+    border: "none",
+    background: "#fff",
+    cursor: "pointer",
+    textAlign: "left",
+  },
+  listRow: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    minWidth: 0,
+    flex: 1,
+  },
+  listPrimary: {
+    fontSize: "12px",
+    fontWeight: 500,
+    lineHeight: 1.35,
+    color: "#222",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  listSecondary: {
+    fontSize: "11px",
+    lineHeight: 1.35,
+    color: "#666",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  listMeta: {
+    fontSize: "11px",
+    color: "#777",
+    alignSelf: "flex-end",
+    flexShrink: 0,
+  },
+  threadSection: {
+    display: "flex",
+    flexDirection: "column",
+    minHeight: "180px",
+    flex: 1,
+    borderTop: "1px solid #e2e2e2",
+    paddingTop: "8px",
+    overflow: "hidden",
+  },
+  streamingSection: {
+    padding: "8px 10px",
+    border: "1px solid #d9e3ef",
+    borderRadius: "6px",
+    background: "#f7fafc",
   },
   streamingLabel: {
     fontSize: "11px",
-    textTransform: "uppercase",
-    letterSpacing: "0.08em",
-    fontWeight: 700,
-    color: "#4477b6",
-    marginBottom: "6px",
+    fontWeight: 600,
+    color: "#4f6b8a",
+    marginBottom: "4px",
   },
   streamingContent: {
-    fontSize: "13px",
-    lineHeight: 1.6,
-    color: "#28415f",
+    fontSize: "12px",
+    lineHeight: 1.45,
+    color: "#33485f",
     whiteSpace: "pre-wrap",
   },
-  errorCard: {
-    padding: "12px 14px",
-    borderRadius: "16px",
-    background: "#fff0f0",
-    border: "1px solid #f3b1b1",
-    color: "#a12626",
-    fontSize: "13px",
-    lineHeight: 1.5,
+  errorSection: {
+    padding: "8px 10px",
+    borderRadius: "6px",
+    background: "#fbf1f1",
+    border: "1px solid #ead2d2",
+    color: "#8d3838",
+    fontSize: "12px",
+    lineHeight: 1.4,
   },
 };

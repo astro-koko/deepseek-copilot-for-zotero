@@ -87,18 +87,29 @@ export function registerPreferencesPane(
 
   const validate = async () => {
     const values = readFormValues(doc);
+    setStatusText(doc, "Validating connection...", "success");
     const result = await deps.validateSettings(values);
     if (result.valid) {
-      await updateStatus(doc, "ai-assistant-pref-status-valid", "success");
+      setStatusText(doc, "DeepSeek connection looks good", "success");
+      showValidationDialog(
+        win,
+        "DS Copilot",
+        "DeepSeek connection looks good",
+      );
       return;
     }
 
     setStatusText(doc, result.error || "Validation failed", "error");
+    showValidationDialog(
+      win,
+      "DS Copilot Validation Failed",
+      result.error || "Validation failed",
+    );
   };
 
   bindFieldEvent(doc, API_KEY_ID, "change", persist);
-  bindFieldEvent(doc, SAVE_BUTTON_ID, "command", persist);
-  bindFieldEvent(doc, VALIDATE_BUTTON_ID, "command", () => {
+  bindButtonActivation(doc, SAVE_BUTTON_ID, persist);
+  bindButtonActivation(doc, VALIDATE_BUTTON_ID, () => {
     void validate();
   });
 }
@@ -155,6 +166,31 @@ function bindFieldEvent(
   field.__aiAssistantListeners = listeners;
 }
 
+function bindButtonActivation(
+  doc: PreferencesDocument,
+  id: string,
+  listener: () => void,
+): void {
+  let scheduledClickToken = 0;
+  const invokeFromClick = () => {
+    const token = ++scheduledClickToken;
+    void Promise.resolve().then(() => {
+      if (token !== scheduledClickToken) {
+        return;
+      }
+      scheduledClickToken = 0;
+      listener();
+    });
+  };
+  const invokeFromCommand = () => {
+    scheduledClickToken = 0;
+    listener();
+  };
+
+  bindFieldEvent(doc, id, "command", invokeFromCommand);
+  bindFieldEvent(doc, id, "click", invokeFromClick);
+}
+
 async function updateStatus(
   doc: PreferencesDocument,
   l10nId: string,
@@ -193,4 +229,12 @@ function setStatusText(
 
 function getStatusElement(doc: PreferencesDocument): PreferencesStatusElement | null {
   return doc.getElementById(STATUS_ID) as PreferencesStatusElement | null;
+}
+
+function showValidationDialog(win: Window, title: string, message: string): void {
+  try {
+    Zotero.alert(win, title, message);
+  } catch (error) {
+    ztoolkit.log("Failed to show validation dialog:", error);
+  }
 }

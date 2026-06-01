@@ -34,6 +34,70 @@ async function* streamChunks(...chunks: string[]) {
 }
 
 describe("chatSession", () => {
+  it("sends successfully when AbortController is unavailable in the host runtime", async () => {
+    const originalAbortController = (globalThis as any).AbortController;
+    (globalThis as any).AbortController = undefined;
+
+    try {
+      const scope = makeScope();
+      const emptyThread = makeThread({ scopeSnapshot: scope });
+      const threadWithUser = makeThread({
+        scopeSnapshot: scope,
+        messages: [
+          {
+            id: "msg-user-1",
+            role: "user",
+            content: "Host fallback",
+            timestamp: 2,
+          },
+        ],
+        updatedAt: 2,
+      });
+      const finalThread = makeThread({
+        scopeSnapshot: scope,
+        messages: [
+          ...threadWithUser.messages,
+          {
+            id: "msg-assistant-1",
+            role: "assistant",
+            content: "Fallback works.",
+            timestamp: 3,
+          },
+        ],
+        updatedAt: 3,
+      });
+
+      const createThread = vi.fn().mockResolvedValue(emptyThread);
+      const appendMessage = vi
+        .fn()
+        .mockResolvedValueOnce(threadWithUser)
+        .mockResolvedValueOnce(finalThread);
+      const sendChatMessage = vi.fn().mockResolvedValue({
+        abort: vi.fn(),
+        stream: streamChunks("Fallback works."),
+      });
+
+      const store = createChatSessionStore({
+        appendMessage,
+        createThread,
+        recordScopeTransition: vi.fn(),
+        sendChatMessage,
+      });
+
+      await store.send("Host fallback", scope);
+
+      expect(sendChatMessage).toHaveBeenCalledWith(
+        threadWithUser,
+        scope,
+        undefined,
+      );
+      expect(store.getSnapshot().activeThread).toEqual(finalThread);
+      expect(store.getSnapshot().error).toBeNull();
+    } finally {
+      (globalThis as any).AbortController = originalAbortController;
+    }
+  });
+
   it("keeps one active thread while the scope changes between surfaces", async () => {
     const initialScope = makeScope();
     const nextScope = makeScope({

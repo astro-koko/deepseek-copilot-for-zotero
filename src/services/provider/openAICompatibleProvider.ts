@@ -19,8 +19,14 @@ export function createOpenAICompatibleProvider(
       temperature: 0.7,
     };
 
-    const controller = new AbortController();
-    if (signal) {
+    recordProviderRequestDiagnostic(config, requestBody);
+
+    const AbortControllerCtor = (globalThis as any).AbortController;
+    const controller =
+      typeof AbortControllerCtor === "function"
+        ? new AbortControllerCtor()
+        : null;
+    if (signal && controller) {
       signal.addEventListener("abort", () => controller.abort());
     }
 
@@ -31,7 +37,7 @@ export function createOpenAICompatibleProvider(
         Authorization: `Bearer ${config.apiKey}`,
       },
       body: JSON.stringify(requestBody),
-      signal: controller.signal,
+      signal: controller?.signal,
     });
 
     if (!response.ok) {
@@ -77,10 +83,25 @@ export function createOpenAICompatibleProvider(
     }
 
     return {
-      abort: () => controller.abort(),
+      abort: () => controller?.abort?.(),
       stream: streamGenerator(),
     };
   }
 
   return { sendChat };
+}
+
+function recordProviderRequestDiagnostic(
+  config: ProviderConfig,
+  requestBody: ChatCompletionRequest,
+): void {
+  const diagnostics = ((globalThis as any).__aiAssistantDiagnostics ??= {});
+  diagnostics.lastProviderRequest = {
+    endpoint: `${config.baseURL}/chat/completions`,
+    hasApiKey: Boolean(config.apiKey),
+    messageCount: requestBody.messages.length,
+    model: requestBody.model,
+    stream: requestBody.stream,
+    timestamp: new Date().toISOString(),
+  };
 }

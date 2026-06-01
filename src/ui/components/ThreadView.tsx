@@ -53,8 +53,9 @@ const MessageBubble: React.FC<{ message: Message }> = ({ message }) => {
       style={{
         ...styles.message,
         alignSelf: isUser ? "flex-end" : "flex-start",
-        background: isUser ? "#1976d2" : "#f5f5f5",
-        color: isUser ? "#fff" : "#333",
+        background: isUser ? "#eef3f8" : "#ffffff",
+        color: "#2b2b2b",
+        borderColor: isUser ? "#d5e0ea" : "#dcdcdc",
       }}
     >
       <div style={styles.content}>{message.content}</div>
@@ -69,17 +70,18 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     flex: 1,
     overflow: "auto",
-    padding: "12px",
+    padding: "0",
     display: "flex",
     flexDirection: "column",
-    gap: "8px",
+    gap: "6px",
   },
   message: {
-    maxWidth: "85%",
-    padding: "10px 14px",
-    borderRadius: "12px",
-    fontSize: "14px",
-    lineHeight: 1.5,
+    maxWidth: "92%",
+    padding: "8px 10px",
+    borderRadius: "6px",
+    border: "1px solid transparent",
+    fontSize: "12px",
+    lineHeight: 1.45,
   },
   content: {
     whiteSpace: "pre-wrap",
@@ -87,17 +89,17 @@ const styles: Record<string, React.CSSProperties> = {
   },
   timestamp: {
     fontSize: "11px",
-    opacity: 0.7,
-    marginTop: "4px",
+    opacity: 0.65,
+    marginTop: "3px",
     textAlign: "right",
   },
   systemMessage: {
     alignSelf: "center",
-    padding: "6px 12px",
-    borderRadius: "16px",
-    background: "#fff3e0",
-    color: "#e65100",
-    fontSize: "12px",
-    fontStyle: "italic",
+    padding: "4px 8px",
+    borderRadius: "5px",
+    background: "#f4f4f4",
+    color: "#666",
+    border: "1px solid #dddddd",
+    fontSize: "11px",
   },
 };

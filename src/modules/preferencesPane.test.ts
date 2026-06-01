@@ -72,6 +72,9 @@ describe("registerPreferencesPane", () => {
 
   beforeEach(() => {
     EventBus.dispose();
+    vi.stubGlobal("Zotero", {
+      alert: vi.fn(),
+    });
     root = new FakeRootElement();
     apiKeyField = new FakeField();
     saveButton = new FakeButton();
@@ -168,6 +171,49 @@ describe("registerPreferencesPane", () => {
     });
     expect(status.textContent).toBe("Invalid API key");
     expect(status.dataset.variant).toBe("error");
+    expect((Zotero.alert as any)).toHaveBeenCalledWith(
+      expect.anything(),
+      "DS Copilot Validation Failed",
+      "Invalid API key",
+    );
+  });
+
+  it("shows a validating status before reporting validation success", async () => {
+    let resolveValidation:
+      | ((value: { valid: boolean; error?: string }) => void)
+      | null = null;
+    deps.validateSettings = vi.fn(
+      () =>
+        new Promise<{ valid: boolean; error?: string }>((resolve) => {
+          resolveValidation = resolve;
+        }),
+    );
+    registerPreferencesPane(createWindow(), deps);
+
+    apiKeyField.value = "sk-validating";
+    validateButton.dispatch("command");
+    await Promise.resolve();
+
+    expect(status.dataset.variant).toBe("success");
+    expect(status.textContent).toBe("Validating connection...");
+
+    if (!resolveValidation) {
+      throw new Error("Expected validation promise resolver to be captured");
+    }
+    const finishValidation: (value: { valid: boolean; error?: string }) => void =
+      resolveValidation;
+    finishValidation({ valid: true });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(status.textContent).toBe("DeepSeek connection looks good");
+    expect(status.dataset.variant).toBe("success");
+    expect((Zotero.alert as any)).toHaveBeenCalledWith(
+      expect.anything(),
+      "DS Copilot",
+      "DeepSeek connection looks good",
+    );
   });
 
   it("persists settings from XUL command events and broadcasts the change", () => {
@@ -182,6 +228,23 @@ describe("registerPreferencesPane", () => {
       apiKey: "sk-command",
     });
     expect(eventSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("responds to click events from preference buttons in the live Zotero pane", async () => {
+    registerPreferencesPane(createWindow(), deps);
+
+    apiKeyField.value = "sk-click";
+    saveButton.dispatch("click");
+    validateButton.dispatch("click");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(deps.saveSettings).toHaveBeenLastCalledWith({
+      apiKey: "sk-click",
+    });
+    expect(deps.validateSettings).toHaveBeenLastCalledWith({
+      apiKey: "sk-click",
+    });
   });
 
   it("rebinds listeners when Zotero recreates the field nodes under the same root", () => {

@@ -17,6 +17,7 @@ import {
   type SidebarLocation,
   type SidebarSurfaceHost,
 } from "./sidebarSection";
+import { getCurrentScope } from "../services/scopeResolver";
 import {
   isSidebarVisible,
   registerSidebarRefreshHandler,
@@ -644,10 +645,17 @@ export class UIFactory {
         }));
       };
 
+      const diagnostics = (globalThis as any).__aiAssistantDiagnostics ?? {};
+      const lastProviderRequest = diagnostics.lastProviderRequest ?? null;
+      const currentScope = getCurrentScope();
+
       // TEMP probe for daily-profile host debugging. Remove before release acceptance.
-      const diagnosticFile = Zotero.File.pathToFile(SURFACE_DIAGNOSTIC_PATH);
+      const diagnosticTarget =
+        typeof Zotero.File.pathToFile === "function"
+          ? Zotero.File.pathToFile(SURFACE_DIAGNOSTIC_PATH)
+          : SURFACE_DIAGNOSTIC_PATH;
       Zotero.File.putContents(
-        diagnosticFile,
+        diagnosticTarget as unknown as nsIFile,
         JSON.stringify(
           {
             timestamp: new Date().toISOString(),
@@ -655,6 +663,21 @@ export class UIFactory {
             selectedType: win.Zotero_Tabs?.selectedType || null,
             selectedID: (win.Zotero_Tabs as { selectedID?: string | number } | undefined)?.selectedID ?? null,
             resolvedLocation: selectedLocation,
+            currentScope: currentScope
+              ? {
+                  id: currentScope.id,
+                  itemIds: currentScope.itemIds,
+                  label: currentScope.label,
+                  readerAttachmentId: currentScope.readerAttachmentId ?? null,
+                  type: currentScope.type,
+                }
+              : null,
+            modelState: {
+              lastProviderRequestEndpoint: lastProviderRequest?.endpoint ?? null,
+              lastProviderRequestMessageCount:
+                lastProviderRequest?.messageCount ?? null,
+              lastProviderRequestModel: lastProviderRequest?.model ?? null,
+            },
             itemPaneChildren: summarizeChildren("zotero-item-pane"),
             contextPaneChildren: summarizeChildren("zotero-context-pane"),
             nodes: {

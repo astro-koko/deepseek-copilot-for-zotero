@@ -40,6 +40,15 @@ vi.mock("./sidebarRuntime", () => ({
   setSidebarVisible: mocks.setSidebarVisible,
 }));
 
+vi.mock("../services/scopeResolver", () => ({
+  getCurrentScope: vi.fn(() => ({
+    id: "paper-17",
+    itemIds: [17],
+    label: "Scope Probe",
+    type: "paper",
+  })),
+}));
+
 import { UIFactory } from "./ui";
 
 class FakeElement {
@@ -361,6 +370,59 @@ describe("UIFactory", () => {
     expect(
       win.document.getElementById("ai-assistant-pane-library-mount")?.style.display,
     ).toBe("none");
+  });
+
+  it("writes host diagnostics including selected tab state and model evidence for smoke collection", async () => {
+    const win = new FakeWindow();
+    mainWindows.push(win);
+    const toolbar = attachRoot(win.document, win.document.body, "zotero-tabs-toolbar");
+    const libraryPane = attachRoot(win.document, win.document.body, "zotero-item-pane");
+    const readerOuter = attachRoot(win.document, win.document.body, "zotero-context-pane");
+    const readerInner = attachRoot(win.document, readerOuter, "zotero-context-pane-inner");
+    attachRoot(win.document, libraryPane, "native-library-content");
+    attachRoot(win.document, readerInner, "native-reader-content");
+    win.Zotero_Tabs.selectedType = "reader";
+    (win.Zotero_Tabs as any).selectedID = "reader-tab-7";
+
+    const toggleButton = attachRoot(win.document, toolbar, "zotero-ai-assistant-tb-chat-toggle");
+    toggleButton.setAttribute("aria-pressed", "true");
+
+    (globalThis as any).__aiAssistantDiagnostics = {
+      lastProviderRequest: {
+        endpoint: "https://api.deepseek.com/chat/completions",
+        messageCount: 3,
+        model: "deepseek-v4-pro",
+        stream: true,
+      },
+    };
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    UIFactory.refreshWindow(win as unknown as Window & typeof globalThis);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const putContents = (globalThis as any).Zotero.File.putContents as ReturnType<typeof vi.fn>;
+    const latestPayload = putContents.mock.calls.at(-1)?.[1];
+    expect(typeof latestPayload).toBe("string");
+
+    const parsed = JSON.parse(String(latestPayload));
+    expect(parsed.selectedType).toBe("reader");
+    expect(parsed.selectedID).toBe("reader-tab-7");
+    expect(parsed.currentScope).toEqual({
+      id: "paper-17",
+      itemIds: [17],
+      label: "Scope Probe",
+      readerAttachmentId: null,
+      type: "paper",
+    });
+    expect(parsed.modelState).toEqual({
+      lastProviderRequestEndpoint: "https://api.deepseek.com/chat/completions",
+      lastProviderRequestModel: "deepseek-v4-pro",
+      lastProviderRequestMessageCount: 3,
+    });
+    expect(parsed.nodes.toggleButton?.ariaPressed).toBe("true");
+    expect(parsed.nodes.libraryMount).toBeTruthy();
+    expect(parsed.nodes.readerMount).toBeTruthy();
   });
 
   it("restores previously collapsed panes after panel removal", async () => {

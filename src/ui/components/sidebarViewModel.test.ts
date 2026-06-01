@@ -60,11 +60,13 @@ describe("buildSidebarViewModel", () => {
     });
 
     expect(model.mode).toBe("empty");
-    expect(model.heroTitle).toContain("Select");
+    expect(model.heroTitle).toBe("Select an item");
     expect(model.composerDisabled).toBe(true);
     expect(model.showShell).toBe(true);
     expect(model.showSuggestedActions).toBe(false);
-    expect(model.composerDisabledReason).toContain("single paper");
+    expect(model.composerDisabledReason).toBe(
+      "Choose one paper in Library or open one PDF in Reader to enable chat.",
+    );
   });
 
   it("shows a configuration state instead of a blank body when the api key is missing", () => {
@@ -81,6 +83,10 @@ describe("buildSidebarViewModel", () => {
     expect(model.showShell).toBe(true);
     expect(model.composerDisabled).toBe(true);
     expect(model.noticeText).toContain("API key");
+    expect(model.heroTitle).toBe("Add your API key");
+    expect(model.heroBody).toBe(
+      "Open Settings, add your DeepSeek API key, then return here to chat in place.",
+    );
   });
 
   it("shows a Beaver-like home shell when scope exists but the thread is empty", () => {
@@ -99,6 +105,11 @@ describe("buildSidebarViewModel", () => {
     expect(model.showSuggestedActions).toBe(true);
     expect(model.showRecentThreads).toBe(true);
     expect(model.composerDisabled).toBe(false);
+    expect(model.heroTitle).toBe("Ready to chat");
+    expect(model.heroBody).toBe(
+      "Pick an action below or ask a question about the current paper.",
+    );
+    expect(model.providerLabel).toBe("DeepSeek Flash");
   });
 
   it("switches to thread view once persisted messages exist", () => {
@@ -131,6 +142,7 @@ describe("buildSidebarViewModel", () => {
     expect(model.mode).toBe("thread");
     expect(model.showThreadView).toBe(true);
     expect(model.composerDisabled).toBe(false);
+    expect(model.heroTitle).toBe("Thread");
   });
 
   it("surfaces context fallback warnings when only abstract content is available", () => {
@@ -175,9 +187,26 @@ describe("buildSidebarViewModel", () => {
     expect(model.showShell).toBe(true);
     expect(model.composerDisabled).toBe(true);
     expect(model.mode).toBe("empty");
-    expect(model.heroTitle).toContain("Single paper");
-    expect(model.heroBody).toContain("single paper");
-    expect(model.composerDisabledReason).toContain("single paper");
+    expect(model.heroTitle).toBe("Choose one paper");
+    expect(model.heroBody).toBe(
+      "This sidebar only chats with one paper or the active PDF right now.",
+    );
+    expect(model.composerDisabledReason).toBe(
+      "Choose one paper in Library or open one PDF in Reader to enable chat.",
+    );
     expect(model.showSuggestedActions).toBe(false);
+  });
+
+  it("maps the persisted pro model to a Deep mode provider label", () => {
+    const model = buildSidebarViewModel({
+      location: "reader",
+      recentThreads: [],
+      scope: makeScope({ type: "pdf", id: "pdf-1", readerAttachmentId: 1 }),
+      session: makeSession(),
+      settings: makeSettings({ model: "deepseek-v4-pro" }),
+      settingsIssue: null,
+    });
+
+    expect(model.providerLabel).toBe("DeepSeek Pro");
   });
 });

@@ -35,6 +35,11 @@ const DEFAULT_STATE: ChatSessionState = {
   streamingContent: "",
 };
 
+interface AbortControllerLike {
+  abort(): void;
+  signal?: AbortSignal;
+}
+
 function hasScopeChanged(
   thread: Thread,
   scope: ScopeContext | null | undefined,
@@ -62,7 +67,7 @@ export function createChatSessionStore(
 ): ChatSessionStore {
   const listeners = new Set<() => void>();
   let state: ChatSessionState = { ...DEFAULT_STATE };
-  let abortController: AbortController | null = null;
+  let abortController: AbortControllerLike | null = null;
   let requestVersion = 0;
 
   const emit = () => {
@@ -79,6 +84,14 @@ export function createChatSessionStore(
   };
 
   const isCurrentRequest = (version: number) => version === requestVersion;
+  const createAbortController = (): AbortControllerLike | null => {
+    const AbortControllerCtor = (globalThis as any).AbortController;
+    if (typeof AbortControllerCtor !== "function") {
+      return null;
+    }
+
+    return new AbortControllerCtor();
+  };
 
   const ensureScopedThread = async (
     thread: Thread,
@@ -196,7 +209,7 @@ export function createChatSessionStore(
         }
 
         thread = threadWithUserMessage;
-        abortController = new AbortController();
+        abortController = createAbortController();
         version = ++requestVersion;
         shouldPersistFailureMessage = true;
         setState({
@@ -209,7 +222,7 @@ export function createChatSessionStore(
         const response = await deps.sendChatMessage(
           thread,
           scope || undefined,
-          abortController.signal,
+          abortController?.signal,
         );
 
         let fullResponse = "";

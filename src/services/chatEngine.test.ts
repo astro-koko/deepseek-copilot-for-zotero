@@ -114,4 +114,22 @@ describe("chatEngine", () => {
       "Using the abstract because no extractable PDF text is available for this scope.",
     );
   });
+
+  it("uses the persisted pro model when the sidebar switches to deep mode", async () => {
+    providerMocks.getSettings.mockReturnValue({
+      apiKey: "sk-test",
+      baseURL: "https://api.deepseek.com",
+      keyboardShortcut: "I",
+      maxContextBudget: 4000,
+      model: "deepseek-v4-pro",
+    });
+
+    await sendChatMessage(makeThread([]), undefined);
+
+    expect(providerMocks.createOpenAICompatibleProvider).toHaveBeenCalledWith({
+      apiKey: "sk-test",
+      baseURL: "https://api.deepseek.com",
+      model: "deepseek-v4-pro",
+    });
+  });
 });
