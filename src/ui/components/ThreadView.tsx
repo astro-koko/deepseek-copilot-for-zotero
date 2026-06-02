@@ -1,4 +1,7 @@
 import React, { useRef, useEffect } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkBreaks from "remark-breaks";
+import remarkGfm from "remark-gfm";
 import type { Thread, Message } from "../../types/thread";
 import { EmptyState } from "./EmptyState";
 import { getSidebarTheme } from "../theme";
@@ -38,6 +41,177 @@ export const ThreadView: React.FC<ThreadViewProps> = ({
   );
 };
 
+function canUseZoteroLaunchURL(): boolean {
+  return (
+    typeof (globalThis as { Zotero?: { launchURL?: unknown } }).Zotero?.launchURL ===
+    "function"
+  );
+}
+
+export function openMarkdownLink(
+  href: string,
+  event: { preventDefault: () => void },
+): void {
+  event.preventDefault();
+  const launchURL = (globalThis as { Zotero?: { launchURL?: (url: string) => void } }).Zotero
+    ?.launchURL;
+  launchURL?.(href);
+}
+
+function buildMarkdownComponents(
+  theme: ReturnType<typeof getSidebarTheme>,
+): Components {
+  return {
+    a: ({ node: _node, href, children, ...props }) => (
+      <a
+        {...props}
+        href={href}
+        rel="noopener noreferrer"
+        style={{ color: theme.badgeText }}
+        target="_blank"
+        onClick={
+          href && canUseZoteroLaunchURL()
+            ? (event) => openMarkdownLink(href, event)
+            : undefined
+        }
+      >
+        {children}
+      </a>
+    ),
+    blockquote: ({ node: _node, children, ...props }) => (
+      <blockquote
+        {...props}
+        style={{
+          margin: "6px 0",
+          padding: "0 0 0 10px",
+          borderLeft: `3px solid ${theme.softBorder}`,
+          color: theme.mutedText,
+        }}
+      >
+        {children}
+      </blockquote>
+    ),
+    code: ({ node: _node, children, className, ...props }) => (
+      <code {...props} className={className}>
+        {children}
+      </code>
+    ),
+    h1: ({ node: _node, children, ...props }) => (
+      <h1 {...props} style={{ margin: "0 0 8px", fontSize: "16px", lineHeight: 1.3 }}>
+        {children}
+      </h1>
+    ),
+    h2: ({ node: _node, children, ...props }) => (
+      <h2 {...props} style={{ margin: "0 0 7px", fontSize: "15px", lineHeight: 1.35 }}>
+        {children}
+      </h2>
+    ),
+    h3: ({ node: _node, children, ...props }) => (
+      <h3 {...props} style={{ margin: "0 0 6px", fontSize: "14px", lineHeight: 1.35 }}>
+        {children}
+      </h3>
+    ),
+    h4: ({ node: _node, children, ...props }) => (
+      <h4 {...props} style={{ margin: "0 0 6px", fontSize: "13px", lineHeight: 1.35 }}>
+        {children}
+      </h4>
+    ),
+    h5: ({ node: _node, children, ...props }) => (
+      <h5 {...props} style={{ margin: "0 0 5px", fontSize: "12px", lineHeight: 1.35 }}>
+        {children}
+      </h5>
+    ),
+    h6: ({ node: _node, children, ...props }) => (
+      <h6 {...props} style={{ margin: "0 0 5px", fontSize: "12px", lineHeight: 1.35 }}>
+        {children}
+      </h6>
+    ),
+    ol: ({ node: _node, children, ...props }) => (
+      <ol {...props} style={{ margin: "6px 0", paddingLeft: "18px" }}>
+        {children}
+      </ol>
+    ),
+    p: ({ node: _node, children, ...props }) => (
+      <p {...props} style={{ margin: "0 0 6px" }}>
+        {children}
+      </p>
+    ),
+    pre: ({ node: _node, children, ...props }) => (
+      <pre
+        {...props}
+        style={{
+          margin: "6px 0",
+          padding: "8px",
+          overflowX: "auto",
+          background: theme.panelBackground,
+          border: `1px solid ${theme.softBorder}`,
+          borderRadius: "4px",
+          whiteSpace: "pre-wrap",
+        }}
+      >
+        {children}
+      </pre>
+    ),
+    table: ({ node: _node, children, ...props }) => (
+      <table
+        {...props}
+        style={{
+          width: "100%",
+          margin: "6px 0",
+          borderCollapse: "collapse",
+          fontSize: "11px",
+        }}
+      >
+        {children}
+      </table>
+    ),
+    td: ({ node: _node, children, ...props }) => (
+      <td
+        {...props}
+        style={{
+          border: `1px solid ${theme.softBorder}`,
+          padding: "4px 6px",
+          verticalAlign: "top",
+        }}
+      >
+        {children}
+      </td>
+    ),
+    th: ({ node: _node, children, ...props }) => (
+      <th
+        {...props}
+        style={{
+          border: `1px solid ${theme.softBorder}`,
+          padding: "4px 6px",
+          textAlign: "left",
+          background: theme.panelBackground,
+        }}
+      >
+        {children}
+      </th>
+    ),
+    ul: ({ node: _node, children, ...props }) => (
+      <ul {...props} style={{ margin: "6px 0", paddingLeft: "18px" }}>
+        {children}
+      </ul>
+    ),
+  };
+}
+
+const MarkdownMessage: React.FC<{
+  content: string;
+  theme: ReturnType<typeof getSidebarTheme>;
+}> = ({ content, theme }) => (
+  <div style={styles.content}>
+    <ReactMarkdown
+      components={buildMarkdownComponents(theme)}
+      remarkPlugins={[remarkGfm, remarkBreaks]}
+    >
+      {content}
+    </ReactMarkdown>
+  </div>
+);
+
 const MessageBubble: React.FC<{
   message: Message;
   theme: ReturnType<typeof getSidebarTheme>;
@@ -45,32 +219,25 @@ const MessageBubble: React.FC<{
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
 
-  if (isSystem) {
-    return (
-      <div
-        style={{
-          ...styles.systemMessage,
-          background: theme.systemMessageBackground,
-          color: theme.mutedText,
-          borderColor: theme.systemMessageBorder,
-        }}
-      >
-        <span>{message.content}</span>
-      </div>
-    );
-  }
-
   return (
     <div
       style={{
-        ...styles.message,
-        alignSelf: isUser ? "flex-end" : "flex-start",
-        background: isUser ? theme.userMessageBackground : theme.assistantMessageBackground,
-        color: theme.text,
-        borderColor: isUser ? theme.userMessageBorder : theme.assistantMessageBorder,
+        ...(isSystem ? styles.systemMessage : styles.message),
+        alignSelf: isSystem ? "center" : isUser ? "flex-end" : "flex-start",
+        background: isSystem
+          ? theme.systemMessageBackground
+          : isUser
+            ? theme.userMessageBackground
+            : theme.assistantMessageBackground,
+        color: isSystem ? theme.mutedText : theme.text,
+        borderColor: isSystem
+          ? theme.systemMessageBorder
+          : isUser
+            ? theme.userMessageBorder
+            : theme.assistantMessageBorder,
       }}
     >
-      <div style={styles.content}>{message.content}</div>
+      <MarkdownMessage content={message.content} theme={theme} />
       <div style={{ ...styles.timestamp, color: theme.mutedText }}>
         {new Date(message.timestamp).toLocaleTimeString()}
       </div>
@@ -96,7 +263,6 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.4,
   },
   content: {
-    whiteSpace: "pre-wrap",
     wordBreak: "break-word",
   },
   timestamp: {

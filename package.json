@@ -1,7 +1,7 @@
 {
   "name": "ds-copilot",
   "type": "module",
-  "version": "0.5.0",
+  "version": "0.5.5",
   "description": "Reading copilot for Zotero powered by the DeepSeek API and scoped to your local papers, PDFs, and collections.",
   "author": "AgentPaper",
   "homepage": "https://github.com/agentpaper/zotero-ai-assistant#readme",
@@ -32,6 +32,9 @@
     "jotai": "^2.12.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1",
     "zotero-plugin-toolkit": "^5.1.2"
   },
   "devDependencies": {
