@@ -584,6 +584,47 @@ describe("UIFactory", () => {
     expect(setEnabled).toHaveBeenCalledWith(true);
   });
 
+  it("enables the section when Zotero reports a library selection through selectedType even if tabType is opaque", () => {
+    const win = new FakeWindow();
+    win.Zotero_Tabs.selectedType = "library";
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+
+    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+    const body = win.document.createElement("vbox");
+    body.ownerDocument = win.document;
+    const setEnabled = vi.fn();
+
+    sectionConfig.onInit({
+      body,
+      setEnabled,
+      tabType: "zotero-pane",
+    });
+
+    expect(setEnabled).toHaveBeenCalledWith(true);
+  });
+
+  it("renders the library host when tabType is opaque but the selected Zotero tab is library", async () => {
+    const win = new FakeWindow();
+    win.Zotero_Tabs.selectedType = "library";
+    mainWindows.push(win);
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+    const body = win.document.createElement("vbox");
+    body.ownerDocument = win.document;
+
+    sectionConfig.onRender({
+      body,
+      tabType: "zotero-pane",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mocks.createRoot).toHaveBeenCalledWith(body);
+  });
+
   it("refreshes host visibility when a Zotero tab selection event fires", async () => {
     const win = new FakeWindow();
     mainWindows.push(win);

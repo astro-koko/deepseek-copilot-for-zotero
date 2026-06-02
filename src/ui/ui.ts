@@ -132,10 +132,10 @@ export class UIFactory {
         icon: `chrome://${addon.data.config.addonRef}/content/icons/icon-20.png`,
       },
       onInit: ({ setEnabled, tabType, body }) => {
-        setEnabled(this.shouldEnableSection(tabType || ""));
+        setEnabled(this.shouldEnableSection(tabType || "", body as SectionRenderBody));
       },
       onItemChange: ({ setEnabled, tabType, body }) => {
-        setEnabled(this.shouldEnableSection(tabType || ""));
+        setEnabled(this.shouldEnableSection(tabType || "", body as SectionRenderBody));
         return true;
       },
       onRender: ({ body, tabType }) => {
@@ -149,15 +149,18 @@ export class UIFactory {
     sectionRegistered = true;
   }
 
-  private static shouldEnableSection(tabType: string): boolean {
-    return resolveSidebarLocation(tabType) != null;
+  private static shouldEnableSection(
+    tabType: string,
+    body?: SectionRenderBody,
+  ): boolean {
+    return this.resolveSectionLocation(tabType, body) != null;
   }
 
   private static renderSectionBody(
     body: SectionRenderBody,
     tabType: string,
   ) {
-    const location = resolveSidebarLocation(tabType);
+    const location = this.resolveSectionLocation(tabType, body);
     if (!location) {
       body.replaceChildren();
       return;
@@ -359,6 +362,19 @@ export class UIFactory {
       });
 
     return hostState.bootstrappingPromise;
+  }
+
+  private static resolveSectionLocation(
+    tabType: string,
+    body?: SectionRenderBody,
+  ): SidebarLocation | null {
+    const direct = resolveSidebarLocation(tabType);
+    if (direct) {
+      return direct;
+    }
+
+    const win = body?.ownerDocument?.defaultView as AIAssistantWindow | null | undefined;
+    return win ? this.getSelectedLocation(win) : null;
   }
 
   private static getSelectedLocation(win: AIAssistantWindow): SidebarLocation | null {
