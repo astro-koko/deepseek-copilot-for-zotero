@@ -48,6 +48,7 @@ const SURFACE_DIAGNOSTIC_PATH = "/tmp/ds-copilot-surface-state.json";
 
 const windowHosts = new WeakMap<AIAssistantWindow, SidebarHostState>();
 const windowRefreshCleanup = new WeakMap<AIAssistantWindow, () => void>();
+const windowSectionRefresh = new WeakMap<AIAssistantWindow, () => Promise<void>>();
 const windowCollapsedState = new WeakMap<
   AIAssistantWindow,
   {
@@ -82,6 +83,7 @@ export class UIFactory {
     this.removeTabSelectionRefreshRegistration(win);
     windowRefreshCleanup.get(win)?.();
     windowRefreshCleanup.delete(win);
+    windowSectionRefresh.delete(win);
     windowCollapsedState.delete(win);
   }
 
@@ -131,8 +133,9 @@ export class UIFactory {
         l10nID: getLocaleID("ai-assistant-sidebar-sidenav"),
         icon: `chrome://${addon.data.config.addonRef}/content/icons/icon-20.png`,
       },
-      onInit: ({ setEnabled, tabType, body }) => {
+      onInit: ({ setEnabled, tabType, body, refresh }) => {
         setEnabled(this.shouldEnableSection(tabType || "", body as SectionRenderBody));
+        this.registerSectionRefresh(body as SectionRenderBody, refresh);
       },
       onItemChange: ({ setEnabled, tabType, body }) => {
         setEnabled(this.shouldEnableSection(tabType || "", body as SectionRenderBody));
@@ -235,6 +238,7 @@ export class UIFactory {
 
     const unregister = registerSidebarRefreshHandler(() => {
       if (!win.closed) {
+        void this.requestSectionRefresh(win);
         this.refreshWindow(win);
       }
     });
@@ -249,6 +253,7 @@ export class UIFactory {
     const callback = {
       notify: (event: string, type: string) => {
         if (event === "select" && type === "tab" && !win.closed) {
+          void this.requestSectionRefresh(win);
           this.refreshWindow(win);
         }
       },
@@ -289,6 +294,30 @@ export class UIFactory {
     const nextHosts: SidebarHostState = {};
     windowHosts.set(win, nextHosts);
     return nextHosts;
+  }
+
+  private static registerSectionRefresh(
+    body: SectionRenderBody,
+    refresh: (() => Promise<void>) | undefined,
+  ) {
+    if (!refresh) {
+      return;
+    }
+
+    const win = body.ownerDocument.defaultView as AIAssistantWindow | null;
+    if (!win) {
+      return;
+    }
+
+    windowSectionRefresh.set(win, refresh);
+  }
+
+  private static async requestSectionRefresh(win: AIAssistantWindow): Promise<void> {
+    try {
+      await windowSectionRefresh.get(win)?.();
+    } catch (error) {
+      ztoolkit.log("Failed to refresh DS Copilot section state:", error);
+    }
   }
 
   private static ensureCollapsedState(win: AIAssistantWindow) {

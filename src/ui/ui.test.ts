@@ -633,6 +633,19 @@ describe("UIFactory", () => {
     await Promise.resolve();
     await Promise.resolve();
 
+    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+    const body = win.document.createElement("vbox");
+    body.ownerDocument = win.document;
+    const refresh = vi.fn().mockResolvedValue(undefined);
+    const setEnabled = vi.fn();
+
+    sectionConfig.onInit({
+      body,
+      refresh,
+      setEnabled,
+      tabType: "zotero-pane",
+    });
+
     const registerObserverMock = mocks.registerObserver as unknown as {
       mock: { calls: Array<[{
         notify: (event: string, type: string) => void;
@@ -645,6 +658,8 @@ describe("UIFactory", () => {
     observerCallback?.notify("select", "tab");
     await Promise.resolve();
     await Promise.resolve();
+
+    expect(refresh).toHaveBeenCalledTimes(1);
 
     UIFactory.removeChatPanel(win as unknown as Window & typeof globalThis);
     expect(mocks.unregisterObserver).toHaveBeenCalledWith("tab-observer-id");
