@@ -20,7 +20,7 @@ export function buildReaderActionDraft(
 
 export function mergeReaderActionScope(
   scope: ScopeContext | null,
-  detail: Pick<ReaderActionDetail, "text">,
+  detail: Pick<ReaderActionDetail, "text" | "page">,
 ): ScopeContext | null {
   if (!scope) {
     return null;
@@ -33,6 +33,7 @@ export function mergeReaderActionScope(
 
   return {
     ...scope,
+    readerPage: detail.page,
     selectedText,
   };
 }

@@ -123,6 +123,17 @@ describe("scopeResolver", () => {
     (Zotero.Reader.getByTabID as any).mockImplementation((tabID: string) =>
       tabID === "reader-tab-1"
         ? {
+            _internalReader: {
+              _primaryView: {
+                _iframeWindow: {
+                  PDFViewerApplication: {
+                    pdfViewer: {
+                      currentPageNumber: 5,
+                    },
+                  },
+                },
+              },
+            },
             itemID: 22,
             type: "pdf",
           }
@@ -135,6 +146,7 @@ describe("scopeResolver", () => {
       itemIds: [11],
       label: "AutoScientists",
       readerAttachmentId: 22,
+      readerPage: 5,
       type: "pdf",
     });
   });

@@ -1,9 +1,9 @@
 import { config } from "../../package.json";
 
-export { initLocale, getString, getLocaleID };
+export { initLocale, getString, getLocaleID, getRequestedLanguage, isChineseLocale };
 
 function initLocale() {
-  const language = Zotero.Prefs.get("intl.locale.requested", true) as string;
+  const language = getRequestedLanguage();
   if (!language) return;
   const prefix = config.addonRef;
   const strings = Services.strings.createBundle(
@@ -24,4 +24,28 @@ function getString(name: string): string {
 
 function getLocaleID(name: string): string {
   return name;
+}
+
+function getRequestedLanguage(): string {
+  try {
+    const prefLanguage =
+      (Zotero?.Prefs?.get?.("intl.locale.requested", true) as string) || "";
+    if (prefLanguage) {
+      return prefLanguage;
+    }
+
+    const runtimeLanguage =
+      (Services as any)?.locale?.requestedLocale ||
+      (Services as any)?.locale?.appLocaleAsBCP47 ||
+      ((globalThis as unknown as { navigator?: { language?: string } }).navigator?.language) ||
+      "";
+
+    return String(runtimeLanguage || "");
+  } catch {
+    return "";
+  }
+}
+
+function isChineseLocale(language = getRequestedLanguage()): boolean {
+  return language.toLowerCase().startsWith("zh");
 }

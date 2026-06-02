@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import type { Thread, Message } from "../../types/thread";
 import { EmptyState } from "./EmptyState";
+import { getSidebarTheme } from "../theme";
 
 interface ThreadViewProps {
   hasScope?: boolean;
@@ -12,6 +13,7 @@ export const ThreadView: React.FC<ThreadViewProps> = ({
   thread,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const theme = getSidebarTheme((globalThis as unknown as { window?: Window }).window);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -30,19 +32,29 @@ export const ThreadView: React.FC<ThreadViewProps> = ({
   return (
     <div ref={scrollRef} style={styles.container}>
       {thread.messages.map((msg) => (
-        <MessageBubble key={msg.id} message={msg} />
+        <MessageBubble key={msg.id} message={msg} theme={theme} />
       ))}
     </div>
   );
 };
 
-const MessageBubble: React.FC<{ message: Message }> = ({ message }) => {
+const MessageBubble: React.FC<{
+  message: Message;
+  theme: ReturnType<typeof getSidebarTheme>;
+}> = ({ message, theme }) => {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
 
   if (isSystem) {
     return (
-      <div style={styles.systemMessage}>
+      <div
+        style={{
+          ...styles.systemMessage,
+          background: theme.systemMessageBackground,
+          color: theme.mutedText,
+          borderColor: theme.systemMessageBorder,
+        }}
+      >
         <span>{message.content}</span>
       </div>
     );
@@ -53,13 +65,13 @@ const MessageBubble: React.FC<{ message: Message }> = ({ message }) => {
       style={{
         ...styles.message,
         alignSelf: isUser ? "flex-end" : "flex-start",
-        background: isUser ? "#eef3f8" : "#ffffff",
-        color: "#2b2b2b",
-        borderColor: isUser ? "#d5e0ea" : "#dcdcdc",
+        background: isUser ? theme.userMessageBackground : theme.assistantMessageBackground,
+        color: theme.text,
+        borderColor: isUser ? theme.userMessageBorder : theme.assistantMessageBorder,
       }}
     >
       <div style={styles.content}>{message.content}</div>
-      <div style={styles.timestamp}>
+      <div style={{ ...styles.timestamp, color: theme.mutedText }}>
         {new Date(message.timestamp).toLocaleTimeString()}
       </div>
     </div>
@@ -68,38 +80,38 @@ const MessageBubble: React.FC<{ message: Message }> = ({ message }) => {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    flex: 1,
-    overflow: "auto",
+    flex: "none",
+    overflow: "visible",
     padding: "0",
     display: "flex",
     flexDirection: "column",
-    gap: "6px",
+    gap: "5px",
   },
   message: {
-    maxWidth: "92%",
-    padding: "8px 10px",
-    borderRadius: "6px",
+    maxWidth: "94%",
+    padding: "7px 9px",
+    borderRadius: "4px",
     border: "1px solid transparent",
     fontSize: "12px",
-    lineHeight: 1.45,
+    lineHeight: 1.4,
   },
   content: {
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
   },
   timestamp: {
-    fontSize: "11px",
+    fontSize: "10px",
     opacity: 0.65,
-    marginTop: "3px",
+    marginTop: "2px",
     textAlign: "right",
   },
   systemMessage: {
     alignSelf: "center",
-    padding: "4px 8px",
-    borderRadius: "5px",
-    background: "#f4f4f4",
+    padding: "3px 7px",
+    borderRadius: "4px",
+    background: "#f6f6f6",
     color: "#666",
-    border: "1px solid #dddddd",
+    border: "1px solid #e1e1e1",
     fontSize: "11px",
   },
 };

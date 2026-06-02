@@ -24,6 +24,8 @@ Primary issue buckets for this phase:
 - hot reload / plugin reload lifecycle
 - installed-plugin surface conflicts
 
+The intended user-facing surface for this phase is the native Zotero right-side pane entry in both Library and Reader. A top-toolbar `D...` artifact or any toolbar-only DS Copilot discovery path is a host regression, not an acceptable fallback.
+
 ## Environment baseline
 
 Required local tools:
@@ -69,8 +71,8 @@ Use this loop when changing Zotero integration, UI registration, Reader handoff,
    - Add-ons visibility and startup
    - Settings pane
    - startup and registration
-   - Library native host
-   - Reader native host
+   - Library native host through the right-side pane entry
+   - Reader native host through the right-side pane entry
    - Reader actions
    - provider round-trip only after the host loop is stable
 3. Use Zotero host tooling to inspect that layer before touching other layers.
@@ -105,8 +107,8 @@ Reloading the dev plugin is allowed only as an iteration tool. It is not accepta
 Always debug in this order:
 1. Add-ons list shows `DS Copilot`
 2. Settings pane exists
-3. Library native host exists and is visibly correct
-4. Reader native host exists and is visibly correct
+3. Library native host exists and is visibly correct through the right-side pane entry
+4. Reader native host exists and is visibly correct through the right-side pane entry
 5. Reader popup and right-click actions reach the sidebar flow
 6. Sidebar can send and receive one real model response
 7. Restart Zotero and confirm the same path still works
@@ -115,6 +117,7 @@ Do not skip ahead:
 - Missing Add-ons entry: inspect install chain only
 - Add-ons exists but no Settings pane: inspect prefs registration and pane wiring
 - Add-ons exists but no sidebar: inspect startup, registration, native host ownership, and mounting
+- Add-ons exists but a top-toolbar `D...` artifact is visible: inspect surface ownership and section registration in `src/ui/ui.ts`
 - Reader menu exists but handoff is inert: inspect event handoff before provider code
 - UI exists but chat fails: inspect prefs, provider config, request path
 

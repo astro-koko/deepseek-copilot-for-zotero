@@ -132,4 +132,27 @@ describe("chatEngine", () => {
       model: "deepseek-v4-pro",
     });
   });
+
+  it("passes later-page full text segments through the system prompt when context assembly selects them", async () => {
+    providerMocks.assembleContext.mockReturnValue({
+      availability: "pdf-text-ready",
+      fullText: "Page 5\nCode Availability\nThe SHARP template is available at https://github.com/stanford-ai4physics/sharp.",
+      metadata: "Metadata block",
+      selectedText: "",
+      warnings: [],
+    });
+
+    await sendChatMessage(makeThread([]), {
+      type: "pdf",
+      id: "pdf-1",
+      label: "Paper PDF",
+      itemIds: [1],
+      readerAttachmentId: 11,
+      readerPage: 5,
+    });
+
+    const [messages] = providerMocks.sendChat.mock.calls[0] || [];
+    expect(messages[0].content).toContain("Code Availability");
+    expect(messages[0].content).toContain("stanford-ai4physics/sharp");
+  });
 });

@@ -1,6 +1,19 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { PRESETS, getPresetWarning, applyPreset } from "../../services/presets";
 import type { ScopeType } from "../../types/scope";
+import { getSidebarTheme } from "../theme";
+
+function isChineseLocale(): boolean {
+  try {
+    const locale =
+      (globalThis as unknown as { Zotero?: { locale?: string } }).Zotero?.locale ||
+      ((globalThis as unknown as { Zotero?: { Prefs?: { get?: (key: string, global?: boolean) => unknown } } }).Zotero?.Prefs?.get?.("intl.accept_languages", true) as string) ||
+      "";
+    return String(locale).toLowerCase().startsWith("zh");
+  } catch {
+    return false;
+  }
+}
 
 interface ComposerProps {
   onSend: (message: string) => void;
@@ -13,6 +26,24 @@ interface ComposerProps {
   draftValue?: string;
   focusNonce?: number;
   onDraftChange?: (value: string) => void;
+}
+
+function recordComposerDiagnostic(
+  input: string,
+  disabled: boolean,
+  isStreaming: boolean,
+): void {
+  const diagnostics = ((globalThis as unknown as {
+    __aiAssistantDiagnostics?: Record<string, unknown>;
+  }).__aiAssistantDiagnostics ??= {});
+
+  diagnostics.composer = {
+    disabled,
+    input,
+    isStreaming,
+    sendDisabled: !input.trim() || disabled || isStreaming,
+    timestamp: new Date().toISOString(),
+  };
 }
 
 export const Composer: React.FC<ComposerProps> = ({
@@ -31,6 +62,12 @@ export const Composer: React.FC<ComposerProps> = ({
   const [showPresets, setShowPresets] = useState(false);
   const [selectedPresetIndex, setSelectedPresetIndex] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const theme = getSidebarTheme((globalThis as unknown as { window?: Window }).window);
+  const zh = isChineseLocale();
+
+  useEffect(() => {
+    recordComposerDiagnostic(input, disabled, isStreaming);
+  }, [disabled, input, isStreaming]);
 
   useEffect(() => {
     if (draftValue === undefined) {
@@ -124,6 +161,15 @@ export const Composer: React.FC<ComposerProps> = ({
     [disabled, onDraftChange],
   );
 
+  const handleInput = useCallback(
+    (e: React.FormEvent<HTMLTextAreaElement>) => {
+      const value = e.currentTarget.value;
+      setInput((current) => (current === value ? current : value));
+      onDraftChange?.(value);
+    },
+    [onDraftChange],
+  );
+
   const applyPresetToInput = useCallback(
     (presetId: string) => {
       const warning = currentScopeType
@@ -145,22 +191,22 @@ export const Composer: React.FC<ComposerProps> = ({
   );
 
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, borderTopColor: theme.softBorder, background: theme.panelBackground }}>
       {showPresets && (
-        <div style={styles.presetMenu}>
+        <div style={{ ...styles.presetMenu, background: theme.panelBackground, borderColor: theme.softBorder }}>
           {PRESETS.map((preset, index) => (
             <button
               key={preset.id}
               style={{
                 ...styles.presetItem,
                 background:
-                  index === selectedPresetIndex ? "#f1f4f7" : "transparent",
+                  index === selectedPresetIndex ? theme.userMessageBackground : "transparent",
               }}
               onClick={() => applyPresetToInput(preset.id)}
               onMouseEnter={() => setSelectedPresetIndex(index)}
             >
-              <span style={styles.presetLabel}>/{preset.label}</span>
-              <span style={styles.presetDesc}>{preset.description}</span>
+              <span style={{ ...styles.presetLabel, color: theme.text }}>/{preset.label}</span>
+              <span style={{ ...styles.presetDesc, color: theme.mutedText }}>{preset.description}</span>
             </button>
           ))}
         </div>
@@ -168,90 +214,99 @@ export const Composer: React.FC<ComposerProps> = ({
       <div style={styles.inputRow}>
         <textarea
           ref={inputRef}
-          style={styles.input}
+          style={{ ...styles.input, borderColor: theme.inputBorder, background: theme.inputBackground, color: theme.text }}
           value={input}
           onChange={handleInputChange}
+          onInput={handleInput}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          rows={4}
+          rows={3}
           disabled={disabled}
         />
         {isStreaming ? (
-          <button style={styles.cancelBtn} onClick={onCancel}>
+          <button
+            style={{ ...styles.cancelBtn, background: theme.panelBackground, color: theme.errorText, borderColor: theme.errorBorder }}
+            onClick={onCancel}
+          >
             Stop
           </button>
         ) : (
           <button
             style={{
               ...styles.sendBtn,
+              background: theme.surfaceBackground,
+              color: theme.buttonText,
+              borderColor: theme.buttonBorder,
               opacity: input.trim() && !disabled ? 1 : 0.5,
             }}
             onClick={handleSubmit}
             disabled={!input.trim() || disabled}
           >
-            Send
+            {zh ? "发送" : "Send"}
           </button>
         )}
       </div>
-      {disabledReason && <div style={styles.disabledReason}>{disabledReason}</div>}
+      {disabledReason && (
+        <div style={{ ...styles.disabledReason, color: theme.mutedText }}>{disabledReason}</div>
+      )}
     </div>
   );
 };
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    borderTop: "1px solid #dcdcdc",
-    padding: "8px 10px",
-    background: "#f3f3f3",
+    borderTop: "1px solid #dddddd",
+    padding: "7px 10px",
+    background: "#f6f6f6",
     position: "relative",
   },
   inputRow: {
     display: "flex",
-    gap: "6px",
+    gap: "5px",
     alignItems: "flex-end",
   },
   input: {
     flex: 1,
-    padding: "6px 8px",
-    border: "1px solid #cfcfcf",
-    borderRadius: "6px",
+    padding: "5px 7px",
+    border: "1px solid #d4d4d4",
+    borderRadius: "4px",
     fontSize: "12px",
     resize: "none",
-    minHeight: "64px",
-    maxHeight: "140px",
+    minHeight: "52px",
+    maxHeight: "120px",
     fontFamily: "inherit",
     background: "#fff",
     color: "#222",
   },
   sendBtn: {
-    padding: "6px 10px",
-    background: "#fdfdfd",
+    padding: "5px 9px",
+    background: "#ffffff",
     color: "#333",
-    border: "1px solid #c9c9c9",
-    borderRadius: "6px",
+    border: "1px solid #cfcfcf",
+    borderRadius: "4px",
     cursor: "pointer",
     fontSize: "12px",
     fontWeight: 500,
   },
   cancelBtn: {
-    padding: "6px 10px",
+    padding: "5px 9px",
     background: "#f7f7f7",
     color: "#8a3a3a",
     border: "1px solid #d3c2c2",
-    borderRadius: "6px",
+    borderRadius: "4px",
     cursor: "pointer",
     fontSize: "12px",
   },
   presetMenu: {
     position: "absolute",
-    bottom: "48px",
+    bottom: "44px",
     left: "10px",
     right: "10px",
     background: "#fff",
-    border: "1px solid #d6d6d6",
-    borderRadius: "6px",
-    boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-    maxHeight: "200px",
+    border: "1px solid #d8d8d8",
+    borderRadius: "4px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+    maxHeight: "180px",
     overflow: "auto",
     zIndex: 100,
   },
@@ -259,7 +314,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-start",
-    padding: "7px 10px",
+    padding: "6px 8px",
     border: "none",
     background: "none",
     width: "100%",
@@ -276,7 +331,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#777",
   },
   disabledReason: {
-    marginTop: "6px",
+    marginTop: "5px",
     fontSize: "11px",
     color: "#6c6c6c",
     lineHeight: 1.4,

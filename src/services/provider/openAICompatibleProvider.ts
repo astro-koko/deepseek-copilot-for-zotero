@@ -5,6 +5,8 @@ import type {
   ChatCompletionRequest,
 } from "./types";
 
+const PROVIDER_DIAGNOSTIC_PATH = "/tmp/ds-copilot-provider-request.json";
+
 export function createOpenAICompatibleProvider(
   config: ProviderConfig,
 ) {
@@ -96,7 +98,7 @@ function recordProviderRequestDiagnostic(
   requestBody: ChatCompletionRequest,
 ): void {
   const diagnostics = ((globalThis as any).__aiAssistantDiagnostics ??= {});
-  diagnostics.lastProviderRequest = {
+  const payload = {
     endpoint: `${config.baseURL}/chat/completions`,
     hasApiKey: Boolean(config.apiKey),
     messageCount: requestBody.messages.length,
@@ -104,4 +106,18 @@ function recordProviderRequestDiagnostic(
     stream: requestBody.stream,
     timestamp: new Date().toISOString(),
   };
+  diagnostics.lastProviderRequest = payload;
+
+  try {
+    const target =
+      typeof Zotero?.File?.pathToFile === "function"
+        ? Zotero.File.pathToFile(PROVIDER_DIAGNOSTIC_PATH)
+        : PROVIDER_DIAGNOSTIC_PATH;
+    Zotero.File?.putContents?.(
+      target as unknown as nsIFile,
+      JSON.stringify(payload, null, 2),
+    );
+  } catch {
+    // Keep diagnostics best-effort so request flow never depends on file IO.
+  }
 }

@@ -6,5 +6,6 @@ export interface ScopeContext {
   label: string;
   itemIds: number[];
   readerAttachmentId?: number;
+  readerPage?: number;
   selectedText?: string;
 }

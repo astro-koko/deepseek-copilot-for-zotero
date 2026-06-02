@@ -31,14 +31,14 @@ Key rules:
   return basePrompt + scopeInfo;
 }
 
-export function buildMessages(
+export async function buildMessages(
   thread: Thread,
   scope: ScopeContext | undefined,
-): ChatCompletionMessage[] {
+): Promise<ChatCompletionMessage[]> {
   let contextContent = "";
   if (scope) {
     try {
-      const assembled = assembleContext(scope);
+      const assembled = await assembleContext(scope);
       contextContent =
         `\n\n=== CONTEXT STATUS ===\nAvailability: ${assembled.availability}\n` +
         `Warnings: ${assembled.warnings.length > 0 ? assembled.warnings.join(" | ") : "none"}`;
@@ -84,6 +84,6 @@ export async function sendChatMessage(
 
   const provider = createOpenAICompatibleProvider({ baseURL, apiKey, model });
 
-  const messages = buildMessages(thread, scope);
+  const messages = await buildMessages(thread, scope);
   return provider.sendChat(messages, signal);
 }

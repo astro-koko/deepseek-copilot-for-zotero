@@ -1,28 +1,17 @@
 import React from "react";
 import { EventBus } from "../utils/eventBus";
 import { getLocaleID } from "../utils/locale";
-import { getPref } from "../utils/prefs";
 import { Sidebar } from "./components/Sidebar";
 import {
   attachSidebarHost,
-  attachSidebarHostToNativePane,
   createFallbackSidebarHost,
-  getLibraryNativePane,
-  getReaderNativePane,
-  listPaneSiblings,
   resolveSidebarLocation,
-  setElementsVisible,
-  syncSidebarHost,
   type SidebarHostState,
   type SidebarLocation,
   type SidebarSurfaceHost,
 } from "./sidebarSection";
 import { getCurrentScope } from "../services/scopeResolver";
-import {
-  isSidebarVisible,
-  registerSidebarRefreshHandler,
-  setSidebarVisible,
-} from "./sidebarRuntime";
+import { registerSidebarRefreshHandler } from "./sidebarRuntime";
 
 interface AIAssistantWindow extends Window {
   __aiAssistantEventBus?: EventTarget;
@@ -52,19 +41,9 @@ interface SectionRenderBody {
   replaceChildren(...nodes: unknown[]): void;
 }
 
-interface ToolbarButtonLike extends Element {
-  setAttribute(name: string, value: string): void;
-  removeAttribute(name: string): void;
-  addEventListener(type: string, listener: EventListener): void;
-  focus?(): void;
-}
-
 const SECTION_PANE_ID = "ai-assistant-sidebar";
 const LIBRARY_HOST_ID = "ai-assistant-pane-library-mount";
 const READER_HOST_ID = "ai-assistant-pane-reader-mount";
-const TOGGLE_BUTTON_ID = "zotero-ai-assistant-tb-chat-toggle";
-const TOGGLE_SEPARATOR_ID = "ai-assistant-tb-separator";
-const LIVE_REGION_ID = "ai-assistant-live-region";
 const SURFACE_DIAGNOSTIC_PATH = "/tmp/ds-copilot-surface-state.json";
 
 const windowHosts = new WeakMap<AIAssistantWindow, SidebarHostState>();
@@ -83,27 +62,23 @@ let reactDomClientPromise: Promise<typeof import("react-dom/client")> | null = n
 export class UIFactory {
   static registerChatPanel(win: AIAssistantWindow) {
     this.registerSection();
-    this.removeToolbarButton(win);
-    this.ensureToolbarButton(win);
     this.ensureWindowRefreshRegistration(win);
     this.ensureTabSelectionRefreshRegistration(win);
     this.refreshWindow(win);
   }
 
   static removeChatPanel(win: AIAssistantWindow) {
-    this.restoreNativePane(win, "library");
-    this.restoreNativePane(win, "reader");
-
     const hosts = windowHosts.get(win);
     if (hosts) {
       [hosts.library, hosts.reader].forEach((hostState) => {
         hostState?.reactRoot?.unmount();
-        hostState?.mountPoint.remove();
+        if (hostState?.attachmentTarget !== "section-body") {
+          hostState?.mountPoint.remove();
+        }
       });
       windowHosts.delete(win);
     }
 
-    this.removeToolbarButton(win);
     this.removeTabSelectionRefreshRegistration(win);
     windowRefreshCleanup.get(win)?.();
     windowRefreshCleanup.delete(win);
@@ -111,19 +86,8 @@ export class UIFactory {
   }
 
   static refreshWindow(win: AIAssistantWindow) {
-    this.ensureToolbarButton(win);
-
-    const visible = isSidebarVisible();
     const selectedType = this.getSelectedLocation(win);
-    const hosts = this.ensureWindowHosts(win);
-
-    this.attachNativeHost(win, "library");
-    this.attachNativeHost(win, "reader");
-
-    this.applyPaneVisibility(win, "library", visible && selectedType === "library");
-    this.applyPaneVisibility(win, "reader", visible && selectedType === "reader");
-    this.syncToolbarState(win, visible);
-    this.writeSurfaceDiagnostic(win, visible, selectedType);
+    this.writeSurfaceDiagnostic(win, true, selectedType);
   }
 
   static refreshAllWindows() {
@@ -164,45 +128,32 @@ export class UIFactory {
         icon: `chrome://${addon.data.config.addonRef}/content/icons/icon-20.png`,
       },
       sidenav: {
-        l10nID: getLocaleID("ai-assistant-sidebar-title"),
+        l10nID: getLocaleID("ai-assistant-sidebar-sidenav"),
         icon: `chrome://${addon.data.config.addonRef}/content/icons/icon-20.png`,
       },
       onInit: ({ setEnabled, tabType, body }) => {
-        setEnabled(this.shouldEnableSectionFallback(body as SectionRenderBody, tabType || ""));
+        setEnabled(this.shouldEnableSection(tabType || ""));
       },
       onItemChange: ({ setEnabled, tabType, body }) => {
-        setEnabled(this.shouldEnableSectionFallback(body as SectionRenderBody, tabType || ""));
+        setEnabled(this.shouldEnableSection(tabType || ""));
         return true;
       },
       onRender: ({ body, tabType }) => {
-        this.renderSectionFallback(body as SectionRenderBody, tabType || "");
+        this.renderSectionBody(body as SectionRenderBody, tabType || "");
       },
       onAsyncRender: async ({ body, tabType }) => {
-        this.renderSectionFallback(body as SectionRenderBody, tabType || "");
+        this.renderSectionBody(body as SectionRenderBody, tabType || "");
       },
     });
 
     sectionRegistered = true;
   }
 
-  private static shouldEnableSectionFallback(
-    body: SectionRenderBody,
-    tabType: string,
-  ): boolean {
-    const location = resolveSidebarLocation(tabType);
-    if (!location) {
-      return false;
-    }
-
-    const win = body.ownerDocument.defaultView as AIAssistantWindow | null;
-    if (!win) {
-      return true;
-    }
-
-    return !this.hasNativePane(win, location);
+  private static shouldEnableSection(tabType: string): boolean {
+    return resolveSidebarLocation(tabType) != null;
   }
 
-  private static renderSectionFallback(
+  private static renderSectionBody(
     body: SectionRenderBody,
     tabType: string,
   ) {
@@ -213,30 +164,65 @@ export class UIFactory {
     }
 
     const win = body.ownerDocument.defaultView as AIAssistantWindow | null;
-    if (win && this.hasNativePane(win, location)) {
-      body.replaceChildren();
+    if (!win) {
+      const host = createFallbackSidebarHost(location, body.ownerDocument);
+      attachSidebarHost(body, host);
+      this.renderBootstrapFailure(
+        host,
+        location,
+        new Error("DS Copilot could not access the Zotero window while rendering."),
+      );
       return;
     }
 
-    const host = win
-      ? syncSidebarHost(
-        win,
-        this.ensureWindowHosts(win),
-        location,
-        body,
-      ).hostState
-      : createFallbackSidebarHost(location, body.ownerDocument);
-
-    if (!win) {
-      attachSidebarHost(body, host);
+    const hosts = this.ensureWindowHosts(win);
+    const existing = hosts[location];
+    const sectionBody = body as unknown as HTMLDivElement;
+    if (existing && existing.mountPoint !== sectionBody) {
+      existing.reactRoot?.unmount();
+      delete hosts[location];
     }
-    this.renderBootstrapFailure(
-      host,
-      location,
-      new Error(
-        "DS Copilot is using a compatibility section because the native sidebar host is unavailable.",
-      ),
-    );
+
+    const host =
+      hosts[location] ??
+      {
+        attachmentTarget: "section-body" as const,
+        mountPoint: sectionBody,
+        reactRoot: null,
+        reactRootElement: sectionBody,
+        bootstrapped: false,
+        bootstrappingPromise: null,
+      };
+    host.attachmentTarget = "section-body";
+    hosts[location] = host;
+
+    host.mountPoint.style.display = "flex";
+    void this.ensureHostBootstrapped(win, host, location).catch((error) => {
+      ztoolkit.log(`Failed to bootstrap DS Copilot ${location} section host:`, error);
+      this.renderBootstrapFailure(host, location, error);
+    });
+
+    try {
+      const sectionContainer = (body as any).parentElement ?? null;
+      sectionContainer?.setAttribute?.("open", "true");
+      sectionContainer?.scrollIntoView?.({
+        block: "start",
+      });
+      (body as any).scrollIntoView?.({
+        block: "start",
+      });
+      if (typeof (body as any).scrollTo === "function") {
+        (body as any).scrollTo(0, 0);
+      }
+      if ("scrollTop" in (body as any)) {
+        (body as any).scrollTop = 0;
+      }
+      if ("scrollTop" in host.mountPoint) {
+        (host.mountPoint as any).scrollTop = 0;
+      }
+    } catch {
+      // Ignore host-specific scroll reset failures.
+    }
   }
 
   private static ensureWindowRefreshRegistration(win: AIAssistantWindow) {
@@ -375,225 +361,8 @@ export class UIFactory {
     return hostState.bootstrappingPromise;
   }
 
-  private static attachNativeHost(
-    win: AIAssistantWindow,
-    location: SidebarLocation,
-  ): SidebarSurfaceHost | null {
-    const pane = this.getNativePane(win, location);
-    if (!pane) {
-      return null;
-    }
-
-    const host = this.getOrCreateHost(win, location);
-    this.removeStaleMounts(win, host.mountPoint.id, host.mountPoint);
-    attachSidebarHostToNativePane(pane, host, location);
-    void this.ensureHostBootstrapped(win, host, location).catch((error) => {
-      ztoolkit.log(`Failed to bootstrap DS Copilot ${location} host:`, error);
-    });
-    return host;
-  }
-
-  private static getNativePane(
-    win: AIAssistantWindow,
-    location: SidebarLocation,
-  ): HTMLElement | null {
-    return location === "library"
-      ? getLibraryNativePane(win.document)
-      : getReaderNativePane(win.document);
-  }
-
-  private static hasNativePane(
-    win: AIAssistantWindow,
-    location: SidebarLocation,
-  ): boolean {
-    return this.getNativePane(win, location) != null;
-  }
-
-  private static applyPaneVisibility(
-    win: AIAssistantWindow,
-    location: SidebarLocation,
-    visible: boolean,
-  ): void {
-    const pane = this.getNativePane(win, location);
-    const host = windowHosts.get(win)?.[location];
-    if (!pane || !host) {
-      return;
-    }
-
-    const siblingId = location === "library" ? LIBRARY_HOST_ID : READER_HOST_ID;
-    const siblings = listPaneSiblings(pane, siblingId);
-    setElementsVisible(siblings, !visible);
-
-    const mount = host.mountPoint;
-    if (visible) {
-      mount.style.display = "flex";
-    } else {
-      mount.style.display = "none";
-    }
-
-    if (location === "library") {
-      this.syncLibraryCollapsedState(win, visible);
-    } else {
-      this.syncReaderCollapsedState(win, visible);
-    }
-  }
-
-  private static restoreNativePane(win: AIAssistantWindow, location: SidebarLocation) {
-    const pane = this.getNativePane(win, location);
-    const host = windowHosts.get(win)?.[location];
-    if (!host) {
-      return;
-    }
-
-    const siblingId = location === "library" ? LIBRARY_HOST_ID : READER_HOST_ID;
-    const parents = new Set<ParentNode | null>([
-      pane,
-      host.mountPoint.parentElement,
-    ]);
-
-    parents.forEach((parent) => {
-      setElementsVisible(listPaneSiblings(parent, siblingId), true);
-    });
-    host.mountPoint.style.display = "none";
-
-    if (location === "library") {
-      this.syncLibraryCollapsedState(win, false);
-    } else {
-      this.syncReaderCollapsedState(win, false);
-    }
-  }
-
-  private static syncLibraryCollapsedState(
-    win: AIAssistantWindow,
-    visible: boolean,
-  ): void {
-    const itemPane = win.ZoteroPane?.itemPane;
-    if (!itemPane) {
-      return;
-    }
-
-    const collapseState = this.ensureCollapsedState(win);
-
-    if (visible) {
-      if (collapseState.library == null) {
-        collapseState.library = Boolean(itemPane.collapsed);
-      }
-      if (itemPane.collapsed) {
-        itemPane.collapsed = false;
-      }
-      return;
-    }
-
-    if (collapseState.library) {
-      itemPane.collapsed = true;
-    }
-    collapseState.library = null;
-  }
-
-  private static syncReaderCollapsedState(
-    win: AIAssistantWindow,
-    visible: boolean,
-  ): void {
-    const contextPane = win.ZoteroContextPane;
-    if (!contextPane) {
-      return;
-    }
-
-    const collapseState = this.ensureCollapsedState(win);
-
-    if (visible) {
-      if (collapseState.reader == null) {
-        collapseState.reader = Boolean(contextPane.collapsed);
-      }
-      if (contextPane.collapsed) {
-        contextPane.togglePane?.();
-      }
-      return;
-    }
-
-    if (collapseState.reader && !contextPane.collapsed) {
-      contextPane.togglePane?.();
-    }
-    collapseState.reader = null;
-  }
-
   private static getSelectedLocation(win: AIAssistantWindow): SidebarLocation | null {
     return resolveSidebarLocation(win.Zotero_Tabs?.selectedType || "");
-  }
-
-  private static ensureToolbarButton(win: AIAssistantWindow) {
-    if (win.document.getElementById(TOGGLE_BUTTON_ID)) {
-      return;
-    }
-
-    const toolbar = win.document.querySelector("#zotero-tabs-toolbar");
-    if (!toolbar) {
-      return;
-    }
-
-    const shortcutKey = String(getPref("keyboardShortcut") || "I").toUpperCase();
-    const shortcut = Zotero.isMac ? `⌘${shortcutKey}` : `Ctrl+${shortcutKey}`;
-    const usingXULButton = typeof win.document.createXULElement === "function";
-    const toggleBtn = win.document.createXULElement?.("toolbarbutton") ??
-      win.document.createElement("button");
-    toggleBtn.setAttribute("id", TOGGLE_BUTTON_ID);
-    toggleBtn.setAttribute("label", "DS Copilot");
-    toggleBtn.setAttribute(
-      "tooltiptext",
-      `Toggle DS Copilot (${shortcut})`,
-    );
-    toggleBtn.setAttribute("aria-label", "Toggle DS Copilot");
-    toggleBtn.setAttribute("aria-pressed", String(isSidebarVisible()));
-    const onToggle = () => {
-      const nextVisible = !isSidebarVisible();
-      this.syncToolbarState(win, nextVisible);
-      this.announceSidebarState(win, nextVisible);
-      if (!nextVisible) {
-        (toggleBtn as ToolbarButtonLike).focus?.();
-      }
-      setSidebarVisible(nextVisible);
-    };
-
-    toggleBtn.addEventListener(usingXULButton ? "command" : "click", onToggle);
-
-    const separator = win.document.createXULElement?.("toolbarseparator") ??
-      win.document.createElement("div");
-    separator.setAttribute("id", TOGGLE_SEPARATOR_ID);
-
-    toolbar.appendChild(separator);
-    toolbar.appendChild(toggleBtn);
-  }
-
-  private static removeToolbarButton(win: AIAssistantWindow) {
-    win.document.getElementById(TOGGLE_BUTTON_ID)?.remove();
-    win.document.getElementById(TOGGLE_SEPARATOR_ID)?.remove();
-    win.document.getElementById(LIVE_REGION_ID)?.remove();
-  }
-
-  private static syncToolbarState(win: AIAssistantWindow, visible: boolean) {
-    const toggleBtn = win.document.getElementById(TOGGLE_BUTTON_ID) as ToolbarButtonLike | null;
-    if (!toggleBtn) {
-      return;
-    }
-    toggleBtn.setAttribute("aria-pressed", String(visible));
-    if (visible) {
-      toggleBtn.setAttribute("selected", "true");
-    } else {
-      toggleBtn.removeAttribute("selected");
-    }
-  }
-
-  private static announceSidebarState(win: AIAssistantWindow, visible: boolean) {
-    const region = this.ensureLiveRegion(win);
-    if (!region) {
-      return;
-    }
-
-    region.textContent = "";
-    const message = visible ? "DS Copilot panel opened" : "DS Copilot panel closed";
-    win.setTimeout(() => {
-      region.textContent = message;
-    }, 50);
   }
 
   private static writeSurfaceDiagnostic(
@@ -645,8 +414,77 @@ export class UIFactory {
         }));
       };
 
+      const summarizeComposer = (mountId: string) => {
+        const mount = doc.getElementById(mountId) as HTMLElement | null;
+        if (!mount) {
+          return null;
+        }
+
+        const findFirstByTag = (node: Element | null, tagName: string): HTMLElement | null => {
+          if (!node) {
+            return null;
+          }
+
+          const normalizedTag = tagName.toUpperCase();
+          if (node.tagName?.toUpperCase() === normalizedTag) {
+            return node as HTMLElement;
+          }
+
+          for (const child of Array.from(node.children)) {
+            const match = findFirstByTag(child, tagName);
+            if (match) {
+              return match;
+            }
+          }
+
+          return null;
+        };
+
+        const collectByTag = (node: Element | null, tagName: string, matches: HTMLElement[] = []): HTMLElement[] => {
+          if (!node) {
+            return matches;
+          }
+
+          const normalizedTag = tagName.toUpperCase();
+          if (node.tagName?.toUpperCase() === normalizedTag) {
+            matches.push(node as HTMLElement);
+          }
+
+          for (const child of Array.from(node.children)) {
+            collectByTag(child, tagName, matches);
+          }
+
+          return matches;
+        };
+
+        const textarea = findFirstByTag(mount, "textarea") as HTMLTextAreaElement | null;
+        const buttons = collectByTag(mount, "button") as HTMLButtonElement[];
+        const sendButton =
+          buttons.find((button) => {
+            const label = button.textContent?.trim().toLowerCase();
+            return label === "send" || label === "发送";
+          }) || null;
+
+        return {
+          textarea: textarea
+            ? {
+                disabled: textarea.disabled,
+                placeholder: textarea.placeholder,
+                value: textarea.value,
+              }
+            : null,
+          sendButton: sendButton
+            ? {
+                disabled: sendButton.disabled,
+                text: sendButton.textContent?.trim() || "",
+              }
+            : null,
+        };
+      };
+
       const diagnostics = (globalThis as any).__aiAssistantDiagnostics ?? {};
       const lastProviderRequest = diagnostics.lastProviderRequest ?? null;
+      const composerDiagnostic = diagnostics.composer ?? null;
       const currentScope = getCurrentScope();
 
       // TEMP probe for daily-profile host debugging. Remove before release acceptance.
@@ -678,6 +516,15 @@ export class UIFactory {
                 lastProviderRequest?.messageCount ?? null,
               lastProviderRequestModel: lastProviderRequest?.model ?? null,
             },
+            composerState: composerDiagnostic
+              ? {
+                  disabled: composerDiagnostic.disabled ?? null,
+                  input: composerDiagnostic.input ?? null,
+                  isStreaming: composerDiagnostic.isStreaming ?? null,
+                  sendDisabled: composerDiagnostic.sendDisabled ?? null,
+                  timestamp: composerDiagnostic.timestamp ?? null,
+                }
+              : null,
             itemPaneChildren: summarizeChildren("zotero-item-pane"),
             contextPaneChildren: summarizeChildren("zotero-context-pane"),
             nodes: {
@@ -686,7 +533,10 @@ export class UIFactory {
               contextPaneInner: summarizeNode("zotero-context-pane-inner"),
               libraryMount: summarizeNode(LIBRARY_HOST_ID),
               readerMount: summarizeNode(READER_HOST_ID),
-              toggleButton: summarizeNode(TOGGLE_BUTTON_ID),
+            },
+            composer: {
+              library: summarizeComposer(LIBRARY_HOST_ID),
+              reader: summarizeComposer(READER_HOST_ID),
             },
           },
           null,
@@ -724,23 +574,6 @@ export class UIFactory {
     }
   }
 
-  private static ensureLiveRegion(win: AIAssistantWindow): HTMLElement | null {
-    let region = win.document.getElementById(LIVE_REGION_ID) as HTMLElement | null;
-    if (region) {
-      return region;
-    }
-
-    region = win.document.createElement("div");
-    region.id = LIVE_REGION_ID;
-    region.setAttribute("aria-live", "polite");
-    region.setAttribute("role", "status");
-    region.setAttribute("aria-atomic", "true");
-    region.style.cssText =
-      "position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;";
-    (win.document.documentElement || win.document.body || win.document).appendChild(region);
-    return region;
-  }
-
   private static removeStaleMounts(
     win: AIAssistantWindow,
     mountId: string,
@@ -752,17 +585,6 @@ export class UIFactory {
     );
 
     staleMounts.forEach((staleMount) => {
-      const parent = staleMount.parentElement;
-      if (parent) {
-        const siblings = Array.from(parent.children).filter(
-          (child): child is HTMLElement =>
-            child !== staleMount &&
-            typeof child === "object" &&
-            child !== null &&
-            "style" in child,
-        );
-        setElementsVisible(siblings, true);
-      }
       staleMount.remove();
     });
   }

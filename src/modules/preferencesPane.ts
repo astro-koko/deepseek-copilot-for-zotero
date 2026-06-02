@@ -5,6 +5,7 @@ import {
   validateSettings,
 } from "../services/settingsManager";
 import { EventBus } from "../utils/eventBus";
+import { isChineseLocale } from "../utils/locale";
 
 type PreferencesWindow = Window & {
   document: PreferencesDocument;
@@ -87,23 +88,24 @@ export function registerPreferencesPane(
 
   const validate = async () => {
     const values = readFormValues(doc);
-    setStatusText(doc, "Validating connection...", "success");
+    const zh = isChineseLocale();
+    setStatusText(doc, zh ? "正在验证连接..." : "Validating connection...", "success");
     const result = await deps.validateSettings(values);
     if (result.valid) {
-      setStatusText(doc, "DeepSeek connection looks good", "success");
+      setStatusText(doc, zh ? "DeepSeek 连接正常" : "DeepSeek connection looks good", "success");
       showValidationDialog(
         win,
-        "DS Copilot",
-        "DeepSeek connection looks good",
+        zh ? "DS Copilot" : "DS Copilot",
+        zh ? "DeepSeek 连接正常" : "DeepSeek connection looks good",
       );
       return;
     }
 
-    setStatusText(doc, result.error || "Validation failed", "error");
+    setStatusText(doc, result.error || (zh ? "验证失败" : "Validation failed"), "error");
     showValidationDialog(
       win,
-      "DS Copilot Validation Failed",
-      result.error || "Validation failed",
+      zh ? "DS Copilot 验证失败" : "DS Copilot Validation Failed",
+      result.error || (zh ? "验证失败" : "Validation failed"),
     );
   };
 

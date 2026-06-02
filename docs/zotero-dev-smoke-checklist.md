@@ -43,7 +43,7 @@ Provider quality is secondary until the host loop is stable.
 - the Reader composer now accepts typed input and unlocks `Send`.
 - clicking `Send` now clears the draft, so the frontend interaction path is live.
 - first-message persistence failures now surface through session error state in tests instead of failing silently.
-- the top-toolbar toggle is still temporary and does not count as final UX acceptance.
+- the top-toolbar `D...` fallback path has been removed from the primary host design and should now be treated as a regression if it reappears.
 
 ## Current blockers
 
@@ -51,7 +51,7 @@ Provider quality is secondary until the host loop is stable.
 - the final Settings contract should be reduced to `API key` only; `Model` and `Max Context` should move behind an internal DeepSeek-default strategy plus automatic context compression.
 - `Library` still needs explicit daily-profile verification on both regular items and PDF attachment items.
 - manual send still does not settle into a visible thread/response state, even though the draft clears.
-- toolbar-only discovery is still a failure for release readiness.
+- packaged Zotero smoke still needs explicit confirmation that DS Copilot is discoverable only through the native right-side pane entry in both Library and Reader.
 
 ## What To Record In The Next Smoke Pass
 
@@ -64,7 +64,7 @@ Treat the next smoke run as an evidence-collection pass, not a vibe check. Captu
 5. `Explain` auto-send behavior plus post-handoff interactivity.
 6. `Ask...` prefill-only behavior plus post-handoff interactivity.
 7. manual send behavior: does it create a visible active thread or silently clear the draft.
-8. whether the observed surface was reached natively or only via the temporary top-toolbar fallback.
+8. whether the observed surface was reached through the native right-side pane entry in both Library and Reader, with no truncated top-toolbar artifact.
 
 ## Smoke gates
 
@@ -85,7 +85,7 @@ Treat the next smoke run as an evidence-collection pass, not a vibe check. Captu
 15. Trigger `Ask...` once and confirm the sidebar opens and pre-fills a draft without auto-send.
 16. Type a manual message in Reader and verify whether `Send` creates a visible active thread.
 17. Restart Zotero and re-check plugin list, settings pane, Library host, Reader host, and Reader handoff.
-18. Treat a top-toolbar toggle as a temporary debug/fallback affordance only; do not count toolbar-only discovery as the final placement UX for release.
+18. Treat any top-toolbar-only discovery, including a truncated `D...` artifact, as a release-blocking surface regression.
 
 ## Runtime evidence
 
@@ -136,6 +136,7 @@ Packaged `.xpi` install is the only real acceptance gate. If the plugin is missi
 - If Reader entry points are missing, inspect `src/modules/readerIntegration.ts` only.
 - If Reader menus appear but clicking them does nothing, inspect the event handoff between Reader actions and the sidebar conversation flow before touching provider code.
 - If all UI entry points exist but chat fails, inspect only the preloaded prefs, `settingsManager`, provider calls, and the DeepSeek response path.
+- If a top-toolbar `D...` or other truncated DS Copilot artifact appears, treat it as a surface ownership regression in `src/ui/ui.ts` before debugging provider or Reader logic.
 
 ## Minimal isolation policy
 
@@ -153,4 +154,4 @@ Isolation order:
 - Use Zotero's plugin manager to install the built `.xpi` into the dedicated dev profile.
 - `npm start` proxy mode is never enough for release acceptance.
 - Do not validate releases by copying files into `extensions/` or editing Zotero registry files by hand.
-- A top-toolbar toggle may help expose the host during debugging, but it does not by itself satisfy release UX acceptance.
+- The acceptance surface is the native right-side Zotero pane entry in Library and Reader; any toolbar-only DS Copilot entry fails release UX acceptance.

@@ -38,10 +38,12 @@ describe("buildReaderActionDraft", () => {
 
     expect(
       mergeReaderActionScope(scope, {
+        page: 7,
         text: "This is the highlighted paragraph.",
       }),
     ).toEqual({
       ...scope,
+      readerPage: 7,
       selectedText: "This is the highlighted paragraph.",
     });
   });

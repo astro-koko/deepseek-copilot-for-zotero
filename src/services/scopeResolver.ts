@@ -18,6 +18,7 @@ export function resolveScopeFromReader(reader: any): ScopeContext | null {
   const label = parentItem
     ? parentItem.getDisplayTitle()
     : item.getDisplayTitle();
+  const readerPage = resolveCurrentReaderPage(reader);
 
   return {
     type: "pdf",
@@ -25,6 +26,7 @@ export function resolveScopeFromReader(reader: any): ScopeContext | null {
     label: label || "Current PDF",
     itemIds: parentItem ? [parentItem.id] : [attachmentId],
     readerAttachmentId: attachmentId,
+    readerPage,
   };
 }
 
@@ -235,6 +237,21 @@ function toNumericID(value: unknown): number | null {
 
 function isReaderTabType(selectedType: string): boolean {
   return selectedType.includes("reader");
+}
+
+function resolveCurrentReaderPage(reader: any): number | undefined {
+  try {
+    const pdfViewer =
+      reader?._internalReader?._primaryView?._iframeWindow?.PDFViewerApplication?.pdfViewer;
+    const pageNumber = pdfViewer?.currentPageNumber;
+    if (typeof pageNumber === "number" && Number.isFinite(pageNumber) && pageNumber > 0) {
+      return pageNumber;
+    }
+  } catch {
+    // Ignore reader page probe failures.
+  }
+
+  return undefined;
 }
 
 export function resetScopeResolverCacheForTests(): void {

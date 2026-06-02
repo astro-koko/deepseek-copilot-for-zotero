@@ -77,6 +77,40 @@ describe("openAICompatibleProvider", () => {
     ).toBeUndefined();
   });
 
+  it("writes the latest provider request to a dedicated runtime diagnostic file", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          new ReadableStream({
+            start(controller: ReadableStreamDefaultController) {
+              controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+              controller.close();
+            },
+          }),
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("Zotero", {
+      File: {
+        pathToFile: vi.fn((path: string) => path),
+        putContents: vi.fn(),
+      },
+    });
+
+    const provider = createOpenAICompatibleProvider({
+      baseURL: "https://api.deepseek.com",
+      apiKey: "test-key",
+      model: "deepseek-v4-pro",
+    });
+
+    await provider.sendChat([{ role: "user", content: "hello" }]);
+
+    expect(Zotero.File.putContents).toHaveBeenCalledTimes(1);
+    const diagnosticPayload = (Zotero.File.putContents as ReturnType<typeof vi.fn>).mock.calls[0]?.[1];
+    expect(String(diagnosticPayload)).toContain('"model": "deepseek-v4-pro"');
+    expect(String(diagnosticPayload)).toContain('"messageCount": 1');
+  });
+
   it("reassembles SSE frames that are split across chunks", async () => {
     const chunks = [
       new TextEncoder().encode('data: {"choices":[{"delta":{"content":"Hel'),

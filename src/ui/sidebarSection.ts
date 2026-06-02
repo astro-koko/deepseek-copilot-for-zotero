@@ -5,6 +5,7 @@ export type SidebarHostMount = HTMLElement;
 export type SidebarAttachmentTarget =
   | "native-library"
   | "native-reader"
+  | "section-body"
   | "section-fallback"
   | null;
 
@@ -73,6 +74,19 @@ export function createFallbackSidebarHost(
   doc: SidebarDocumentFactory,
 ): SidebarSurfaceHost {
   return createSidebarHost(doc, location);
+}
+
+export function createSectionSidebarHost(
+  location: SidebarLocation,
+  doc: Pick<Document, "createElement" | "createElementNS">,
+): SidebarSurfaceHost {
+  return createSidebarHost(
+    {
+      createElement: doc.createElement.bind(doc),
+      createElementNS: doc.createElementNS?.bind(doc),
+    },
+    location,
+  );
 }
 
 export function ensureSidebarHostState(

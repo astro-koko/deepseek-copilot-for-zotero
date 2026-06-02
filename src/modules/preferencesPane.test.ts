@@ -74,6 +74,9 @@ describe("registerPreferencesPane", () => {
     EventBus.dispose();
     vi.stubGlobal("Zotero", {
       alert: vi.fn(),
+      Prefs: {
+        get: vi.fn(() => ""),
+      },
     });
     root = new FakeRootElement();
     apiKeyField = new FakeField();
@@ -213,6 +216,24 @@ describe("registerPreferencesPane", () => {
       expect.anything(),
       "DS Copilot",
       "DeepSeek connection looks good",
+    );
+  });
+
+  it("uses zh-CN validation copy when Zotero is running in Chinese", async () => {
+    (Zotero.Prefs.get as any).mockImplementation(
+      (key: string) => (key === "intl.locale.requested" ? "zh-CN" : ""),
+    );
+    registerPreferencesPane(createWindow(), deps);
+
+    validateButton.dispatch("command");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(status.textContent).toBe("DeepSeek 连接正常");
+    expect((Zotero.alert as any)).toHaveBeenCalledWith(
+      expect.anything(),
+      "DS Copilot",
+      "DeepSeek 连接正常",
     );
   });
 

@@ -12,7 +12,7 @@ interface FakeItemShape {
   id: number;
   abstractNote?: string;
   attachmentContentType?: string;
-  attachmentText?: string;
+  attachmentText?: string | Promise<string>;
   creators?: FakeCreator[];
   date?: string;
   displayTitle: string;
@@ -63,11 +63,14 @@ beforeEach(() => {
         return item ? makeItem(item) : null;
       },
     },
+    PDFWorker: {
+      getFullText: vi.fn(async () => ({ text: "" })),
+    },
   });
 });
 
 describe("assembleContext", () => {
-  it("marks reader context as pdf-text-ready when attachment text is available", () => {
+  it("marks reader context as pdf-text-ready when attachment text is available", async () => {
     const parent = registerItem({
       id: 10,
       abstractNote: "Parent abstract",
@@ -83,7 +86,7 @@ describe("assembleContext", () => {
       parentItem: parent,
     });
 
-    const result = assembleContext(
+    const result = await assembleContext(
       makeScope({
         type: "pdf",
         id: "pdf-11",
@@ -97,7 +100,97 @@ describe("assembleContext", () => {
     expect(result.fullText).toContain("Full PDF text");
   });
 
-  it("falls back to the abstract when a paper has no extractable PDF text", () => {
+  it("awaits promised attachment text before falling back to the abstract", async () => {
+    const parent = registerItem({
+      id: 20,
+      abstractNote: "Parent abstract",
+      displayTitle: "Async Reader Paper",
+    });
+    registerItem({
+      id: 21,
+      attachmentContentType: "application/pdf",
+      attachmentText: Promise.resolve("Promised PDF text"),
+      displayTitle: "Async Reader PDF",
+      parentItem: parent,
+    });
+
+    const result = await assembleContext(
+      makeScope({
+        type: "pdf",
+        id: "pdf-21",
+        itemIds: [20],
+        readerAttachmentId: 21,
+      }),
+    );
+
+    expect(result.availability).toBe("pdf-text-ready");
+    expect(result.fullText).toContain("Promised PDF text");
+  });
+
+  it("uses PDFWorker full text when the attachment item has no inline text cache", async () => {
+    const parent = registerItem({
+      id: 30,
+      abstractNote: "Parent abstract",
+      displayTitle: "Worker Reader Paper",
+    });
+    registerItem({
+      id: 31,
+      attachmentContentType: "application/pdf",
+      displayTitle: "Worker Reader PDF",
+      parentItem: parent,
+    });
+    (Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>).mockResolvedValue({
+      text: "Worker extracted PDF text",
+    });
+
+    const result = await assembleContext(
+      makeScope({
+        type: "pdf",
+        id: "pdf-31",
+        itemIds: [30],
+        readerAttachmentId: 31,
+      }),
+    );
+
+    expect(result.availability).toBe("pdf-text-ready");
+    expect(result.fullText).toContain("Worker extracted PDF text");
+  });
+
+  it("prefers later-page content near the active reader page instead of truncating to the document head", async () => {
+    const parent = registerItem({
+      id: 40,
+      abstractNote: "Parent abstract",
+      displayTitle: "Paged Reader Paper",
+    });
+    registerItem({
+      id: 41,
+      attachmentContentType: "application/pdf",
+      displayTitle: "Paged Reader PDF",
+      parentItem: parent,
+    });
+    const filler = "Introduction text. ".repeat(1200);
+    const pageFiveSegment =
+      "Page 5\nCode Availability\nThe SHARP template is available at https://github.com/stanford-ai4physics/sharp.";
+    (Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>).mockResolvedValue({
+      text: `${filler}\n${pageFiveSegment}\n`,
+    });
+
+    const result = await assembleContext(
+      makeScope({
+        type: "pdf",
+        id: "pdf-41",
+        itemIds: [40],
+        readerAttachmentId: 41,
+        readerPage: 5,
+      }),
+    );
+
+    expect(result.availability).toBe("pdf-text-ready");
+    expect(result.fullText).toContain("Code Availability");
+    expect(result.fullText).toContain("stanford-ai4physics/sharp");
+  });
+
+  it("falls back to the abstract when a paper has no extractable PDF text", async () => {
     registerItem({
       id: 1,
       abstractNote: "Abstract fallback content",
@@ -107,7 +200,7 @@ describe("assembleContext", () => {
       displayTitle: "Abstract Only Paper",
     });
 
-    const result = assembleContext(makeScope({}));
+    const result = await assembleContext(makeScope({}));
 
     expect(result.availability).toBe("abstract-only");
     expect(result.fullText).toContain("Abstract fallback content");
@@ -116,7 +209,7 @@ describe("assembleContext", () => {
     );
   });
 
-  it("reports collection truncation for large collections instead of pretending full text is available", () => {
+  it("reports collection truncation for large collections instead of pretending full text is available", async () => {
     for (let index = 1; index <= 4; index += 1) {
       registerItem({
         id: index,
@@ -126,7 +219,7 @@ describe("assembleContext", () => {
       });
     }
 
-    const result = assembleContext(
+    const result = await assembleContext(
       makeScope({
         type: "collection",
         id: "collection-1",

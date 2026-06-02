@@ -1,5 +1,17 @@
 import type { ScopeType } from "../types/scope";
 
+function isChineseLocale(): boolean {
+  try {
+    const locale =
+      (globalThis as unknown as { Zotero?: { locale?: string } }).Zotero?.locale ||
+      ((globalThis as unknown as { Zotero?: { Prefs?: { get?: (key: string, global?: boolean) => unknown } } }).Zotero?.Prefs?.get?.("intl.accept_languages", true) as string) ||
+      "";
+    return String(locale).toLowerCase().startsWith("zh");
+  } catch {
+    return false;
+  }
+}
+
 export interface Preset {
   id: string;
   label: string;
@@ -58,9 +70,27 @@ export function getPresetById(id: string): Preset | undefined {
 }
 
 export function getPresetsForScope(scopeType: ScopeType): Preset[] {
-  return PRESETS.filter(
+  const presets = PRESETS.filter(
     (p) => !p.scopeHint || p.scopeHint.includes(scopeType),
   );
+
+  if (!isChineseLocale()) {
+    return presets;
+  }
+
+  const zhMap: Record<string, Pick<Preset, "label" | "description">> = {
+    summarize: { label: "总结", description: "生成论文级简明总结" },
+    explain: { label: "解释", description: "解释概念或段落" },
+    method: { label: "方法", description: "分析研究方法" },
+    limitations: { label: "局限", description: "识别主要局限" },
+    compare: { label: "对比", description: "对比多篇论文" },
+    "related-work": { label: "相关工作", description: "分析相关工作定位" },
+  };
+
+  return presets.map((preset) => ({
+    ...preset,
+    ...(zhMap[preset.id] || {}),
+  }));
 }
 
 export function applyPreset(presetId: string, userInput: string): string {

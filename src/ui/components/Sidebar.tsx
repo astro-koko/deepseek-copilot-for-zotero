@@ -18,7 +18,11 @@ import {
   saveSettings,
 } from "../../services/settingsManager";
 import { chatSessionStore } from "../../services/chatSession";
-import { listThreads } from "../../services/threadController";
+import { deleteThread, listThreads } from "../../services/threadController";
+import { exportThreadAsMarkdown } from "../../services/threadExport";
+import { deleteThreadAndRefresh } from "../../services/threadActions";
+import { getSidebarTheme } from "../theme";
+import { isChineseLocale } from "../../utils/locale";
 
 interface SidebarProps {
   eventBus: EventTarget;
@@ -42,10 +46,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
   const [showRecentChats, setShowRecentChats] = useState(false);
   const [composerDraft, setComposerDraft] = useState("");
   const [composerFocusNonce, setComposerFocusNonce] = useState(0);
+  const [themeRefreshKey, setThemeRefreshKey] = useState(0);
+  const zh = isChineseLocale();
+
+  const syncResolvedScope = () => {
+    const currentScope = getCurrentScope();
+    setScope(currentScope);
+    void refreshContextSummary(currentScope);
+    void chatSessionStore.syncScope(currentScope);
+  };
+
+  const refreshContextSummary = async (nextScope: ScopeContext | null) => {
+    const summary = await summarizeScope(nextScope);
+    setContextSummary(summary);
+  };
 
   useEffect(() => {
     const refreshSettings = () => {
       setSettings(getSettings());
+      if (location === "reader") {
+        syncResolvedScope();
+      }
     };
 
     refreshSettings();
@@ -59,6 +80,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
       eventBus.removeEventListener("settingsChange", handleSettingsChange);
     };
   }, [eventBus, hostWindow]);
+
+  useEffect(() => {
+    const mediaQuery = hostWindow.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!mediaQuery) {
+      return;
+    }
+
+    const handleThemeChange = () => {
+      setThemeRefreshKey((value) => value + 1);
+    };
+
+    mediaQuery.addEventListener?.("change", handleThemeChange);
+    mediaQuery.addListener?.(handleThemeChange);
+
+    return () => {
+      mediaQuery.removeEventListener?.("change", handleThemeChange);
+      mediaQuery.removeListener?.(handleThemeChange);
+    };
+  }, [hostWindow]);
 
   useEffect(() => {
     let disposed = false;
@@ -83,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
   useEffect(() => {
     const syncScope = (nextScope: ScopeContext | null) => {
       setScope(nextScope);
-      setContextSummary(summarizeScope(nextScope));
+      void refreshContextSummary(nextScope);
       void chatSessionStore.syncScope(nextScope);
     };
 
@@ -107,7 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
       const prompt = buildReaderActionDraft(detail);
       const currentScope = mergeReaderActionScope(getCurrentScope(), detail);
       setScope(currentScope);
-      setContextSummary(summarizeScope(currentScope));
+      void refreshContextSummary(currentScope);
 
       void (async () => {
         if (!isSupportedChatScope(currentScope)) {
@@ -139,16 +179,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
   }, [eventBus, location]);
 
   useEffect(() => {
-    const currentScope = getCurrentScope();
-    setScope(currentScope);
-    setContextSummary(summarizeScope(currentScope));
-    void chatSessionStore.syncScope(currentScope);
-  }, []);
+    syncResolvedScope();
+
+    if (location !== "reader") {
+      return;
+    }
+
+    const retry = hostWindow.setTimeout(() => {
+      syncResolvedScope();
+    }, 150);
+
+    return () => {
+      hostWindow.clearTimeout(retry);
+    };
+  }, [hostWindow, location]);
 
   const handleNewThread = async () => {
     const currentScope = getCurrentScope();
     setScope(currentScope);
-    setContextSummary(summarizeScope(currentScope));
+    await refreshContextSummary(currentScope);
     if (!isSupportedChatScope(currentScope)) {
       return;
     }
@@ -193,8 +242,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
     setShowRecentChats(false);
   };
 
-  const handleModelChange = (modelName: "deepseek-v4-flash" | "deepseek-v4-pro") => {
-    saveSettings({ model: modelName });
+  const handleDeleteThread = async (thread: Thread) => {
+    try {
+      const result = await deleteThreadAndRefresh({
+        activeThread: session.activeThread,
+        deleteThread,
+        listThreads,
+        resetSession: () => chatSessionStore.reset(),
+        threadId: thread.id,
+      });
+      setRecentThreads(result.recentThreads);
+      setShowRecentChats(result.recentThreads.length > 0);
+    } catch (error) {
+      ztoolkit.log("Failed to delete thread:", error);
+    }
+  };
+
+  const handleExportThread = async (thread: Thread) => {
+    try {
+      const safeTitle = thread.title.replace(/[\\/:*?"<>|]/g, "-").slice(0, 60) || "thread";
+      const outputPath = `/tmp/ds-copilot-${safeTitle}-${thread.id}.md`;
+      await exportThreadAsMarkdown(thread, outputPath);
+    } catch (error) {
+      ztoolkit.log("Failed to export thread:", error);
+    }
+  };
+
+  const handleModelChange = (model: "deepseek-v4-flash" | "deepseek-v4-pro") => {
+    saveSettings({ model });
     setSettings(getSettings());
     eventBus.dispatchEvent(new Event("settingsChange"));
   };
@@ -210,44 +285,70 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
   });
   const isRecentChatsVisible =
     model.recentThreads.length > 0 && (showRecentChats || model.showRecentThreads);
+  const theme = getSidebarTheme(hostWindow);
+  const flashLabel = zh ? "轻度思考" : "Light";
+  const proLabel = zh ? "深度思考" : "Deep";
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
+    <div
+      key={themeRefreshKey}
+      style={{ ...styles.container, background: theme.background, color: theme.text }}
+    >
+      <div style={{ ...styles.header, background: theme.background, borderBottomColor: theme.border }}>
         <div style={styles.headerMain}>
-          <div style={styles.headerTitle}>DS Copilot</div>
-          <div style={styles.headerMeta}>
+          <div style={{ ...styles.headerTitle, color: theme.text }}>DS Copilot</div>
+          <div style={{ ...styles.headerMeta, color: theme.mutedText }}>
             {model.locationLabel} · {model.providerLabel} · {model.statusLabel}
           </div>
         </div>
         <div style={styles.headerActions}>
-          <div style={styles.modelToggle} role="group" aria-label="Model selection">
+          <div
+            style={{
+              ...styles.modelToggle,
+              background: theme.panelBackground,
+              borderColor: theme.buttonBorder,
+            }}
+          >
             <button
               style={{
                 ...styles.modelToggleButton,
-                ...(settings.model === "deepseek-v4-flash"
-                  ? styles.modelToggleButtonActive
-                  : null),
+                color: theme.buttonText,
+                background:
+                  settings.model === "deepseek-v4-flash"
+                    ? theme.surfaceBackground
+                    : "transparent",
+                borderColor:
+                  settings.model === "deepseek-v4-flash"
+                    ? theme.buttonBorder
+                    : "transparent",
               }}
               onClick={() => handleModelChange("deepseek-v4-flash")}
             >
-              Light
+              {flashLabel}
             </button>
             <button
               style={{
                 ...styles.modelToggleButton,
-                ...(settings.model === "deepseek-v4-pro"
-                  ? styles.modelToggleButtonActive
-                  : null),
+                color: theme.buttonText,
+                background:
+                  settings.model === "deepseek-v4-pro"
+                    ? theme.surfaceBackground
+                    : "transparent",
+                borderColor:
+                  settings.model === "deepseek-v4-pro"
+                    ? theme.buttonBorder
+                    : "transparent",
               }}
               onClick={() => handleModelChange("deepseek-v4-pro")}
             >
-              Deep
+              {proLabel}
             </button>
           </div>
           <button
             style={{
               ...styles.toolbarButton,
+              color: theme.buttonText,
+              borderColor: theme.buttonBorder,
               ...(isSupportedChatScope(scope) ? null : styles.toolbarButtonDisabled),
             }}
             onClick={() => {
@@ -255,51 +356,80 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
             }}
             disabled={!isSupportedChatScope(scope) || session.isStreaming}
           >
-            New Thread
+            {model.newThreadLabel}
           </button>
           <button
             style={{
               ...styles.toolbarButton,
+              color: theme.buttonText,
+              borderColor: theme.buttonBorder,
               ...(model.recentThreads.length > 0 ? null : styles.toolbarButtonDisabled),
             }}
             onClick={() => setShowRecentChats((current) => !current)}
             disabled={model.recentThreads.length === 0}
           >
-            Recent Chats
+            {model.recentThreadsLabel}
           </button>
-          <button style={styles.toolbarButton} onClick={handleOpenSettings}>
-            Settings
+          <button
+            style={{ ...styles.toolbarButton, color: theme.buttonText, borderColor: theme.buttonBorder }}
+            onClick={handleOpenSettings}
+          >
+            {model.settingsLabel}
           </button>
         </div>
       </div>
 
-      <div style={styles.scopeSection}>
-        <div style={styles.sectionLabel}>Context</div>
+      <div style={{ ...styles.scopeSection, background: theme.background, borderBottomColor: theme.softBorder }}>
+        <div style={{ ...styles.sectionLabel, color: theme.mutedText }}>{model.scopeSectionLabel}</div>
         <div style={styles.scopeHeaderRow}>
-          <span style={styles.scopeType}>{model.scopeTypeLabel}</span>
-          <span style={styles.scopeLabel} title={model.scopeLabel}>
+          <span style={{ ...styles.scopeType, color: theme.mutedText }}>{model.scopeTypeLabel}</span>
+          <span style={{ ...styles.scopeLabel, color: theme.text }} title={model.scopeLabel}>
             {model.scopeLabel}
           </span>
         </div>
         {(model.scopeMeta || model.scopeSelectionLabel) && (
           <div style={styles.scopeMetaRow}>
-            {model.scopeMeta && <span style={styles.scopeMeta}>{model.scopeMeta}</span>}
+            {model.scopeMeta && <span style={{ ...styles.scopeMeta, color: theme.mutedText }}>{model.scopeMeta}</span>}
             {model.scopeSelectionLabel && (
-              <span style={styles.selectionBadge}>{model.scopeSelectionLabel}</span>
+              <span
+                style={{
+                  ...styles.selectionBadge,
+                  color: theme.badgeText,
+                  background: theme.badgeBackground,
+                  borderColor: theme.badgeBorder,
+                }}
+              >
+                {model.scopeSelectionLabel}
+              </span>
             )}
           </div>
         )}
         {(model.contextAvailabilityLabel || model.contextWarnings.length > 0) && (
           <div style={styles.scopeMetaRow}>
             {model.contextAvailabilityLabel && (
-              <span style={styles.contextAvailabilityBadge}>
+              <span
+                style={{
+                  ...styles.contextAvailabilityBadge,
+                  color: theme.accentText,
+                  background: theme.accentBackground,
+                  borderColor: theme.accentBorder,
+                }}
+              >
                 {model.contextAvailabilityLabel}
               </span>
             )}
             {model.contextWarnings.length > 0 && (
               <div style={styles.contextWarningList}>
                 {model.contextWarnings.map((warning) => (
-                  <span key={warning} style={styles.contextWarningBadge}>
+                  <span
+                    key={warning}
+                    style={{
+                      ...styles.contextWarningBadge,
+                      color: theme.warningText,
+                      background: theme.warningBackground,
+                      borderColor: theme.warningBorder,
+                    }}
+                  >
                     {warning}
                   </span>
                 ))}
@@ -310,37 +440,71 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
       </div>
 
       {model.noticeText && (
-        <div style={styles.noticeSection}>
-          <div style={styles.noticeTitle}>{model.noticeTitle}</div>
-          <div style={styles.noticeText}>{model.noticeText}</div>
-          <button style={styles.noticeButton} onClick={handleOpenSettings}>
-            Open Settings
+        <div style={{ ...styles.noticeSection, background: theme.noticeBackground, borderBottomColor: theme.noticeBorder }}>
+          <div style={{ ...styles.noticeTitle, color: theme.noticeTitle }}>{model.noticeTitle}</div>
+          <div style={{ ...styles.noticeText, color: theme.noticeText }}>{model.noticeText}</div>
+          <button
+            style={{
+              ...styles.noticeButton,
+              color: theme.buttonText,
+              background: theme.surfaceBackground,
+              borderColor: theme.noticeBorder,
+            }}
+            onClick={handleOpenSettings}
+          >
+            {model.openSettingsLabel}
           </button>
         </div>
       )}
 
       <div style={styles.content}>
         <section style={styles.introSection}>
-          <div style={styles.sectionLabel}>Chat</div>
-          <div style={styles.heroTitle}>{model.heroTitle}</div>
-          <div style={styles.heroBody}>{model.heroBody}</div>
+          <div style={{ ...styles.sectionLabel, color: theme.mutedText }}>{model.chatSectionLabel}</div>
+          <div style={{ ...styles.heroTitle, color: theme.text }}>{model.heroTitle}</div>
+          <div style={{ ...styles.heroBody, color: theme.mutedText }}>{model.heroBody}</div>
         </section>
 
+        {session.activeThread && (
+          <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
+            <div style={{ ...styles.sectionTitle, color: theme.text }}>
+              {zh ? "会话操作" : "Conversation actions"}
+            </div>
+            <div style={styles.threadActionRow}>
+              <button
+                style={{ ...styles.threadActionButton, color: theme.buttonText, borderColor: theme.buttonBorder }}
+                onClick={() => {
+                  void handleExportThread(session.activeThread!);
+                }}
+              >
+                {zh ? "导出当前会话" : "Export current thread"}
+              </button>
+              <button
+                style={{ ...styles.threadActionButton, color: theme.errorText, borderColor: theme.errorBorder }}
+                onClick={() => {
+                  void handleDeleteThread(session.activeThread!);
+                }}
+              >
+                {zh ? "删除当前会话" : "Delete current thread"}
+              </button>
+            </div>
+          </section>
+        )}
+
         {model.showSuggestedActions && (
-          <section style={styles.section}>
-            <div style={styles.sectionTitle}>Suggested actions</div>
-            <div style={styles.list}>
+          <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
+            <div style={{ ...styles.sectionTitle, color: theme.text }}>{model.suggestedActionsLabel}</div>
+            <div style={{ ...styles.list, borderTopColor: theme.border, borderBottomColor: theme.border, background: theme.border }}>
               {model.suggestedActions.map((action) => (
                 <button
                   key={action.id}
-                  style={styles.listButton}
+                  style={{ ...styles.listButton, background: theme.surfaceBackground }}
                   onClick={() => {
                     void handlePresetSend(action.prompt);
                   }}
                 >
                   <span style={styles.listRow}>
-                    <span style={styles.listPrimary}>{action.label}</span>
-                    <span style={styles.listSecondary}>
+                    <span style={{ ...styles.listPrimary, color: theme.text }}>{action.label}</span>
+                    <span style={{ ...styles.listSecondary, color: theme.mutedText }}>
                       {action.description}
                     </span>
                   </span>
@@ -351,44 +515,78 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
         )}
 
         {model.showThreadView && (
-          <div style={styles.threadSection}>
+          <div style={{ ...styles.threadSection, borderTopColor: theme.softBorder }}>
             <ThreadView hasScope={scope != null} thread={session.activeThread} />
           </div>
         )}
 
         {isRecentChatsVisible && (
-          <section style={styles.section}>
-            <div style={styles.sectionTitle}>Recent chats</div>
-            <div style={styles.list}>
+          <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
+            <div style={{ ...styles.sectionTitle, color: theme.text }}>{model.recentThreadsLabel}</div>
+            <div style={{ ...styles.list, borderTopColor: theme.border, borderBottomColor: theme.border, background: theme.border }}>
               {model.recentThreads.map((thread) => (
-                <button
+                <div
                   key={thread.id}
-                  style={styles.listButton}
-                  onClick={() => handleOpenThread(thread)}
+                  style={{ ...styles.listButton, background: theme.surfaceBackground }}
                 >
-                  <span style={styles.listRow}>
-                    <span style={styles.listPrimary}>{thread.title}</span>
-                    <span style={styles.listSecondary}>
-                      {getThreadPreview(thread)}
+                  <button
+                    style={styles.threadMainButton}
+                    onClick={() => handleOpenThread(thread)}
+                  >
+                    <span style={styles.listRow}>
+                      <span style={{ ...styles.listPrimary, color: theme.text }}>{thread.title}</span>
+                      <span style={{ ...styles.listSecondary, color: theme.mutedText }}>
+                        {getThreadPreview(thread)}
+                      </span>
                     </span>
-                  </span>
-                  <span style={styles.listMeta}>
-                    {formatThreadTimestamp(thread.updatedAt)}
-                  </span>
-                </button>
+                    <span style={{ ...styles.listMeta, color: theme.mutedText }}>
+                      {formatThreadTimestamp(thread.updatedAt)}
+                    </span>
+                  </button>
+                  <div style={styles.threadActionRow}>
+                    <button
+                      style={{ ...styles.threadActionButton, color: theme.buttonText, borderColor: theme.buttonBorder }}
+                      onClick={() => {
+                        void handleExportThread(thread);
+                      }}
+                    >
+                      {zh ? "导出" : "Export"}
+                    </button>
+                    <button
+                      style={{ ...styles.threadActionButton, color: theme.errorText, borderColor: theme.errorBorder }}
+                      onClick={() => {
+                        void handleDeleteThread(thread);
+                      }}
+                    >
+                      {zh ? "删除" : "Delete"}
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </section>
         )}
 
         {session.isStreaming && session.streamingContent && (
-          <div style={styles.streamingSection}>
-            <div style={styles.streamingLabel}>Responding</div>
-            <div style={styles.streamingContent}>{session.streamingContent}</div>
+          <div style={{ ...styles.streamingSection, background: theme.panelBackground, borderTopColor: theme.softBorder, borderBottomColor: theme.softBorder }}>
+            <div style={{ ...styles.streamingLabel, color: theme.mutedText }}>{model.streamingLabel}</div>
+            <div style={{ ...styles.streamingContent, color: theme.text }}>{session.streamingContent}</div>
           </div>
         )}
 
-        {session.error && <div style={styles.errorSection}>{session.error}</div>}
+        {session.error && (
+          <div
+            style={{
+              ...styles.errorSection,
+              background: theme.errorBackground,
+              borderTopColor: theme.errorBorder,
+              borderBottomColor: theme.errorBorder,
+              color: theme.errorText,
+            }}
+          >
+            {session.error}
+          </div>
+        )}
       </div>
 
       <Composer
@@ -434,13 +632,13 @@ function formatThreadTimestamp(timestamp: number): string {
     : date.toLocaleDateString();
 }
 
-function summarizeScope(scope: ScopeContext | null): AssembledContext | null {
+async function summarizeScope(scope: ScopeContext | null): Promise<AssembledContext | null> {
   if (!scope) {
     return null;
   }
 
   try {
-    return assembleContext(scope);
+    return await assembleContext(scope);
   } catch (error) {
     ztoolkit.log("Failed to summarize scope context:", error);
     return null;
@@ -451,7 +649,7 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     display: "flex",
     flexDirection: "column",
-    height: "100%",
+    height: "auto",
     background: "#f7f7f7",
     color: "#222",
     fontFamily:
@@ -499,23 +697,18 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     border: "1px solid #c9c9c9",
-    borderRadius: "4px",
-    overflow: "hidden",
-    background: "#fbfbfb",
+    borderRadius: "6px",
+    padding: "2px",
+    gap: "2px",
   },
   modelToggleButton: {
     appearance: "none",
-    border: "none",
-    background: "transparent",
-    color: "#555",
-    padding: "3px 6px",
+    border: "1px solid transparent",
+    borderRadius: "4px",
+    padding: "3px 8px",
     fontSize: "11px",
     fontWeight: 500,
     cursor: "pointer",
-  },
-  modelToggleButtonActive: {
-    background: "#eeeeee",
-    color: "#222",
   },
   toolbarButton: {
     appearance: "none",
@@ -641,9 +834,9 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 500,
   },
   content: {
-    flex: 1,
-    minHeight: "0",
-    overflow: "auto",
+    flex: "none",
+    minHeight: "auto",
+    overflow: "visible",
     padding: "8px 10px 0",
     display: "flex",
     flexDirection: "column",
@@ -686,13 +879,38 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     alignItems: "stretch",
-    gap: "4px",
+    gap: "6px",
     width: "100%",
     padding: "8px 10px",
     border: "none",
     background: "#fff",
+    textAlign: "left",
+  },
+  threadMainButton: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: "4px",
+    width: "100%",
+    padding: 0,
+    border: "none",
+    background: "transparent",
     cursor: "pointer",
     textAlign: "left",
+  },
+  threadActionRow: {
+    display: "flex",
+    gap: "6px",
+    justifyContent: "flex-end",
+  },
+  threadActionButton: {
+    appearance: "none",
+    border: "1px solid #c9c9c9",
+    borderRadius: "4px",
+    background: "transparent",
+    padding: "2px 8px",
+    fontSize: "11px",
+    cursor: "pointer",
   },
   listRow: {
     display: "flex",
@@ -725,13 +943,12 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   threadSection: {
-    display: "flex",
-    flexDirection: "column",
+    display: "block",
     minHeight: "180px",
-    flex: 1,
+    flex: "none",
     borderTop: "1px solid #e2e2e2",
     paddingTop: "8px",
-    overflow: "hidden",
+    overflow: "visible",
   },
   streamingSection: {
     padding: "8px 10px",

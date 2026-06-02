@@ -10,6 +10,18 @@
 
 import type { ReaderActionDetail } from "../ui/readerActionFlow";
 
+function isChineseLocale(): boolean {
+  try {
+    const locale =
+      (globalThis as unknown as { Zotero?: { locale?: string } }).Zotero?.locale ||
+      ((globalThis as unknown as { Zotero?: { Prefs?: { get?: (key: string, global?: boolean) => unknown } } }).Zotero?.Prefs?.get?.("intl.accept_languages", true) as string) ||
+      "";
+    return String(locale).toLowerCase().startsWith("zh");
+  } catch {
+    return false;
+  }
+}
+
 let popupHandler: ((event: any) => void) | null = null;
 let contextMenuHandler: ((event: any) => void) | null = null;
 
@@ -54,6 +66,7 @@ function onRenderTextSelectionPopup(event: any): void {
   const container = doc.createElement("div");
   container.className = "ai-assistant-selection-popup";
   container.style.cssText = "display: flex; flex-direction: column; gap: 2px;";
+  const zh = isChineseLocale();
 
   const label = doc.createElement("span");
   label.textContent = "DS Copilot";
@@ -66,7 +79,7 @@ function onRenderTextSelectionPopup(event: any): void {
   const explainBtn = doc.createElement("button");
   explainBtn.className = "toolbar-button wide-button";
   explainBtn.style.cssText = "flex: 1;";
-  explainBtn.textContent = "Explain";
+  explainBtn.textContent = zh ? "解释" : "Explain";
   explainBtn.addEventListener("click", () => {
     dispatchReaderAction("explain", annotationText, page, readerItemID);
   });
@@ -74,7 +87,7 @@ function onRenderTextSelectionPopup(event: any): void {
   const askBtn = doc.createElement("button");
   askBtn.className = "toolbar-button wide-button";
   askBtn.style.cssText = "flex: 1;";
-  askBtn.textContent = "Ask...";
+  askBtn.textContent = zh ? "提问..." : "Ask...";
   askBtn.addEventListener("click", () => {
     dispatchReaderAction("ask", annotationText, page, readerItemID);
   });
@@ -116,10 +129,11 @@ function onCreateViewContextMenu(event: any): void {
   }
 
   const hasSelection = !!selectedText && selectedText.length > 0;
+  const zh = isChineseLocale();
 
   append(
     {
-      label: "Explain with DS Copilot",
+      label: zh ? "用 DS Copilot 解释" : "Explain with DS Copilot",
       disabled: !hasSelection,
       persistent: true,
       onCommand: () => {
@@ -129,7 +143,7 @@ function onCreateViewContextMenu(event: any): void {
       },
     },
     {
-      label: "Ask DS Copilot...",
+      label: zh ? "向 DS Copilot 提问..." : "Ask DS Copilot...",
       disabled: !hasSelection,
       persistent: true,
       onCommand: () => {

@@ -4,6 +4,7 @@ import { getPresetsForScope } from "../../services/presets";
 import type { Settings } from "../../services/settingsManager";
 import type { ScopeContext } from "../../types/scope";
 import type { Thread } from "../../types/thread";
+import { isChineseLocale } from "../../utils/locale";
 
 export type SidebarMode = "empty" | "config-error" | "home" | "thread";
 
@@ -15,11 +16,14 @@ export interface SidebarSuggestedAction {
 }
 
 export interface SidebarViewModel {
+  addSourceLabel: string;
+  chatSectionLabel: string;
   composerDisabled: boolean;
   composerDisabledReason: string | null;
   composerPlaceholder: string;
   contextAvailabilityLabel: string | null;
   contextWarnings: string[];
+  currentFileLabel: string;
   heroBody: string;
   heroTitle: string;
   locationLabel: string;
@@ -28,15 +32,23 @@ export interface SidebarViewModel {
   noticeTitle: string | null;
   providerLabel: string;
   recentThreads: Thread[];
+  recentThreadsLabel: string;
   scopeLabel: string;
   scopeMeta: string | null;
   scopeSelectionLabel: string | null;
+  scopeSectionLabel: string;
   scopeTypeLabel: string;
   showRecentThreads: boolean;
   showShell: true;
   showSuggestedActions: boolean;
   showThreadView: boolean;
   statusLabel: string;
+  streamingLabel: string;
+  suggestedActionsLabel: string;
+  newThreadLabel: string;
+  openSettingsLabel: string;
+  settingsLabel: string;
+  sendLabel: string;
   suggestedActions: SidebarSuggestedAction[];
 }
 
@@ -57,6 +69,13 @@ const scopeTypeLabels: Record<string, string> = {
   pdf: "PDF",
 };
 
+const scopeTypeLabelsZh: Record<string, string> = {
+  collection: "分类",
+  "manual-selection": "选中内容",
+  paper: "论文",
+  pdf: "PDF",
+};
+
 type SupportedScopeContext = ScopeContext & { type: "paper" | "pdf" };
 
 function isChatSupportedScope(
@@ -71,10 +90,28 @@ export function buildSidebarViewModel({
   recentThreads,
   scope,
   session,
-  settings,
+  settings: _settings,
   settingsIssue,
 }: BuildSidebarViewModelArgs): SidebarViewModel {
-  const locationLabel = location === "reader" ? "Reader" : "Library";
+  const zh = isChineseLocale();
+  const newThreadLabel = zh ? "新对话" : "New Thread";
+  const recentThreadsLabel = zh ? "最近会话" : "Recent Chats";
+  const settingsLabel = zh ? "设置" : "Settings";
+  const openSettingsLabel = zh ? "打开设置" : "Open Settings";
+  const scopeSectionLabel = zh ? "上下文" : "Context";
+  const chatSectionLabel = zh ? "对话" : "Chat";
+  const suggestedActionsLabel = zh ? "建议操作" : "Suggested actions";
+  const streamingLabel = zh ? "正在回复" : "Responding";
+  const addSourceLabel = zh ? "添加来源" : "Add Source";
+  const currentFileLabel = zh ? "当前文件" : "Current file";
+  const sendLabel = zh ? "发送" : "Send";
+  const locationLabel = zh
+    ? location === "reader"
+      ? "阅读器"
+      : "文献库"
+    : location === "reader"
+      ? "Reader"
+      : "Library";
   const providerLabel = "DeepSeek";
   const filteredRecentThreads = recentThreads.filter(
     (thread) => thread.id !== session.activeThread?.id,
@@ -86,109 +123,176 @@ export function buildSidebarViewModel({
 
   if (!scope) {
     return {
+      addSourceLabel,
+      chatSectionLabel,
       composerDisabled: true,
       composerDisabledReason:
-        location === "reader"
-          ? "Choose one paper in Library or open one PDF in Reader to enable chat."
+        zh
+          ? "在文献库中选择一篇论文，或在阅读器中打开一个 PDF 以启用对话。"
           : "Choose one paper in Library or open one PDF in Reader to enable chat.",
       composerPlaceholder:
-        location === "reader"
-          ? "Open a PDF to start asking questions."
-          : "Select one paper to start asking questions.",
+        zh
+          ? location === "reader"
+            ? "打开 PDF 后开始提问。"
+            : "选择一篇论文后开始提问。"
+          : location === "reader"
+            ? "Open a PDF to start asking questions."
+            : "Select one paper to start asking questions.",
       contextAvailabilityLabel,
       contextWarnings,
+      currentFileLabel,
       heroBody:
-        location === "reader"
-          ? "Open one PDF in Reader to enable chat."
-          : "Choose one paper in Library or open one PDF in Reader to begin.",
+        zh
+          ? location === "reader"
+            ? "在阅读器中打开一个 PDF 以启用对话。"
+            : "在文献库中选择一篇论文，或在阅读器中打开一个 PDF 以开始使用。"
+          : location === "reader"
+            ? "Open one PDF in Reader to enable chat."
+            : "Choose one paper in Library or open one PDF in Reader to begin.",
       heroTitle:
-        location === "reader" ? "Open a PDF" : "Select an item",
+        zh
+          ? location === "reader"
+            ? "打开 PDF"
+            : "选择条目"
+          : location === "reader"
+            ? "Open a PDF"
+            : "Select an item",
       locationLabel,
       mode: "empty",
       noticeText: null,
       noticeTitle: null,
       providerLabel,
       recentThreads: [],
+      recentThreadsLabel,
       scopeLabel:
-        location === "reader"
-          ? "No PDF reader context"
-          : "No library context selected",
+        zh
+          ? location === "reader"
+            ? "当前没有 PDF 阅读器上下文"
+            : "当前没有选中文献库上下文"
+          : location === "reader"
+            ? "No PDF reader context"
+            : "No library context selected",
       scopeMeta: null,
       scopeSelectionLabel: null,
-      scopeTypeLabel: location === "reader" ? "Reader" : "Library",
+      scopeSectionLabel,
+      scopeTypeLabel: location === "reader" ? locationLabel : locationLabel,
       showRecentThreads: false,
       showShell: true,
       showSuggestedActions: false,
       showThreadView: false,
-      statusLabel: "Waiting for context",
+      statusLabel: zh ? "等待上下文" : "Waiting for context",
+      streamingLabel,
+      suggestedActionsLabel,
+      newThreadLabel,
+      openSettingsLabel,
+      settingsLabel,
+      sendLabel,
       suggestedActions: [],
     };
   }
 
-  const scopeTypeLabel = scopeTypeLabels[scope.type] || scope.type;
+  const scopeTypeLabel = zh
+    ? scopeTypeLabelsZh[scope.type] || scope.type
+    : scopeTypeLabels[scope.type] || scope.type;
   const scopeMeta =
-    scope.itemIds.length > 1 ? `${scope.itemIds.length} items in scope` : null;
+    scope.itemIds.length > 1
+      ? zh
+        ? `${scope.itemIds.length} 项在当前范围内`
+        : `${scope.itemIds.length} items in scope`
+      : null;
   const scopeSelectionLabel = scope.selectedText
-    ? "Selected text included"
+    ? zh
+      ? "已包含选中文本"
+      : "Selected text included"
     : null;
   const supportedScope = isChatSupportedScope(scope);
 
   if (settingsIssue) {
     return {
+      addSourceLabel,
+      chatSectionLabel,
       composerDisabled: true,
       composerDisabledReason:
-        "Open plugin Settings and add your DeepSeek API key before sending messages.",
-      composerPlaceholder: "Add your API key in Settings to enable chat.",
+        zh
+          ? "打开发插件设置并填写 DeepSeek API Key 后即可发送消息。"
+          : "Open plugin Settings and add your DeepSeek API key before sending messages.",
+      composerPlaceholder: zh
+        ? "在设置中填写 API Key 以启用对话。"
+        : "Add your API key in Settings to enable chat.",
       contextAvailabilityLabel,
       contextWarnings,
-      heroBody: "Add your DeepSeek API key in Settings.",
-      heroTitle: "Configuration required",
+      currentFileLabel,
+      heroBody: zh ? "请在设置中填写 DeepSeek API Key。" : "Add your DeepSeek API key in Settings.",
+      heroTitle: zh ? "需要配置" : "Configuration required",
       locationLabel,
       mode: "config-error",
       noticeText: settingsIssue,
-      noticeTitle: "Configuration required",
+      noticeTitle: zh ? "需要配置" : "Configuration required",
       providerLabel,
       recentThreads: filteredRecentThreads,
+      recentThreadsLabel,
       scopeLabel: scope.label,
       scopeMeta,
       scopeSelectionLabel,
+      scopeSectionLabel,
       scopeTypeLabel,
       showRecentThreads: false,
       showShell: true,
       showSuggestedActions: false,
       showThreadView: false,
-      statusLabel: "Needs setup",
+      statusLabel: zh ? "需要设置" : "Needs setup",
+      streamingLabel,
+      suggestedActionsLabel,
+      newThreadLabel,
+      openSettingsLabel,
+      settingsLabel,
+      sendLabel,
       suggestedActions: [],
     };
   }
 
   if (!supportedScope) {
     return {
+      addSourceLabel,
+      chatSectionLabel,
       composerDisabled: true,
       composerDisabledReason:
-        "Choose one paper in Library or open one PDF in Reader to enable chat.",
+        zh
+          ? "在文献库中选择一篇论文，或在阅读器中打开一个 PDF 以启用对话。"
+          : "Choose one paper in Library or open one PDF in Reader to enable chat.",
       composerPlaceholder:
-        "Choose one paper or the active PDF to enable chat.",
+        zh
+          ? "选择一篇论文或当前 PDF 以启用对话。"
+          : "Choose one paper or the active PDF to enable chat.",
       contextAvailabilityLabel,
       contextWarnings,
+      currentFileLabel,
       heroBody:
-        "Use one paper or the active PDF.",
-      heroTitle: "Choose one paper",
+        zh ? "当前仅支持单篇论文或活动 PDF。" : "Use one paper or the active PDF.",
+      heroTitle: zh ? "选择一篇论文" : "Choose one paper",
       locationLabel,
       mode: "empty",
       noticeText: null,
       noticeTitle: null,
       providerLabel,
       recentThreads: filteredRecentThreads,
+      recentThreadsLabel,
       scopeLabel: scope.label,
       scopeMeta,
       scopeSelectionLabel,
+      scopeSectionLabel,
       scopeTypeLabel,
       showRecentThreads: false,
       showShell: true,
       showSuggestedActions: false,
       showThreadView: false,
-      statusLabel: "Limited scope",
+      statusLabel: zh ? "范围受限" : "Limited scope",
+      streamingLabel,
+      suggestedActionsLabel,
+      newThreadLabel,
+      openSettingsLabel,
+      settingsLabel,
+      sendLabel,
       suggestedActions: [],
     };
   }
@@ -205,79 +309,107 @@ export function buildSidebarViewModel({
 
   if (hasThreadMessages) {
     return {
+      addSourceLabel,
+      chatSectionLabel,
       composerDisabled: false,
       composerDisabledReason: null,
       composerPlaceholder: buildComposerPlaceholder(scope),
       contextAvailabilityLabel,
       contextWarnings,
-      heroBody: "Continue the current thread.",
-      heroTitle: "Thread",
+      currentFileLabel,
+      heroBody: zh ? "继续当前会话。" : "Continue the current thread.",
+      heroTitle: zh ? "当前会话" : "Thread",
       locationLabel,
       mode: "thread",
       noticeText: null,
       noticeTitle: null,
       providerLabel,
       recentThreads: filteredRecentThreads,
+      recentThreadsLabel,
       scopeLabel: scope.label,
       scopeMeta,
       scopeSelectionLabel,
+      scopeSectionLabel,
       scopeTypeLabel,
       showRecentThreads: false,
       showShell: true,
       showSuggestedActions: false,
       showThreadView: true,
-      statusLabel: "Ready",
+      statusLabel: zh ? "已就绪" : "Ready",
+      streamingLabel,
+      suggestedActionsLabel,
+      newThreadLabel,
+      openSettingsLabel,
+      settingsLabel,
+      sendLabel,
       suggestedActions,
     };
   }
 
   return {
+    addSourceLabel,
+    chatSectionLabel,
     composerDisabled: false,
     composerDisabledReason: null,
     composerPlaceholder: buildComposerPlaceholder(scope),
     contextAvailabilityLabel,
     contextWarnings,
-    heroBody: "Pick an action or ask about the current paper.",
-    heroTitle: "Ready to chat",
+    currentFileLabel,
+    heroBody: zh ? "选择一个操作，或直接针对当前论文提问。" : "Pick an action or ask about the current paper.",
+    heroTitle: zh ? "准备就绪" : "Ready to chat",
     locationLabel,
     mode: "home",
     noticeText: null,
     noticeTitle: null,
     providerLabel,
     recentThreads: filteredRecentThreads,
+    recentThreadsLabel,
     scopeLabel: scope.label,
     scopeMeta,
     scopeSelectionLabel,
+    scopeSectionLabel,
     scopeTypeLabel,
     showRecentThreads: filteredRecentThreads.length > 0,
     showShell: true,
     showSuggestedActions: suggestedActions.length > 0,
     showThreadView: false,
-    statusLabel: "Ready",
+    statusLabel: zh ? "已就绪" : "Ready",
+    streamingLabel,
+    suggestedActionsLabel,
+    newThreadLabel,
+    openSettingsLabel,
+    settingsLabel,
+    sendLabel,
     suggestedActions,
   };
 }
 
 function buildComposerPlaceholder(scope: SupportedScopeContext): string {
+  const zh = isChineseLocale();
   if (scope.selectedText) {
-    return "Ask about the selected text or the broader context...";
+    return zh
+      ? "围绕这段选中文本或这篇论文提问..."
+      : "Ask about this selection or paper...";
   }
-  return "Ask about this paper, PDF, or reading context...";
+  return zh
+    ? "围绕这篇论文或这个 PDF 提问..."
+    : "Ask about this paper or PDF...";
 }
 
 function mapContextAvailabilityLabel(
   availability: AssembledContext["availability"],
 ): string {
+  const zh = isChineseLocale();
   switch (availability) {
     case "pdf-text-ready":
-      return "PDF text ready";
+      return zh ? "PDF 正文可用" : "PDF text ready";
     case "abstract-only":
-      return "Abstract fallback";
+      return zh ? "已回退到摘要" : "Abstract fallback";
     case "metadata-only":
-      return "Metadata only";
+      return zh ? "仅元数据" : "Metadata only";
     case "collection-truncated":
-      return "Collection summary only";
+      return zh ? "仅分类摘要" : "Collection summary only";
     default:
-      return "Context available";
+      return zh ? "上下文可用" : "Context available";
   }
 }

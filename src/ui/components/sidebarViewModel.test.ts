@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ScopeContext } from "../../types/scope";
 import type { Thread } from "../../types/thread";
@@ -47,6 +47,10 @@ function makeSettings(overrides: Partial<Settings> = {}): Settings {
     ...overrides,
   };
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("buildSidebarViewModel", () => {
   it("keeps the shell visible for a no-scope empty state", () => {
@@ -218,5 +222,40 @@ describe("buildSidebarViewModel", () => {
     });
 
     expect(model.providerLabel).toBe("DeepSeek");
+  });
+
+  it("uses a shorter composer prompt for supported scopes", () => {
+    const model = buildSidebarViewModel({
+      location: "library",
+      recentThreads: [],
+      scope: makeScope(),
+      session: makeSession(),
+      settings: makeSettings(),
+      settingsIssue: null,
+    });
+
+    expect(model.composerPlaceholder).toContain("Ask about this");
+  });
+
+  it("uses zh-CN copy when Zotero is running in Chinese", () => {
+    vi.stubGlobal("Zotero", {
+      Prefs: {
+        get: vi.fn((key: string) => (key === "intl.locale.requested" ? "zh-CN" : "")),
+      },
+    });
+
+    const model = buildSidebarViewModel({
+      location: "library",
+      recentThreads: [],
+      scope: null,
+      session: makeSession(),
+      settings: makeSettings(),
+      settingsIssue: null,
+    });
+
+    expect(model.locationLabel).toBe("文献库");
+    expect(model.heroTitle).toBe("选择条目");
+    expect(model.composerPlaceholder).toBe("选择一篇论文后开始提问。");
+    expect(model.statusLabel).toBe("等待上下文");
   });
 });
