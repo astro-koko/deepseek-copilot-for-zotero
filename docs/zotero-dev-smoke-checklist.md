@@ -44,6 +44,8 @@ Provider quality is secondary until the host loop is stable.
 - clicking `Send` now clears the draft, so the frontend interaction path is live.
 - first-message persistence failures now surface through session error state in tests instead of failing silently.
 - the top-toolbar `D...` fallback path has been removed from the primary host design and should now be treated as a regression if it reappears.
+- 2026-06-02 packaged smoke passed on the daily profile after a cold Zotero restart: startup reached `main-window-load`, `sidebar-registered`, and `ui-ready`, and the `DS Copilot` native right-pane section was visible again in Library.
+- 2026-06-02 packaged smoke also confirmed Markdown rendering in a real restored thread: headings, bullet lists, ordered lists, inline emphasis, fenced code text, and links rendered in the sidebar instead of showing raw Markdown.
 
 ## Current blockers
 

@@ -1,6 +1,5 @@
-import React, { useEffect, useState, useSyncExternalStore } from "react";
+import React, { Suspense, useEffect, useState, useSyncExternalStore } from "react";
 import { Composer } from "./Composer";
-import { ThreadView } from "./ThreadView";
 import { buildSidebarViewModel } from "./sidebarViewModel";
 import {
   buildReaderActionDraft,
@@ -29,6 +28,10 @@ interface SidebarProps {
   hostWindow: Window;
   location: "library" | "reader";
 }
+
+const LazyThreadView = React.lazy(async () => ({
+  default: (await import("./ThreadView")).ThreadView,
+}));
 
 function isSupportedChatScope(scope: ScopeContext | null): scope is ScopeContext {
   return scope?.type === "paper" || scope?.type === "pdf";
@@ -516,7 +519,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
 
         {model.showThreadView && (
           <div style={{ ...styles.threadSection, borderTopColor: theme.softBorder }}>
-            <ThreadView hasScope={scope != null} thread={session.activeThread} />
+            <Suspense fallback={null}>
+              <LazyThreadView hasScope={scope != null} thread={session.activeThread} />
+            </Suspense>
           </div>
         )}
 
