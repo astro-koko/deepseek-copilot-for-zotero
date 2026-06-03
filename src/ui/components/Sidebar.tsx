@@ -547,10 +547,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
                         {getThreadPreview(thread)}
                       </span>
                     </span>
+                  </button>
+                  <div style={styles.threadMetaRow}>
                     <span style={{ ...styles.listMeta, color: theme.mutedText }}>
                       {formatThreadTimestamp(thread.updatedAt)}
                     </span>
-                  </button>
+                  </div>
                   <div style={styles.threadActionRow}>
                     <button
                       style={{ ...styles.threadActionButton, color: theme.buttonText, borderColor: theme.buttonBorder }}
@@ -969,29 +971,32 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 500,
     lineHeight: 1.35,
     color: "#222",
-    display: "-webkit-box",
+    display: "block",
+    maxHeight: "2.7em",
     overflow: "hidden",
     textOverflow: "ellipsis",
     overflowWrap: "anywhere",
-    WebkitBoxOrient: "vertical",
-    WebkitLineClamp: 2,
   },
   listSecondary: {
     fontSize: "11px",
     lineHeight: 1.35,
     color: "#666",
-    display: "-webkit-box",
+    display: "block",
+    maxHeight: "2.7em",
     overflow: "hidden",
     textOverflow: "ellipsis",
     overflowWrap: "anywhere",
-    WebkitBoxOrient: "vertical",
-    WebkitLineClamp: 2,
   },
   listMeta: {
     fontSize: "11px",
     color: "#777",
-    alignSelf: "flex-end",
     flexShrink: 0,
+  },
+  threadMetaRow: {
+    display: "flex",
+    justifyContent: "flex-end",
+    minWidth: 0,
+    marginBottom: "4px",
   },
   threadSection: {
     display: "block",

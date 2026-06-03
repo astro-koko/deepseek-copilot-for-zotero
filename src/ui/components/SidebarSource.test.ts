@@ -10,10 +10,16 @@ describe("Sidebar recent thread layout", () => {
     expect(sidebarSource).toContain('width: "100%"');
   });
 
+  it("renders the thread timestamp in a dedicated footer row instead of inside the clickable summary button", () => {
+    expect(sidebarSource).toContain('<div style={styles.threadMetaRow}>');
+    expect(sidebarSource).toMatch(/threadMetaRow:\s*\{[^}]*marginBottom: "4px"/);
+  });
+
   it("clamps recent thread title and preview text so they do not overlap actions", () => {
     expect(sidebarSource).toContain('listPrimary: {');
     expect(sidebarSource).toContain('listSecondary: {');
-    expect(sidebarSource).toContain('display: "-webkit-box"');
-    expect(sidebarSource).toContain('WebkitLineClamp: 2');
+    expect(sidebarSource).toContain('display: "block"');
+    expect(sidebarSource).toContain('maxHeight: "2.7em"');
+    expect(sidebarSource).not.toContain('WebkitLineClamp: 2');
   });
 });
