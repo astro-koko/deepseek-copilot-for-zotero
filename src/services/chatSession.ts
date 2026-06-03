@@ -1,7 +1,7 @@
 import type { ScopeContext } from "../types/scope";
 import type { Thread, Message } from "../types/thread";
 import { appendMessage, createThread, recordScopeTransition } from "./threadController";
-import { sendChatMessage } from "./chatEngine";
+import { type ChatRequestOptions, sendChatMessage } from "./chatEngine";
 
 export interface ChatSessionState {
   activeThread: Thread | null;
@@ -23,7 +23,11 @@ interface ChatSessionStore {
   newThread(scope?: ScopeContext | null): Promise<Thread>;
   openThread(thread: Thread): void;
   reset(): void;
-  send(message: string, scope?: ScopeContext | null): Promise<void>;
+  send(
+    message: string,
+    scope?: ScopeContext | null,
+    requestOptions?: ChatRequestOptions,
+  ): Promise<void>;
   subscribe(listener: () => void): () => void;
   syncScope(scope?: ScopeContext | null): Promise<void>;
 }
@@ -178,7 +182,11 @@ export function createChatSessionStore(
       emit();
     },
 
-    async send(message: string, scope?: ScopeContext | null) {
+    async send(
+      message: string,
+      scope?: ScopeContext | null,
+      requestOptions?: ChatRequestOptions,
+    ) {
       const trimmed = message.trim();
       if (!trimmed || state.isStreaming) {
         return;
@@ -222,8 +230,20 @@ export function createChatSessionStore(
         const response = await deps.sendChatMessage(
           thread,
           scope || undefined,
+          requestOptions,
           abortController?.signal,
         );
+
+        if (response.evidenceAuditMessage) {
+          const auditedThread = await deps.appendMessage(thread.id, {
+            role: "system",
+            content: response.evidenceAuditMessage,
+          });
+          if (auditedThread) {
+            thread = auditedThread;
+            setState({ activeThread: auditedThread });
+          }
+        }
 
         let fullResponse = "";
         for await (const chunk of response.stream) {

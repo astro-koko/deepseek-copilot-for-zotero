@@ -90,6 +90,7 @@ describe("chatSession", () => {
         threadWithUser,
         scope,
         undefined,
+        undefined,
       );
       expect(store.getSnapshot().activeThread).toEqual(finalThread);
       expect(store.getSnapshot().error).toBeNull();
@@ -191,6 +192,7 @@ describe("chatSession", () => {
     expect(sendChatMessage).toHaveBeenCalledWith(
       threadWithUser,
       scope,
+      undefined,
       expect.any(AbortSignal),
     );
     expect(appendMessage).toHaveBeenNthCalledWith(2, emptyThread.id, {
@@ -200,6 +202,85 @@ describe("chatSession", () => {
     expect(store.getSnapshot().activeThread).toEqual(finalThread);
     expect(store.getSnapshot().isStreaming).toBe(false);
     expect(store.getSnapshot().streamingContent).toBe("");
+  });
+
+  it("persists an evidence audit system message before the assistant reply when evidence mode is enabled", async () => {
+    const scope = makeScope();
+    const emptyThread = makeThread({ scopeSnapshot: scope });
+    const threadWithUser = makeThread({
+      scopeSnapshot: scope,
+      messages: [
+        {
+          id: "msg-user-1",
+          role: "user",
+          content: "查证这篇论文的结论",
+          timestamp: 2,
+        },
+      ],
+      updatedAt: 2,
+    });
+    const threadWithAudit = makeThread({
+      scopeSnapshot: scope,
+      messages: [
+        ...threadWithUser.messages,
+        {
+          id: "msg-system-1",
+          role: "system",
+          content: "联网查证：Tavily · 3 条结果",
+          timestamp: 3,
+        },
+      ],
+      updatedAt: 3,
+    });
+    const finalThread = makeThread({
+      scopeSnapshot: scope,
+      messages: [
+        ...threadWithAudit.messages,
+        {
+          id: "msg-assistant-1",
+          role: "assistant",
+          content: "Here is a verified answer.",
+          timestamp: 4,
+        },
+      ],
+      updatedAt: 4,
+    });
+
+    const createThread = vi.fn().mockResolvedValue(emptyThread);
+    const appendMessage = vi
+      .fn()
+      .mockResolvedValueOnce(threadWithUser)
+      .mockResolvedValueOnce(threadWithAudit)
+      .mockResolvedValueOnce(finalThread);
+    const sendChatMessage = vi.fn().mockResolvedValue({
+      abort: vi.fn(),
+      evidenceAuditMessage: "联网查证：Tavily · 3 条结果",
+      stream: streamChunks("Here is a verified answer."),
+    });
+
+    const store = createChatSessionStore({
+      appendMessage,
+      createThread,
+      recordScopeTransition: vi.fn(),
+      sendChatMessage,
+    });
+
+    await store.send("查证这篇论文的结论", scope, { evidenceEnabled: true });
+
+    expect(sendChatMessage).toHaveBeenCalledWith(
+      threadWithUser,
+      scope,
+      { evidenceEnabled: true },
+      expect.any(AbortSignal),
+    );
+    expect(appendMessage).toHaveBeenNthCalledWith(2, emptyThread.id, {
+      role: "system",
+      content: "联网查证：Tavily · 3 条结果",
+    });
+    expect(appendMessage).toHaveBeenNthCalledWith(3, emptyThread.id, {
+      role: "assistant",
+      content: "Here is a verified answer.",
+    });
   });
 
   it("does not let an aborted request restore the old thread after starting a new one", async () => {
@@ -249,7 +330,12 @@ describe("chatSession", () => {
       .mockResolvedValueOnce(firstThreadWithUser)
       .mockResolvedValueOnce(abortedThread);
     const sendChatMessage = vi.fn(
-      async (_thread: Thread, _scope: ScopeContext | undefined, signal?: AbortSignal) =>
+      async (
+        _thread: Thread,
+        _scope: ScopeContext | undefined,
+        _requestOptions: unknown,
+        signal?: AbortSignal,
+      ) =>
         new Promise<{ abort: () => void; stream: AsyncIterable<string> }>(
           (_resolve, reject) => {
             signal?.addEventListener("abort", () => reject(new Error("aborted")));
@@ -295,7 +381,12 @@ describe("chatSession", () => {
     const createThread = vi.fn().mockResolvedValue(emptyThread);
     const appendMessage = vi.fn().mockResolvedValue(threadWithUser);
     const sendChatMessage = vi.fn(
-      async (_thread: Thread, _scope: ScopeContext | undefined, signal?: AbortSignal) =>
+      async (
+        _thread: Thread,
+        _scope: ScopeContext | undefined,
+        _requestOptions: unknown,
+        signal?: AbortSignal,
+      ) =>
         new Promise<{ abort: () => void; stream: AsyncIterable<string> }>(
           (_resolve, reject) => {
             signal?.addEventListener("abort", () => reject(new Error("aborted")));
@@ -395,6 +486,7 @@ describe("chatSession", () => {
     expect(sendChatMessage).toHaveBeenCalledWith(
       threadWithFollowup,
       scope,
+      undefined,
       expect.any(AbortSignal),
     );
     expect(store.getSnapshot().activeThread).toEqual(finalThread);

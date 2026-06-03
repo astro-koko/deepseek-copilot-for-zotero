@@ -11,3 +11,4 @@ tsconfig.tsbuildinfo
 .playwright-mcp/
 .superpowers/
 .worktrees/
+reference/

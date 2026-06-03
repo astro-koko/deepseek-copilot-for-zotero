@@ -55,7 +55,7 @@ async function onStartup() {
 
   // Register preferences pane
   try {
-    Zotero.PreferencePanes.register({
+    await Zotero.PreferencePanes.register({
       pluginID: addon.data.config.addonID,
       src: `chrome://${addon.data.config.addonRef}/content/preferences.xhtml`,
       id: `${addon.data.config.addonRef}-prefpane`,

@@ -45,23 +45,22 @@ const SECTION_PANE_ID = "ai-assistant-sidebar";
 const LIBRARY_HOST_ID = "ai-assistant-pane-library-mount";
 const READER_HOST_ID = "ai-assistant-pane-reader-mount";
 const SURFACE_DIAGNOSTIC_PATH = "/tmp/ds-copilot-surface-state.json";
+const LEGACY_STANDALONE_ARTIFACT_IDS = [
+  "ai-assistant-library-empty-state",
+  "ai-assistant-library-empty-state-sidenav-btn",
+  "zotero-ai-assistant-tb-chat-toggle",
+];
 
 const windowHosts = new WeakMap<AIAssistantWindow, SidebarHostState>();
 const windowRefreshCleanup = new WeakMap<AIAssistantWindow, () => void>();
 const windowSectionRefresh = new WeakMap<AIAssistantWindow, () => Promise<void>>();
-const windowCollapsedState = new WeakMap<
-  AIAssistantWindow,
-  {
-    library: boolean | null;
-    reader: boolean | null;
-  }
->();
 
 let sectionRegistered = false;
 let reactDomClientPromise: Promise<typeof import("react-dom/client")> | null = null;
 
 export class UIFactory {
   static registerChatPanel(win: AIAssistantWindow) {
+    this.removeLegacyStandaloneArtifacts(win);
     this.registerSection();
     this.ensureWindowRefreshRegistration(win);
     this.ensureTabSelectionRefreshRegistration(win);
@@ -84,7 +83,7 @@ export class UIFactory {
     windowRefreshCleanup.get(win)?.();
     windowRefreshCleanup.delete(win);
     windowSectionRefresh.delete(win);
-    windowCollapsedState.delete(win);
+    this.removeLegacyStandaloneArtifacts(win);
   }
 
   static refreshWindow(win: AIAssistantWindow) {
@@ -203,32 +202,11 @@ export class UIFactory {
     hosts[location] = host;
 
     host.mountPoint.style.display = "flex";
+
     void this.ensureHostBootstrapped(win, host, location).catch((error) => {
       ztoolkit.log(`Failed to bootstrap DS Copilot ${location} section host:`, error);
       this.renderBootstrapFailure(host, location, error);
     });
-
-    try {
-      const sectionContainer = (body as any).parentElement ?? null;
-      sectionContainer?.setAttribute?.("open", "true");
-      sectionContainer?.scrollIntoView?.({
-        block: "start",
-      });
-      (body as any).scrollIntoView?.({
-        block: "start",
-      });
-      if (typeof (body as any).scrollTo === "function") {
-        (body as any).scrollTo(0, 0);
-      }
-      if ("scrollTop" in (body as any)) {
-        (body as any).scrollTop = 0;
-      }
-      if ("scrollTop" in host.mountPoint) {
-        (host.mountPoint as any).scrollTop = 0;
-      }
-    } catch {
-      // Ignore host-specific scroll reset failures.
-    }
   }
 
   private static ensureWindowRefreshRegistration(win: AIAssistantWindow) {
@@ -318,38 +296,6 @@ export class UIFactory {
     } catch (error) {
       ztoolkit.log("Failed to refresh DS Copilot section state:", error);
     }
-  }
-
-  private static ensureCollapsedState(win: AIAssistantWindow) {
-    const existing = windowCollapsedState.get(win);
-    if (existing) {
-      return existing;
-    }
-
-    const nextState = {
-      library: null,
-      reader: null,
-    };
-    windowCollapsedState.set(win, nextState);
-    return nextState;
-  }
-
-  private static getOrCreateHost(
-    win: AIAssistantWindow,
-    location: SidebarLocation,
-  ): SidebarSurfaceHost {
-    const hosts = this.ensureWindowHosts(win);
-    const existing = hosts[location];
-    if (existing) {
-      return existing;
-    }
-
-    const host = createFallbackSidebarHost(
-      location,
-      win.document as unknown as Document,
-    );
-    hosts[location] = host;
-    return host;
   }
 
   private static ensureHostBootstrapped(
@@ -632,6 +578,15 @@ export class UIFactory {
     staleMounts.forEach((staleMount) => {
       staleMount.remove();
     });
+  }
+
+  private static removeLegacyStandaloneArtifacts(win: AIAssistantWindow) {
+    const root = (win.document.documentElement || win.document.body) as ParentNode | null;
+    for (const artifactId of LEGACY_STANDALONE_ARTIFACT_IDS) {
+      this.collectElementsById(root, artifactId).forEach((element) => {
+        element.remove();
+      });
+    }
   }
 
   private static collectElementsById(

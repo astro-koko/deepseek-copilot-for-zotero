@@ -11,6 +11,9 @@ declare namespace _ZoteroTypes {
       "model": string;
       "maxContextBudget": number;
       "sidebarVisible": boolean;
+      "evidenceEnabled": boolean;
+      "evidenceProviderMode": string;
+      "tavilyApiKey": string;
     };
   }
 }

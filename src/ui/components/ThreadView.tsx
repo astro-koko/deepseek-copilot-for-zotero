@@ -253,9 +253,11 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: "5px",
+    minWidth: 0,
   },
   message: {
     maxWidth: "94%",
+    minWidth: 0,
     padding: "7px 9px",
     borderRadius: "4px",
     border: "1px solid transparent",
@@ -264,6 +266,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   content: {
     wordBreak: "break-word",
+    overflowWrap: "anywhere",
   },
   timestamp: {
     fontSize: "10px",

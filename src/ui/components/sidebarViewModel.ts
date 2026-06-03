@@ -1,6 +1,9 @@
 import type { ChatSessionState } from "../../services/chatSession";
 import type { AssembledContext } from "../../services/contextAssembler";
-import { getPresetsForScope } from "../../services/presets";
+import {
+  getPresetsForScope,
+  type CommandPresetGroup,
+} from "../../services/presets";
 import type { Settings } from "../../services/settingsManager";
 import type { ScopeContext } from "../../types/scope";
 import type { Thread } from "../../types/thread";
@@ -10,6 +13,7 @@ export type SidebarMode = "empty" | "config-error" | "home" | "thread";
 
 export interface SidebarSuggestedAction {
   description: string;
+  group: CommandPresetGroup;
   id: string;
   label: string;
   prompt: string;
@@ -299,9 +303,9 @@ export function buildSidebarViewModel({
 
   const hasThreadMessages = Boolean(session.activeThread?.messages.length);
   const suggestedActions = getPresetsForScope(scope.type)
-    .slice(0, 4)
     .map((preset) => ({
       description: preset.description,
+      group: preset.group,
       id: preset.id,
       label: preset.label,
       prompt: preset.promptPrefix,

@@ -1,6 +1,14 @@
 ai-assistant-pref-description = 使用你的 DeepSeek API Key 配置 DS Copilot。模型选择和长上下文处理保持为内部策略，以确保侧栏稳定。
+ai-assistant-pref-api-key-label = DeepSeek API Key
 ai-assistant-pref-api-key-help = DS Copilot 使用内置的 DeepSeek 默认策略，并会在需要时自动压缩过长上下文。
 ai-assistant-pref-save = 保存
 ai-assistant-pref-validate = 验证连接
 ai-assistant-pref-status-saved = 设置已保存
 ai-assistant-pref-status-valid = DeepSeek 连接正常
+ai-assistant-pref-evidence-description = 选择在输入框中开启联网查证时，DS Copilot 该使用哪种证据来源。
+ai-assistant-pref-evidence-provider-label = 查证来源
+ai-assistant-pref-evidence-provider-builtin = 内置学术搜索（默认）
+ai-assistant-pref-evidence-provider-tavily = Tavily 查证
+ai-assistant-pref-tavily-api-key-label = Tavily API Key
+ai-assistant-pref-tavily-help = 填写 Tavily API Key 后，可在输入框中开启基于联网证据的查证回答。
+ai-assistant-pref-tavily-validate = 验证 Tavily

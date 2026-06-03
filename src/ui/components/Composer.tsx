@@ -1,23 +1,24 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
-import { PRESETS, getPresetWarning, applyPreset } from "../../services/presets";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  COMMAND_PRESET_GROUP_ORDER,
+  applyPreset,
+  filterPresets,
+  getPresetById,
+  getPresetGroupLabel,
+  getPresetWarning,
+  type CommandPreset,
+} from "../../services/presets";
 import type { ScopeType } from "../../types/scope";
 import { getSidebarTheme } from "../theme";
+import { isChineseLocale } from "../../utils/locale";
 
-function isChineseLocale(): boolean {
-  try {
-    const locale =
-      (globalThis as unknown as { Zotero?: { locale?: string } }).Zotero?.locale ||
-      ((globalThis as unknown as { Zotero?: { Prefs?: { get?: (key: string, global?: boolean) => unknown } } }).Zotero?.Prefs?.get?.("intl.accept_languages", true) as string) ||
-      "";
-    return String(locale).toLowerCase().startsWith("zh");
-  } catch {
-    return false;
-  }
-}
+type ModelMode = "light" | "deep";
 
 interface ComposerProps {
   onSend: (message: string) => void;
   onCancel?: () => void;
+  onModelModeChange?: (mode: ModelMode) => void;
+  onToggleEvidence?: () => void;
   isStreaming: boolean;
   currentScopeType: ScopeType | null;
   disabled?: boolean;
@@ -26,6 +27,10 @@ interface ComposerProps {
   draftValue?: string;
   focusNonce?: number;
   onDraftChange?: (value: string) => void;
+  modelMode?: ModelMode;
+  evidenceEnabled?: boolean;
+  evidenceDisabled?: boolean;
+  evidenceLabel?: string;
 }
 
 function recordComposerDiagnostic(
@@ -46,9 +51,25 @@ function recordComposerDiagnostic(
   };
 }
 
+function readSlashQuery(value: string): string | null {
+  const match = value.match(/(?:^|\s)\/([^\n]*)$/);
+  if (!match) {
+    return null;
+  }
+  return match[1] ?? "";
+}
+
+function replaceActiveSlashToken(value: string, replacement: string): string {
+  return value.replace(/(^|\s)\/[^\n]*$/, (_match, leadingWhitespace: string) => {
+    return `${leadingWhitespace}${replacement}`;
+  });
+}
+
 export const Composer: React.FC<ComposerProps> = ({
   onSend,
   onCancel,
+  onModelModeChange,
+  onToggleEvidence,
   isStreaming,
   currentScopeType,
   disabled = false,
@@ -57,6 +78,10 @@ export const Composer: React.FC<ComposerProps> = ({
   draftValue,
   focusNonce,
   onDraftChange,
+  modelMode = "light",
+  evidenceEnabled = false,
+  evidenceDisabled = false,
+  evidenceLabel,
 }) => {
   const [input, setInput] = useState("");
   const [showPresets, setShowPresets] = useState(false);
@@ -64,6 +89,21 @@ export const Composer: React.FC<ComposerProps> = ({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const theme = getSidebarTheme((globalThis as unknown as { window?: Window }).window);
   const zh = isChineseLocale();
+  const slashQuery = useMemo(() => readSlashQuery(input), [input]);
+  const visiblePresets = useMemo(() => {
+    if (!currentScopeType) {
+      return [];
+    }
+    return filterPresets(slashQuery || "", currentScopeType, zh);
+  }, [currentScopeType, slashQuery, zh]);
+  const groupedVisiblePresets = useMemo(
+    () =>
+      COMMAND_PRESET_GROUP_ORDER.map((group) => ({
+        group,
+        presets: visiblePresets.filter((preset) => preset.group === group),
+      })).filter((group) => group.presets.length > 0),
+    [visiblePresets],
+  );
 
   useEffect(() => {
     recordComposerDiagnostic(input, disabled, isStreaming);
@@ -75,16 +115,15 @@ export const Composer: React.FC<ComposerProps> = ({
     }
 
     setInput(draftValue);
-    if (draftValue === "/") {
+    const nextSlashQuery = readSlashQuery(draftValue);
+    if (nextSlashQuery !== null && !disabled) {
       setShowPresets(true);
       setSelectedPresetIndex(0);
       return;
     }
 
-    if (!draftValue.startsWith("/")) {
-      setShowPresets(false);
-    }
-  }, [draftValue]);
+    setShowPresets(false);
+  }, [disabled, draftValue]);
 
   useEffect(() => {
     if (focusNonce === undefined) {
@@ -93,6 +132,12 @@ export const Composer: React.FC<ComposerProps> = ({
 
     inputRef.current?.focus();
   }, [focusNonce]);
+
+  useEffect(() => {
+    if (selectedPresetIndex >= visiblePresets.length) {
+      setSelectedPresetIndex(0);
+    }
+  }, [selectedPresetIndex, visiblePresets.length]);
 
   const handleSubmit = useCallback(() => {
     const trimmed = input.trim();
@@ -103,33 +148,59 @@ export const Composer: React.FC<ComposerProps> = ({
     setShowPresets(false);
   }, [disabled, input, isStreaming, onDraftChange, onSend]);
 
+  const applyPresetToInput = useCallback(
+    (presetId: string) => {
+      const warning = currentScopeType
+        ? getPresetWarning(presetId, currentScopeType)
+        : null;
+      if (warning) {
+        console.warn(warning);
+      }
+
+      const preset = getPresetById(presetId);
+      if (!preset) {
+        return;
+      }
+
+      const replacement = applyPreset(preset.id, "");
+      const nextValue = replaceActiveSlashToken(input, replacement);
+      setInput(nextValue);
+      onDraftChange?.(nextValue);
+      inputRef.current?.focus();
+      setShowPresets(false);
+    },
+    [currentScopeType, input, onDraftChange],
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (showPresets) {
+      if (showPresets && visiblePresets.length > 0) {
         if (e.key === "ArrowDown") {
           e.preventDefault();
-          setSelectedPresetIndex((i) =>
-            Math.min(i + 1, PRESETS.length - 1)
+          setSelectedPresetIndex((index) =>
+            Math.min(index + 1, visiblePresets.length - 1),
           );
           return;
         }
         if (e.key === "ArrowUp") {
           e.preventDefault();
-          setSelectedPresetIndex((i) => Math.max(i - 1, 0));
+          setSelectedPresetIndex((index) => Math.max(index - 1, 0));
           return;
         }
         if (e.key === "Enter") {
           e.preventDefault();
-          const preset = PRESETS[selectedPresetIndex];
+          const preset = visiblePresets[selectedPresetIndex];
           if (preset) {
             applyPresetToInput(preset.id);
           }
           return;
         }
-        if (e.key === "Escape") {
-          setShowPresets(false);
-          return;
-        }
+      }
+
+      if (showPresets && e.key === "Escape") {
+        e.preventDefault();
+        setShowPresets(false);
+        return;
       }
 
       if (e.key === "Enter" && !e.shiftKey) {
@@ -137,7 +208,7 @@ export const Composer: React.FC<ComposerProps> = ({
         handleSubmit();
       }
     },
-    [showPresets, selectedPresetIndex, handleSubmit],
+    [applyPresetToInput, handleSubmit, selectedPresetIndex, showPresets, visiblePresets],
   );
 
   const handleInputChange = useCallback(
@@ -151,10 +222,11 @@ export const Composer: React.FC<ComposerProps> = ({
         return;
       }
 
-      if (value === "/") {
+      const nextSlashQuery = readSlashQuery(value);
+      if (nextSlashQuery !== null) {
         setShowPresets(true);
         setSelectedPresetIndex(0);
-      } else if (!value.startsWith("/")) {
+      } else {
         setShowPresets(false);
       }
     },
@@ -170,51 +242,45 @@ export const Composer: React.FC<ComposerProps> = ({
     [onDraftChange],
   );
 
-  const applyPresetToInput = useCallback(
-    (presetId: string) => {
-      const warning = currentScopeType
-        ? getPresetWarning(presetId, currentScopeType)
-        : null;
-      if (warning) {
-        console.warn(warning);
-      }
-      const preset = PRESETS.find((p) => p.id === presetId);
-      if (preset) {
-        const augmented = applyPreset(preset.id, "");
-        setInput(augmented);
-        onDraftChange?.(augmented);
-        inputRef.current?.focus();
-      }
-      setShowPresets(false);
-    },
-    [currentScopeType, onDraftChange],
-  );
+  const evidenceButtonLabel =
+    evidenceLabel || (zh ? "联网查证（OpenAlex）" : "Evidence Search (OpenAlex)");
 
   return (
-    <div style={{ ...styles.container, borderTopColor: theme.softBorder, background: theme.panelBackground }}>
-      {showPresets && (
-        <div style={{ ...styles.presetMenu, background: theme.panelBackground, borderColor: theme.softBorder }}>
-          {PRESETS.map((preset, index) => (
-            <button
-              key={preset.id}
-              style={{
-                ...styles.presetItem,
-                background:
-                  index === selectedPresetIndex ? theme.userMessageBackground : "transparent",
-              }}
-              onClick={() => applyPresetToInput(preset.id)}
-              onMouseEnter={() => setSelectedPresetIndex(index)}
-            >
-              <span style={{ ...styles.presetLabel, color: theme.text }}>/{preset.label}</span>
-              <span style={{ ...styles.presetDesc, color: theme.mutedText }}>{preset.description}</span>
-            </button>
-          ))}
+    <div
+      style={{
+        ...styles.container,
+        borderTopColor: theme.softBorder,
+        background: theme.panelBackground,
+      }}
+    >
+      {showPresets && visiblePresets.length > 0 && (
+        <div
+          style={{
+            ...styles.presetMenu,
+            background: theme.panelBackground,
+            borderColor: theme.softBorder,
+          }}
+        >
+          {renderPresetGroups({
+            applyPresetToInput,
+            groupedVisiblePresets,
+            selectedPresetIndex,
+            setSelectedPresetIndex,
+            theme,
+            zh,
+          })}
         </div>
       )}
+
       <div style={styles.inputRow}>
         <textarea
           ref={inputRef}
-          style={{ ...styles.input, borderColor: theme.inputBorder, background: theme.inputBackground, color: theme.text }}
+          style={{
+            ...styles.input,
+            borderColor: theme.inputBorder,
+            background: theme.inputBackground,
+            color: theme.text,
+          }}
           value={input}
           onChange={handleInputChange}
           onInput={handleInput}
@@ -223,12 +289,79 @@ export const Composer: React.FC<ComposerProps> = ({
           rows={3}
           disabled={disabled}
         />
+      </div>
+
+      <div style={styles.footerRow}>
+        <div style={styles.footerControls}>
+          <div
+            style={{
+              ...styles.modelToggle,
+              background: theme.panelBackground,
+              borderColor: theme.buttonBorder,
+            }}
+          >
+            <button
+              style={{
+                ...styles.modelToggleButton,
+                color: theme.buttonText,
+                background:
+                  modelMode === "light" ? theme.surfaceBackground : "transparent",
+                borderColor:
+                  modelMode === "light" ? theme.buttonBorder : "transparent",
+              }}
+              onClick={() => onModelModeChange?.("light")}
+              type="button"
+            >
+              {zh ? "轻度思考" : "Light"}
+            </button>
+            <button
+              style={{
+                ...styles.modelToggleButton,
+                color: theme.buttonText,
+                background:
+                  modelMode === "deep" ? theme.surfaceBackground : "transparent",
+                borderColor:
+                  modelMode === "deep" ? theme.buttonBorder : "transparent",
+              }}
+              onClick={() => onModelModeChange?.("deep")}
+              type="button"
+            >
+              {zh ? "深度思考" : "Deep"}
+            </button>
+          </div>
+
+          <button
+            style={{
+              ...styles.evidenceButton,
+              color: evidenceEnabled ? theme.badgeText : theme.buttonText,
+              background: evidenceEnabled
+                ? theme.badgeBackground
+                : theme.surfaceBackground,
+              borderColor: evidenceEnabled
+                ? theme.badgeBorder
+                : theme.buttonBorder,
+              opacity: evidenceDisabled ? 0.55 : 1,
+            }}
+            disabled={evidenceDisabled}
+            onClick={() => onToggleEvidence?.()}
+            type="button"
+          >
+            {evidenceButtonLabel}
+          </button>
+        </div>
+
         {isStreaming ? (
           <button
-            style={{ ...styles.cancelBtn, background: theme.panelBackground, color: theme.errorText, borderColor: theme.errorBorder }}
+            style={{
+              ...styles.cancelBtn,
+              background: theme.panelBackground,
+              color: theme.errorText,
+              borderColor: theme.errorBorder,
+            }}
             onClick={onCancel}
+            type="button"
           >
-            Stop
+            {zh ? "停止" : "Stop"}
           </button>
         ) : (
           <button
@@ -241,45 +374,157 @@ export const Composer: React.FC<ComposerProps> = ({
             }}
             onClick={handleSubmit}
             disabled={!input.trim() || disabled}
+            type="button"
           >
             {zh ? "发送" : "Send"}
           </button>
         )}
       </div>
+
       {disabledReason && (
-        <div style={{ ...styles.disabledReason, color: theme.mutedText }}>{disabledReason}</div>
+        <div style={{ ...styles.disabledReason, color: theme.mutedText }}>
+          {disabledReason}
+        </div>
       )}
     </div>
   );
 };
 
+function renderPresetGroups({
+  applyPresetToInput,
+  groupedVisiblePresets,
+  selectedPresetIndex,
+  setSelectedPresetIndex,
+  theme,
+  zh,
+}: {
+  applyPresetToInput: (presetId: string) => void;
+  groupedVisiblePresets: Array<{
+    group: CommandPreset["group"];
+    presets: CommandPreset[];
+  }>;
+  selectedPresetIndex: number;
+  setSelectedPresetIndex: React.Dispatch<React.SetStateAction<number>>;
+  theme: ReturnType<typeof getSidebarTheme>;
+  zh: boolean;
+}) {
+  let flatIndex = -1;
+
+  return groupedVisiblePresets.map(({ group, presets }) => (
+    <div key={group} style={styles.presetGroup}>
+      <div style={{ ...styles.presetGroupLabel, color: theme.mutedText }}>
+        {getPresetGroupLabel(group, zh)}
+      </div>
+      {presets.map((preset) => {
+        flatIndex += 1;
+        const presetIndex = flatIndex;
+        return (
+          <button
+            key={preset.id}
+            style={{
+              ...styles.presetItem,
+              background:
+                presetIndex === selectedPresetIndex
+                  ? theme.userMessageBackground
+                  : "transparent",
+            }}
+            onClick={() => applyPresetToInput(preset.id)}
+            onMouseEnter={() => setSelectedPresetIndex(presetIndex)}
+          >
+            <span style={{ ...styles.presetLabel, color: theme.text }}>
+              /{preset.label}
+            </span>
+            <span style={{ ...styles.presetDesc, color: theme.mutedText }}>
+              {preset.description}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  ));
+}
+
 const styles: Record<string, React.CSSProperties> = {
   container: {
     borderTop: "1px solid #dddddd",
-    padding: "7px 10px",
+    padding: "8px 10px",
     background: "#f6f6f6",
     position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
   },
   inputRow: {
     display: "flex",
     gap: "5px",
     alignItems: "flex-end",
+    flexWrap: "wrap",
+    minWidth: 0,
+    width: "100%",
   },
   input: {
-    flex: 1,
-    padding: "5px 7px",
+    flex: "1 1 180px",
+    minWidth: 0,
+    width: "100%",
+    padding: "6px 8px",
     border: "1px solid #d4d4d4",
-    borderRadius: "4px",
+    borderRadius: "6px",
     fontSize: "12px",
     resize: "none",
-    minHeight: "52px",
-    maxHeight: "120px",
+    minHeight: "56px",
+    maxHeight: "140px",
     fontFamily: "inherit",
     background: "#fff",
     color: "#222",
+    boxSizing: "border-box",
+  },
+  footerRow: {
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+  },
+  footerControls: {
+    display: "flex",
+    gap: "6px",
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  modelToggle: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    border: "1px solid #c9c9c9",
+    borderRadius: "6px",
+    padding: "2px",
+    gap: "2px",
+    minWidth: 0,
+  },
+  modelToggleButton: {
+    appearance: "none",
+    border: "1px solid transparent",
+    borderRadius: "4px",
+    padding: "4px 8px",
+    fontSize: "11px",
+    fontWeight: 500,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+  evidenceButton: {
+    appearance: "none",
+    border: "1px solid #c9c9c9",
+    borderRadius: "999px",
+    padding: "4px 10px",
+    fontSize: "11px",
+    fontWeight: 500,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    background: "#ffffff",
   },
   sendBtn: {
-    padding: "5px 9px",
+    flexShrink: 0,
+    padding: "5px 10px",
     background: "#ffffff",
     color: "#333",
     border: "1px solid #cfcfcf",
@@ -287,26 +532,29 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     fontSize: "12px",
     fontWeight: 500,
+    whiteSpace: "nowrap",
   },
   cancelBtn: {
-    padding: "5px 9px",
+    flexShrink: 0,
+    padding: "5px 10px",
     background: "#f7f7f7",
     color: "#8a3a3a",
     border: "1px solid #d3c2c2",
     borderRadius: "4px",
     cursor: "pointer",
     fontSize: "12px",
+    whiteSpace: "nowrap",
   },
   presetMenu: {
     position: "absolute",
-    bottom: "44px",
+    bottom: "110px",
     left: "10px",
     right: "10px",
     background: "#fff",
     border: "1px solid #d8d8d8",
-    borderRadius: "4px",
+    borderRadius: "6px",
     boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-    maxHeight: "180px",
+    maxHeight: "220px",
     overflow: "auto",
     zIndex: 100,
   },
@@ -314,12 +562,25 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-start",
-    padding: "6px 8px",
+    padding: "7px 9px",
     border: "none",
     background: "none",
     width: "100%",
     cursor: "pointer",
     textAlign: "left",
+  },
+  presetGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    padding: "6px 0",
+  },
+  presetGroupLabel: {
+    fontSize: "10px",
+    fontWeight: 700,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    padding: "0 9px",
   },
   presetLabel: {
     fontWeight: 600,
@@ -331,7 +592,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#777",
   },
   disabledReason: {
-    marginTop: "5px",
+    marginTop: "2px",
     fontSize: "11px",
     color: "#6c6c6c",
     lineHeight: 1.4,

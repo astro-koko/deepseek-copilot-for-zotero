@@ -90,6 +90,8 @@ describe("sidebarSection helpers", () => {
     expect(resolveSidebarLocation("library")).toBe("library");
     expect(resolveSidebarLocation("reader")).toBe("reader");
     expect(resolveSidebarLocation("library-tab")).toBe("library");
+    expect(resolveSidebarLocation("collection")).toBe("library");
+    expect(resolveSidebarLocation("item-tree")).toBe("library");
     expect(resolveSidebarLocation("reader-view")).toBe("reader");
     expect(resolveSidebarLocation("note")).toBeNull();
     expect(resolveSidebarLocation("unknown")).toBeNull();
@@ -260,6 +262,8 @@ describe("sidebarSection helpers", () => {
     expect(createdHost.mountPoint.id).toBe("ai-assistant-pane-library-mount");
     expect(createdHost.reactRootElement.id).toBe("ai-assistant-pane-library");
     expect(createdHost.mountPoint.children).toEqual([createdHost.reactRootElement]);
+    expect((createdHost.mountPoint as any).style.minWidth).toBe("0");
+    expect((createdHost.reactRootElement as any).style.minWidth).toBe("0");
     expect(createdHost.bootstrapped).toBe(false);
   });
 });

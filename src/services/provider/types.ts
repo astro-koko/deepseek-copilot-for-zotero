@@ -11,6 +11,7 @@ export interface ChatCompletionMessage {
 
 export interface StreamingResponse {
   abort: () => void;
+  evidenceAuditMessage?: string;
   stream: AsyncIterable<string>;
 }
 

@@ -1,11 +1,16 @@
 import { getPref, setPref } from "../utils/prefs";
 import { config } from "../../package.json";
 
+export type EvidenceProviderMode = "builtin-search" | "tavily";
+
 export interface PersistedSettings {
   apiKey: string;
   model: string;
   maxContextBudget: number;
   keyboardShortcut: string;
+  evidenceEnabled: boolean;
+  evidenceProviderMode: EvidenceProviderMode;
+  tavilyApiKey: string;
 }
 
 export interface Settings extends PersistedSettings {
@@ -14,6 +19,7 @@ export interface Settings extends PersistedSettings {
 
 export const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 export const DEEPSEEK_MODELS = ["deepseek-v4-flash", "deepseek-v4-pro"] as const;
+export const TAVILY_BASE_URL = "https://api.tavily.com";
 
 export const DEFAULT_SETTINGS: Settings = {
   apiKey: "",
@@ -21,6 +27,9 @@ export const DEFAULT_SETTINGS: Settings = {
   model: DEEPSEEK_MODELS[0],
   maxContextBudget: 4000,
   keyboardShortcut: "I",
+  evidenceEnabled: false,
+  evidenceProviderMode: "builtin-search",
+  tavilyApiKey: "",
 };
 
 export const PREFERENCES_PANE_ID = `${config.addonRef}-prefpane`;
@@ -34,6 +43,16 @@ function normalizeModel(model: string | undefined): string {
   return DEFAULT_SETTINGS.model;
 }
 
+function normalizeEvidenceProviderMode(
+  mode: string | undefined,
+): EvidenceProviderMode {
+  return mode === "tavily" ? "tavily" : "builtin-search";
+}
+
+function normalizeBoolean(value: unknown): boolean {
+  return value === true || value === "true" || value === 1 || value === "1";
+}
+
 export function getSettings(): Settings {
   return {
     apiKey: (getPref("apiKey") || "") as string,
@@ -43,6 +62,11 @@ export function getSettings(): Settings {
       getPref("maxContextBudget") || DEFAULT_SETTINGS.maxContextBudget,
     ),
     keyboardShortcut: (getPref("keyboardShortcut") || DEFAULT_SETTINGS.keyboardShortcut) as string,
+    evidenceEnabled: normalizeBoolean(getPref("evidenceEnabled")),
+    evidenceProviderMode: normalizeEvidenceProviderMode(
+      getPref("evidenceProviderMode") as string | undefined,
+    ),
+    tavilyApiKey: (getPref("tavilyApiKey") || "") as string,
   };
 }
 
@@ -53,11 +77,34 @@ export function saveSettings(settings: Partial<PersistedSettings>): void {
     setPref("maxContextBudget", settings.maxContextBudget);
   if (settings.keyboardShortcut !== undefined)
     setPref("keyboardShortcut", settings.keyboardShortcut);
+  if (settings.evidenceEnabled !== undefined)
+    setPref("evidenceEnabled", settings.evidenceEnabled);
+  if (settings.evidenceProviderMode !== undefined)
+    setPref(
+      "evidenceProviderMode",
+      normalizeEvidenceProviderMode(settings.evidenceProviderMode),
+    );
+  if (settings.tavilyApiKey !== undefined)
+    setPref("tavilyApiKey", settings.tavilyApiKey);
 }
 
 export function getSettingsIssue(settings: Settings = getSettings()): string | null {
   if (!settings.apiKey.trim()) {
     return "DeepSeek API key not configured. Open plugin Settings to continue.";
+  }
+
+  return null;
+}
+
+export function getEvidenceSettingsIssue(
+  settings: Settings = getSettings(),
+): string | null {
+  if (settings.evidenceProviderMode !== "tavily") {
+    return null;
+  }
+
+  if (!settings.tavilyApiKey.trim()) {
+    return "Tavily API key not configured. Open plugin Settings to enable evidence search.";
   }
 
   return null;
@@ -71,7 +118,11 @@ function mergeSettings(overrides?: Partial<Settings>): Settings {
     ...settings,
     ...overrides,
     baseURL: DEEPSEEK_BASE_URL,
+    evidenceProviderMode: normalizeEvidenceProviderMode(
+      overrides.evidenceProviderMode ?? settings.evidenceProviderMode,
+    ),
     model: normalizeModel(overrides.model ?? settings.model),
+    tavilyApiKey: String(overrides.tavilyApiKey ?? settings.tavilyApiKey ?? ""),
   };
 }
 
@@ -118,6 +169,44 @@ export async function validateSettings(
     }
     if (status === 402) {
       return { valid: false, error: "Insufficient DeepSeek balance" };
+    }
+    return { valid: false, error: `Connection failed: ${e.message}` };
+  }
+}
+
+export async function validateEvidenceSettings(
+  overrides?: Partial<Settings>,
+): Promise<{
+  valid: boolean;
+  error?: string;
+}> {
+  const settings = mergeSettings(overrides);
+
+  if (settings.evidenceProviderMode !== "tavily") {
+    return { valid: true };
+  }
+
+  if (!settings.tavilyApiKey.trim()) {
+    return { valid: false, error: "Tavily API key is required" };
+  }
+
+  try {
+    const response = await sendTavilyValidationRequest(settings, 8000);
+    if (!response.ok) {
+      if (response.status === 401) {
+        return { valid: false, error: "Invalid Tavily API key" };
+      }
+      return {
+        valid: false,
+        error: `Tavily error: ${response.status}`,
+      };
+    }
+
+    return { valid: true };
+  } catch (e: any) {
+    const status = Number(e?.status ?? e?.xhr?.status ?? 0);
+    if (status === 401) {
+      return { valid: false, error: "Invalid Tavily API key" };
     }
     return { valid: false, error: `Connection failed: ${e.message}` };
   }
@@ -193,6 +282,92 @@ async function sendValidationRequest(
     timeoutMs,
   );
 
+  return {
+    ok: response.ok,
+    status: response.status,
+  };
+}
+
+async function sendTavilyValidationRequest(
+  settings: Settings,
+  timeoutMs: number,
+): Promise<{
+  ok: boolean;
+  status: number;
+}> {
+  const response = await sendJsonRequest(
+    `${TAVILY_BASE_URL}/search`,
+    {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${settings.tavilyApiKey}`,
+    },
+    JSON.stringify({
+      query: "latest peer reviewed findings on retrieval augmented generation",
+      search_depth: "basic",
+      include_answer: false,
+      include_raw_content: false,
+      max_results: 1,
+      topic: "general",
+    }),
+    timeoutMs,
+  );
+
+  return {
+    ok: response.ok,
+    status: response.status,
+  };
+}
+
+async function sendJsonRequest(
+  endpoint: string,
+  headers: Record<string, string>,
+  body: string,
+  timeoutMs: number,
+): Promise<{ ok: boolean; status: number }> {
+  const hostHttp = (globalThis as any).Zotero?.HTTP as
+    | {
+        request?: (
+          method: string,
+          url: string,
+          options: {
+            body: string;
+            headers: Record<string, string>;
+            responseType: string;
+            successCodes?: boolean;
+            timeout?: number;
+          },
+        ) => Promise<{ responseText?: string; status?: number }>;
+      }
+    | undefined;
+
+  if (typeof hostHttp?.request === "function") {
+    const response = await runWithTimeout(
+      () =>
+        hostHttp.request!("POST", endpoint, {
+          body,
+          headers,
+          responseType: "text",
+          successCodes: false,
+          timeout: timeoutMs,
+        }),
+      timeoutMs,
+    );
+    const status = Number(response?.status ?? 0);
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+    };
+  }
+
+  const response = await fetchWithTimeout(
+    endpoint,
+    {
+      method: "POST",
+      headers,
+      body,
+    },
+    timeoutMs,
+  );
   return {
     ok: response.ok,
     status: response.status,

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Thread } from "../types/thread";
 import type { AssembledContext } from "./contextAssembler";
+import type { EvidenceSearchResult } from "./evidenceSearch";
 
 const providerMocks = vi.hoisted(() => {
   const sendChat = vi.fn();
@@ -19,12 +20,22 @@ const providerMocks = vi.hoisted(() => {
     keyboardShortcut: "I",
     maxContextBudget: 4000,
     model: "deepseek-v4-flash",
+    evidenceEnabled: false,
+    evidenceProviderMode: "builtin-search",
+    tavilyApiKey: "",
   }));
+  const searchEvidence = vi.fn<() => Promise<EvidenceSearchResult>>(
+    async () => ({
+      providerLabel: "OpenAlex",
+      items: [],
+    }),
+  );
 
   return {
     assembleContext,
     createOpenAICompatibleProvider,
     getSettings,
+    searchEvidence,
     sendChat,
   };
 });
@@ -39,6 +50,10 @@ vi.mock("./contextAssembler", () => ({
 
 vi.mock("./settingsManager", () => ({
   getSettings: providerMocks.getSettings,
+}));
+
+vi.mock("./evidenceSearch", () => ({
+  searchEvidence: providerMocks.searchEvidence,
 }));
 
 import { sendChatMessage } from "./chatEngine";
@@ -58,6 +73,7 @@ describe("chatEngine", () => {
     providerMocks.createOpenAICompatibleProvider.mockClear();
     providerMocks.assembleContext.mockClear();
     providerMocks.getSettings.mockClear();
+    providerMocks.searchEvidence.mockClear();
     providerMocks.sendChat.mockReset();
     providerMocks.sendChat.mockResolvedValue({
       abort: vi.fn(),
@@ -122,6 +138,9 @@ describe("chatEngine", () => {
       keyboardShortcut: "I",
       maxContextBudget: 4000,
       model: "deepseek-v4-pro",
+      evidenceEnabled: false,
+      evidenceProviderMode: "builtin-search",
+      tavilyApiKey: "",
     });
 
     await sendChatMessage(makeThread([]), undefined);
@@ -154,5 +173,59 @@ describe("chatEngine", () => {
     const [messages] = providerMocks.sendChat.mock.calls[0] || [];
     expect(messages[0].content).toContain("Code Availability");
     expect(messages[0].content).toContain("stanford-ai4physics/sharp");
+  });
+
+  it("injects external evidence into the system prompt when evidence search is enabled", async () => {
+    providerMocks.searchEvidence.mockResolvedValue({
+      providerLabel: "OpenAlex",
+      items: [
+        {
+          title: "Retrieval-Augmented Generation for Large Language Models",
+          authors: ["Jane Doe", "John Roe"],
+          year: "2024",
+          source: "OpenAlex",
+          url: "https://example.com/rag",
+          snippet: "RAG improves factual grounding when paired with citation-aware retrieval.",
+        },
+      ],
+    });
+
+    const result = await sendChatMessage(
+      makeThread([]),
+      {
+        type: "paper",
+        id: "paper-1",
+        label: "Paper 1",
+        itemIds: [1],
+      },
+      { evidenceEnabled: true },
+    );
+
+    const [messages] = providerMocks.sendChat.mock.calls[0] || [];
+    expect(messages[0].content).toContain("EXTERNAL EVIDENCE");
+    expect(messages[0].content).toContain("[E1]");
+    expect(messages[0].content).toContain("RAG improves factual grounding");
+    expect(result.evidenceAuditMessage).toBe("联网查证：OpenAlex · 1 条结果");
+  });
+
+  it("continues without external evidence when evidence search fails", async () => {
+    providerMocks.searchEvidence.mockRejectedValue(new Error("Tavily unavailable"));
+
+    const result = await sendChatMessage(
+      makeThread([]),
+      {
+        type: "paper",
+        id: "paper-1",
+        label: "Paper 1",
+        itemIds: [1],
+      },
+      { evidenceEnabled: true },
+    );
+
+    const [messages] = providerMocks.sendChat.mock.calls[0] || [];
+    expect(messages[0].content).not.toContain("EXTERNAL EVIDENCE");
+    expect(result.evidenceAuditMessage).toBe(
+      "联网查证失败：Tavily unavailable，本轮仅基于当前论文回答",
+    );
   });
 });

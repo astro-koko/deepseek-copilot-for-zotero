@@ -20,6 +20,7 @@ import {
   DEEPSEEK_MODELS,
   getSettings,
   saveSettings,
+  validateEvidenceSettings,
   validateSettings,
 } from "./settingsManager";
 
@@ -49,6 +50,9 @@ describe("settingsManager", () => {
       model: "deepseek-v4-flash",
       maxContextBudget: 4000,
       keyboardShortcut: "I",
+      evidenceEnabled: false,
+      evidenceProviderMode: "builtin-search",
+      tavilyApiKey: "",
     });
   });
 
@@ -323,5 +327,55 @@ describe("settingsManager", () => {
       (globalThis as any).setTimeout = originalSetTimeout;
       (globalThis as any).clearTimeout = originalClearTimeout;
     }
+  });
+
+  it("persists evidence provider settings and toggle state", () => {
+    saveSettings({
+      evidenceEnabled: true,
+      evidenceProviderMode: "tavily",
+      tavilyApiKey: "tvly-test",
+    });
+
+    expect(getSettings()).toMatchObject({
+      evidenceEnabled: true,
+      evidenceProviderMode: "tavily",
+      tavilyApiKey: "tvly-test",
+    });
+  });
+
+  it("validates Tavily settings against the Tavily search endpoint", async () => {
+    prefState.set("evidenceProviderMode", "tavily");
+    prefState.set("tavilyApiKey", "tvly-test");
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(validateEvidenceSettings()).resolves.toEqual({ valid: true });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.tavily.com/search",
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer tvly-test",
+        },
+        body: JSON.stringify({
+          query: "latest peer reviewed findings on retrieval augmented generation",
+          search_depth: "basic",
+          include_answer: false,
+          include_raw_content: false,
+          max_results: 1,
+          topic: "general",
+        }),
+      }),
+    );
+  });
+
+  it("requires a Tavily API key when the evidence provider is Tavily", async () => {
+    prefState.set("evidenceProviderMode", "tavily");
+
+    await expect(validateEvidenceSettings()).resolves.toEqual({
+      valid: false,
+      error: "Tavily API key is required",
+    });
   });
 });

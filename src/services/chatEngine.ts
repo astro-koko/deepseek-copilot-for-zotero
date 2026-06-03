@@ -7,6 +7,11 @@ import type {
 import { createOpenAICompatibleProvider } from "./provider/openAICompatibleProvider";
 import { assembleContext } from "./contextAssembler";
 import { getSettings } from "./settingsManager";
+import { searchEvidence } from "./evidenceSearch";
+
+export interface ChatRequestOptions {
+  evidenceEnabled?: boolean;
+}
 
 export function buildSystemPrompt(scope: ScopeContext | undefined): string {
   const basePrompt = `You are DS Copilot, an AI reading assistant operating inside Zotero. You help researchers understand papers, compare findings, and explore their literature collections.
@@ -34,8 +39,10 @@ Key rules:
 export async function buildMessages(
   thread: Thread,
   scope: ScopeContext | undefined,
+  requestOptions: ChatRequestOptions = {},
 ): Promise<ChatCompletionMessage[]> {
   let contextContent = "";
+  let evidenceAuditMessage: string | undefined;
   if (scope) {
     try {
       const assembled = await assembleContext(scope);
@@ -54,6 +61,43 @@ export async function buildMessages(
     }
   }
 
+  if (requestOptions.evidenceEnabled) {
+    const lastUserMessage = [...thread.messages]
+      .reverse()
+      .find((message) => message.role === "user");
+    const question = lastUserMessage?.content?.trim() || scope?.label || "paper context";
+    try {
+      const evidence = await searchEvidence(question, scope);
+      if (evidence.items.length > 0) {
+        contextContent += `\n\n=== EXTERNAL EVIDENCE ===\nUse the following outside evidence only as supplemental context. Distinguish it clearly from the current paper.\n`;
+        evidence.items.forEach((item, index) => {
+          contextContent += `\n[E${index + 1}] ${item.title}`;
+          if (item.authors.length > 0) {
+            contextContent += ` — ${item.authors.join(", ")}`;
+          }
+          if (item.year) {
+            contextContent += ` (${item.year})`;
+          }
+          if (item.source) {
+            contextContent += `\nSource: ${item.source}`;
+          }
+          if (item.url) {
+            contextContent += `\nURL: ${item.url}`;
+          }
+          if (item.snippet) {
+            contextContent += `\nSnippet: ${item.snippet}`;
+          }
+          contextContent += "\n";
+        });
+      }
+      evidenceAuditMessage = `联网查证：${evidence.providerLabel} · ${evidence.items.length} 条结果`;
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message ? error.message : "Evidence search failed";
+      evidenceAuditMessage = `联网查证失败：${message}，本轮仅基于当前论文回答`;
+    }
+  }
+
   const messages: ChatCompletionMessage[] = [
     { role: "system", content: buildSystemPrompt(scope) + contextContent },
   ];
@@ -68,12 +112,13 @@ export async function buildMessages(
     });
   }
 
-  return messages;
+  return Object.assign(messages, { evidenceAuditMessage });
 }
 
 export async function sendChatMessage(
   thread: Thread,
   scope: ScopeContext | undefined,
+  requestOptions: ChatRequestOptions = {},
   signal?: AbortSignal,
 ): Promise<StreamingResponse> {
   const { baseURL, apiKey, model } = getSettings();
@@ -84,6 +129,12 @@ export async function sendChatMessage(
 
   const provider = createOpenAICompatibleProvider({ baseURL, apiKey, model });
 
-  const messages = await buildMessages(thread, scope);
-  return provider.sendChat(messages, signal);
+  const messages = await buildMessages(thread, scope, requestOptions);
+  const response = await provider.sendChat(messages, signal);
+  return {
+    ...response,
+    evidenceAuditMessage: (messages as typeof messages & {
+      evidenceAuditMessage?: string;
+    }).evidenceAuditMessage,
+  };
 }

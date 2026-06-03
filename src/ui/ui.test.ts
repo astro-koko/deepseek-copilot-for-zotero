@@ -6,6 +6,12 @@ const mocks = vi.hoisted(() => ({
   setSidebarVisible: vi.fn(),
   eventBusGetInstance: vi.fn(() => ({ addEventListener() {}, removeEventListener() {} })),
   getPref: vi.fn(() => "I"),
+  getCurrentScope: vi.fn(() => ({
+    id: "paper-17",
+    itemIds: [17],
+    label: "Scope Probe",
+    type: "paper",
+  })),
   registerObserver: vi.fn(() => "tab-observer-id"),
   unregisterObserver: vi.fn(),
   createRoot: vi.fn(),
@@ -41,12 +47,7 @@ vi.mock("./sidebarRuntime", () => ({
 }));
 
 vi.mock("../services/scopeResolver", () => ({
-  getCurrentScope: vi.fn(() => ({
-    id: "paper-17",
-    itemIds: [17],
-    label: "Scope Probe",
-    type: "paper",
-  })),
+  getCurrentScope: mocks.getCurrentScope,
 }));
 
 import { UIFactory } from "./ui";
@@ -236,6 +237,7 @@ class FakeWindow {
     insertFTLIfNeeded: vi.fn(),
   };
   ZoteroPane = {
+    getSelectedItems: () => [{}],
     itemPane: {
       collapsed: false,
     },
@@ -281,6 +283,13 @@ describe("UIFactory", () => {
     mocks.eventBusGetInstance.mockClear();
     mocks.getPref.mockReset();
     mocks.getPref.mockReturnValue("I");
+    mocks.getCurrentScope.mockReset();
+    mocks.getCurrentScope.mockReturnValue({
+      id: "paper-17",
+      itemIds: [17],
+      label: "Scope Probe",
+      type: "paper",
+    });
     mocks.registerObserver.mockReset();
     mocks.registerObserver.mockReturnValue("tab-observer-id");
     mocks.unregisterObserver.mockReset();
@@ -354,30 +363,58 @@ describe("UIFactory", () => {
     ).toBeNull();
   });
 
-  it("keeps rendering into the section body even when the legacy sidebar visibility flag is false", async () => {
+  it("does not render a standalone library empty-state panel when no item is selected", async () => {
     const win = new FakeWindow();
     win.Zotero_Tabs.selectedType = "library";
+    win.ZoteroPane.getSelectedItems = () => [];
+    const sidenav = attachRoot(win.document, win.document.body, "zotero-view-item-sidenav");
+    const buttonContainer = win.document.createElement("div");
+    buttonContainer.className = "inherit-flex";
+    sidenav.appendChild(buttonContainer);
+    const messagePane = attachRoot(win.document, win.document.body, "zotero-item-message");
+    (messagePane as any).render = vi.fn((node: unknown) => {
+      messagePane.replaceChildren(node);
+    });
+    (messagePane as any).renderCustomHead = vi.fn();
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
-    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
-    const body = win.document.createElement("vbox");
-    body.ownerDocument = win.document;
-
-    sectionConfig.onRender({
-      body,
-      tabType: "library",
-    });
     await Promise.resolve();
     await Promise.resolve();
 
-    mocks.sidebarVisible.mockReturnValue(false);
-    sectionConfig.onRender({
-      body,
-      tabType: "library",
-    });
+    expect(win.document.getElementById("ai-assistant-library-empty-state")).toBeNull();
+    expect(
+      win.document.getElementById("ai-assistant-library-empty-state-sidenav-btn"),
+    ).toBeNull();
+    expect(messagePane.children).toHaveLength(0);
+  });
+
+  it("removes legacy standalone library artifacts without touching native empty messages", async () => {
+    const win = new FakeWindow();
+    win.Zotero_Tabs.selectedType = "library";
+    win.ZoteroPane.getSelectedItems = () => [];
+
+    const messagePane = attachRoot(win.document, win.document.body, "zotero-item-message");
+    const nativeMessage = attachRoot(win.document, messagePane, "zotero-native-empty-message");
+    attachRoot(win.document, messagePane, "ai-assistant-library-empty-state");
+
+    const sidenav = attachRoot(win.document, win.document.body, "zotero-view-item-sidenav");
+    attachRoot(win.document, sidenav, "ai-assistant-library-empty-state-sidenav-btn");
+
+    const toolbar = attachRoot(win.document, win.document.body, "zotero-items-toolbar");
+    attachRoot(win.document, toolbar, "zotero-ai-assistant-tb-chat-toggle");
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    await Promise.resolve();
     await Promise.resolve();
 
-    expect(mocks.createRoot).toHaveBeenCalledWith(body);
+    expect(win.document.getElementById("ai-assistant-library-empty-state")).toBeNull();
+    expect(
+      win.document.getElementById("ai-assistant-library-empty-state-sidenav-btn"),
+    ).toBeNull();
+    expect(
+      win.document.getElementById("zotero-ai-assistant-tb-chat-toggle"),
+    ).toBeNull();
+    expect(messagePane.children).toEqual([nativeMessage]);
   });
 
   it("writes host diagnostics including selected tab state and model evidence for smoke collection", async () => {
@@ -448,6 +485,34 @@ describe("UIFactory", () => {
     expect(win.ZoteroContextPane.togglePane).toHaveBeenCalledTimes(0);
   });
 
+  it("does not force native section open or scroll while rendering section bodies", async () => {
+    const win = new FakeWindow();
+    win.Zotero_Tabs.selectedType = "library";
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+
+    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+    const sectionContainer = win.document.createElement("section");
+    const body = win.document.createElement("vbox");
+    body.ownerDocument = win.document;
+    sectionContainer.appendChild(body);
+    (sectionContainer as any).scrollIntoView = vi.fn();
+    (body as any).scrollIntoView = vi.fn();
+    (body as any).scrollTo = vi.fn();
+
+    sectionConfig.onRender({
+      body,
+      tabType: "library",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sectionContainer.getAttribute("open")).toBeNull();
+    expect((sectionContainer as any).scrollIntoView).toHaveBeenCalledTimes(0);
+    expect((body as any).scrollIntoView).toHaveBeenCalledTimes(0);
+    expect((body as any).scrollTo).toHaveBeenCalledTimes(0);
+  });
+
   it("uses the section only as a fallback when the native pane is unavailable", () => {
     const win = new FakeWindow();
 
@@ -482,6 +547,7 @@ describe("UIFactory", () => {
     const win = new FakeWindow();
     const libraryPane = attachRoot(win.document, win.document.body, "zotero-item-pane");
     attachRoot(win.document, libraryPane, "native-library-content");
+    win.ZoteroPane.getSelectedItems = () => [{}];
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
 
@@ -504,9 +570,57 @@ describe("UIFactory", () => {
     expect(body.children).toHaveLength(0);
   });
 
+  it("leaves the Zotero empty-message pane untouched while no library item is selected", async () => {
+    const win = new FakeWindow();
+    mainWindows.push(win);
+    win.ZoteroPane.getSelectedItems = () => [];
+    const messagePane = attachRoot(win.document, win.document.body, "zotero-item-message");
+    (messagePane as any).render = vi.fn((node: unknown) => {
+      messagePane.replaceChildren(node);
+    });
+    (messagePane as any).renderCustomHead = vi.fn();
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    UIFactory.refreshWindow(win as unknown as Window & typeof globalThis);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(win.document.getElementById("ai-assistant-library-empty-state")).toBeNull();
+    expect(messagePane.children).toHaveLength(0);
+
+    win.ZoteroPane.getSelectedItems = () => [{}];
+    UIFactory.refreshWindow(win as unknown as Window & typeof globalThis);
+
+    expect(win.document.getElementById("ai-assistant-library-empty-state")).toBeNull();
+    expect(messagePane.children).toHaveLength(0);
+  });
+
+  it("does not create standalone library artifacts during teardown", async () => {
+    const win = new FakeWindow();
+    mainWindows.push(win);
+    win.ZoteroPane.getSelectedItems = () => [];
+    const messagePane = attachRoot(win.document, win.document.body, "zotero-item-message");
+    (messagePane as any).render = vi.fn((node: unknown) => {
+      messagePane.replaceChildren(node);
+    });
+    (messagePane as any).renderCustomHead = vi.fn();
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    UIFactory.refreshWindow(win as unknown as Window & typeof globalThis);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(win.document.getElementById("ai-assistant-library-empty-state")).toBeNull();
+
+    UIFactory.removeChatPanel(win as unknown as Window & typeof globalThis);
+
+    expect(win.document.getElementById("ai-assistant-library-empty-state")).toBeNull();
+    expect(messagePane.children).toHaveLength(0);
+  });
+
   it("reuses a single section-body React root across repeated renders", async () => {
     const win = new FakeWindow();
     mainWindows.push(win);
+    win.ZoteroPane.getSelectedItems = () => [{}];
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
     const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
@@ -531,6 +645,12 @@ describe("UIFactory", () => {
   it("removes mounted UI artifacts from main windows during shutdown", async () => {
     const win = new FakeWindow();
     mainWindows.push(win);
+    win.ZoteroPane.getSelectedItems = () => [{}];
+    const reactRoot = {
+      render: vi.fn(),
+      unmount: vi.fn(),
+    };
+    mocks.createRoot.mockReturnValueOnce(reactRoot);
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
     const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
@@ -548,7 +668,7 @@ describe("UIFactory", () => {
 
     UIFactory.shutdown();
 
-    expect(win.document.getElementById("zotero-ai-assistant-tb-chat-toggle")).toBeNull();
+    expect(reactRoot.unmount).toHaveBeenCalledTimes(1);
   });
 
   it("registers the right-side item pane section as the primary visible entry point", () => {
@@ -558,6 +678,7 @@ describe("UIFactory", () => {
     const readerOuter = attachRoot(win.document, win.document.body, "zotero-context-pane");
     const readerInner = attachRoot(win.document, readerOuter, "zotero-context-pane-inner");
     attachRoot(win.document, readerInner, "native-reader-content");
+    win.ZoteroPane.getSelectedItems = () => [{}];
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
 
@@ -587,6 +708,7 @@ describe("UIFactory", () => {
   it("enables the section when Zotero reports a library selection through selectedType even if tabType is opaque", () => {
     const win = new FakeWindow();
     win.Zotero_Tabs.selectedType = "library";
+    win.ZoteroPane.getSelectedItems = () => [{}];
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
 
@@ -604,9 +726,37 @@ describe("UIFactory", () => {
     expect(setEnabled).toHaveBeenCalledWith(true);
   });
 
+  it("keeps the native section enabled for collection scope when no library item is selected", () => {
+    const win = new FakeWindow();
+    win.Zotero_Tabs.selectedType = "item-tree";
+    win.ZoteroPane.getSelectedItems = () => [];
+    mocks.getCurrentScope.mockReturnValue({
+      id: "collection-1-ABC",
+      itemIds: [1, 2, 3],
+      label: "My Collection",
+      type: "collection",
+    });
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+
+    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+    const body = win.document.createElement("vbox");
+    body.ownerDocument = win.document;
+    const setEnabled = vi.fn();
+
+    sectionConfig.onInit({
+      body,
+      setEnabled,
+      tabType: "item-tree",
+    });
+
+    expect(setEnabled).toHaveBeenCalledWith(true);
+  });
+
   it("renders the library host when tabType is opaque but the selected Zotero tab is library", async () => {
     const win = new FakeWindow();
     win.Zotero_Tabs.selectedType = "library";
+    win.ZoteroPane.getSelectedItems = () => [{}];
     mainWindows.push(win);
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);

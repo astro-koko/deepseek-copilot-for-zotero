@@ -31,6 +31,7 @@ class FakeEventTarget {
 class FakeField extends FakeEventTarget {
   value = "";
   disabled = false;
+  style = { display: "" };
 }
 
 class FakeButton extends FakeField {}
@@ -68,6 +69,11 @@ describe("registerPreferencesPane", () => {
   let saveButton: FakeButton;
   let validateButton: FakeButton;
   let status: FakeStatusElement;
+  let evidenceProviderField: FakeField;
+  let tavilyApiKeyField: FakeField;
+  let tavilyValidateButton: FakeButton;
+  let tavilyStatus: FakeStatusElement;
+  let tavilySettingsRow: FakeField;
   let deps: PreferencesPaneDeps;
 
   beforeEach(() => {
@@ -83,6 +89,11 @@ describe("registerPreferencesPane", () => {
     saveButton = new FakeButton();
     validateButton = new FakeButton();
     status = new FakeStatusElement();
+    evidenceProviderField = new FakeField();
+    tavilyApiKeyField = new FakeField();
+    tavilyValidateButton = new FakeButton();
+    tavilyStatus = new FakeStatusElement();
+    tavilySettingsRow = new FakeField();
 
     deps = {
       getSettings: vi.fn(() => ({
@@ -91,9 +102,13 @@ describe("registerPreferencesPane", () => {
         model: "deepseek-v4-pro",
         maxContextBudget: 8192,
         keyboardShortcut: "I",
+        evidenceEnabled: false,
+        evidenceProviderMode: "builtin-search" as const,
+        tavilyApiKey: "",
       })),
       saveSettings: vi.fn(),
       validateSettings: vi.fn(async () => ({ valid: true })),
+      validateEvidenceSettings: vi.fn(async () => ({ valid: true })),
     };
   });
 
@@ -104,6 +119,11 @@ describe("registerPreferencesPane", () => {
       "zotero-ai-assistant-pref-save": saveButton,
       "zotero-ai-assistant-pref-validate": validateButton,
       "zotero-ai-assistant-pref-status": status,
+      "zotero-ai-assistant-pref-evidence-provider": evidenceProviderField,
+      "zotero-ai-assistant-pref-tavily-api-key": tavilyApiKeyField,
+      "zotero-ai-assistant-pref-tavily-validate": tavilyValidateButton,
+      "zotero-ai-assistant-pref-tavily-status": tavilyStatus,
+      "zotero-ai-assistant-pref-tavily-settings": tavilySettingsRow,
     });
 
     return new FakeWindow(document as unknown as FakeDocument) as unknown as Window;
@@ -114,6 +134,7 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.getSettings).toHaveBeenCalledTimes(1);
     expect(apiKeyField.value).toBe("sk-test");
+    expect(evidenceProviderField.value).toBe("builtin-search");
   });
 
   it("binds listeners only once when the pane is reopened", () => {
@@ -121,12 +142,16 @@ describe("registerPreferencesPane", () => {
 
     registerPreferencesPane(win, deps);
     apiKeyField.value = "sk-updated";
+    evidenceProviderField.value = "tavily";
     registerPreferencesPane(win, deps);
     apiKeyField.dispatch("change");
 
     expect(apiKeyField.getListenerCount("change")).toBe(1);
     expect(saveButton.getListenerCount("command")).toBe(1);
     expect(validateButton.getListenerCount("command")).toBe(1);
+    expect(evidenceProviderField.getListenerCount("change")).toBe(1);
+    expect(evidenceProviderField.getListenerCount("command")).toBe(1);
+    expect(tavilyValidateButton.getListenerCount("command")).toBe(1);
     expect(deps.saveSettings).toHaveBeenCalledTimes(1);
   });
 
@@ -141,6 +166,8 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.saveSettings).toHaveBeenCalledWith({
       apiKey: "sk-next",
+      evidenceProviderMode: "builtin-search",
+      tavilyApiKey: "",
     });
     expect(status.textContent).toBe("l10n:ai-assistant-pref-status-saved");
     expect(status.dataset.variant).toBe("success");
@@ -154,6 +181,8 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.saveSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-internal-defaults",
+      evidenceProviderMode: "builtin-search",
+      tavilyApiKey: "",
     });
   });
 
@@ -171,6 +200,8 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.validateSettings).toHaveBeenCalledWith({
       apiKey: "sk-bad",
+      evidenceProviderMode: "builtin-search",
+      tavilyApiKey: "",
     });
     expect(status.textContent).toBe("Invalid API key");
     expect(status.dataset.variant).toBe("error");
@@ -247,6 +278,8 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.saveSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-command",
+      evidenceProviderMode: "builtin-search",
+      tavilyApiKey: "",
     });
     expect(eventSpy).toHaveBeenCalledTimes(1);
   });
@@ -262,9 +295,13 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.saveSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-click",
+      evidenceProviderMode: "builtin-search",
+      tavilyApiKey: "",
     });
     expect(deps.validateSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-click",
+      evidenceProviderMode: "builtin-search",
+      tavilyApiKey: "",
     });
   });
 
@@ -276,12 +313,22 @@ describe("registerPreferencesPane", () => {
     const replacementSaveButton = new FakeButton();
     const replacementValidateButton = new FakeButton();
     const replacementStatus = new FakeStatusElement();
+    const replacementEvidenceProviderField = new FakeField();
+    const replacementTavilyApiKeyField = new FakeField();
+    const replacementTavilyValidateButton = new FakeButton();
+    const replacementTavilyStatus = new FakeStatusElement();
+    const replacementTavilySettingsRow = new FakeField();
     const replacementDocument = new FakeDocument({
       "zotero-ai-assistant-prefs": root,
       "zotero-ai-assistant-pref-api-key": replacementApiKeyField,
       "zotero-ai-assistant-pref-save": replacementSaveButton,
       "zotero-ai-assistant-pref-validate": replacementValidateButton,
       "zotero-ai-assistant-pref-status": replacementStatus,
+      "zotero-ai-assistant-pref-evidence-provider": replacementEvidenceProviderField,
+      "zotero-ai-assistant-pref-tavily-api-key": replacementTavilyApiKeyField,
+      "zotero-ai-assistant-pref-tavily-validate": replacementTavilyValidateButton,
+      "zotero-ai-assistant-pref-tavily-status": replacementTavilyStatus,
+      "zotero-ai-assistant-pref-tavily-settings": replacementTavilySettingsRow,
     });
 
     registerPreferencesPane(
@@ -294,7 +341,61 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.saveSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-recreated",
+      evidenceProviderMode: "builtin-search",
+      tavilyApiKey: "",
     });
     expect(replacementSaveButton.getListenerCount("command")).toBe(1);
+  });
+
+  it("shows the Tavily settings only when the Tavily provider is selected", async () => {
+    registerPreferencesPane(createWindow(), deps);
+
+    expect(tavilySettingsRow.style.display).toBe("none");
+
+    evidenceProviderField.value = "tavily";
+    evidenceProviderField.dispatch("command");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(tavilySettingsRow.style.display).toBe("");
+    expect(deps.saveSettings).toHaveBeenLastCalledWith({
+      apiKey: "sk-test",
+      evidenceProviderMode: "tavily",
+      tavilyApiKey: "",
+    });
+  });
+
+  it("validates Tavily settings with unsaved values", async () => {
+    registerPreferencesPane(createWindow(), deps);
+
+    evidenceProviderField.value = "tavily";
+    evidenceProviderField.dispatch("command");
+    tavilyApiKeyField.value = "tvly-next";
+    tavilyValidateButton.dispatch("command");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(deps.validateEvidenceSettings).toHaveBeenCalledWith({
+      apiKey: "sk-test",
+      evidenceProviderMode: "tavily",
+      tavilyApiKey: "tvly-next",
+    });
+    expect(tavilyStatus.textContent).toBe("Tavily connection looks good");
+  });
+
+  it("reacts to radiogroup command events from the live preferences pane", async () => {
+    registerPreferencesPane(createWindow(), deps);
+
+    evidenceProviderField.value = "tavily";
+    evidenceProviderField.dispatch("command");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(tavilySettingsRow.style.display).toBe("");
+    expect(deps.saveSettings).toHaveBeenLastCalledWith({
+      apiKey: "sk-test",
+      evidenceProviderMode: "tavily",
+      tavilyApiKey: "",
+    });
   });
 });

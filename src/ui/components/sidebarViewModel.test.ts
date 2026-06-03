@@ -44,6 +44,9 @@ function makeSettings(overrides: Partial<Settings> = {}): Settings {
     model: "deepseek-v4-flash",
     maxContextBudget: 4000,
     keyboardShortcut: "I",
+    evidenceEnabled: false,
+    evidenceProviderMode: "builtin-search",
+    tavilyApiKey: "",
     ...overrides,
   };
 }
@@ -117,6 +120,17 @@ describe("buildSidebarViewModel", () => {
     );
     expect(model.providerLabel).toBe("DeepSeek");
     expect(model.statusLabel).toBe("Ready");
+    expect(model.suggestedActions).toHaveLength(8);
+    expect(model.suggestedActions.map((action) => action.group)).toEqual([
+      "reading",
+      "reading",
+      "reading",
+      "analysis",
+      "analysis",
+      "analysis",
+      "evidence",
+      "evidence",
+    ]);
   });
 
   // Manual compact pane layout checklist:
@@ -257,5 +271,26 @@ describe("buildSidebarViewModel", () => {
     expect(model.heroTitle).toBe("选择条目");
     expect(model.composerPlaceholder).toBe("选择一篇论文后开始提问。");
     expect(model.statusLabel).toBe("等待上下文");
+  });
+
+  it("surfaces Chinese suggested action labels from the shared command catalog", () => {
+    vi.stubGlobal("Zotero", {
+      Prefs: {
+        get: vi.fn((key: string) => (key === "intl.locale.requested" ? "zh-CN" : "")),
+      },
+    });
+
+    const model = buildSidebarViewModel({
+      location: "library",
+      recentThreads: [],
+      scope: makeScope(),
+      session: makeSession(),
+      settings: makeSettings(),
+      settingsIssue: null,
+    });
+
+    expect(model.suggestedActions.map((action) => action.label)).toEqual(
+      expect.arrayContaining(["总结论文", "通俗解释", "核心贡献"]),
+    );
   });
 });

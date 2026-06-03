@@ -12,6 +12,7 @@ import { assembleContext, type AssembledContext } from "../../services/contextAs
 import { getCurrentScope } from "../../services/scopeResolver";
 import {
   PREFERENCES_PANE_ID,
+  getEvidenceSettingsIssue,
   getSettings,
   getSettingsIssue,
   saveSettings,
@@ -22,6 +23,10 @@ import { exportThreadAsMarkdown } from "../../services/threadExport";
 import { deleteThreadAndRefresh } from "../../services/threadActions";
 import { getSidebarTheme } from "../theme";
 import { isChineseLocale } from "../../utils/locale";
+import {
+  COMMAND_PRESET_GROUP_ORDER,
+  getPresetGroupLabel,
+} from "../../services/presets";
 
 interface SidebarProps {
   eventBus: EventTarget;
@@ -162,7 +167,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
 
         if (detail.action === "explain") {
           setComposerDraft("");
-          await chatSessionStore.send(prompt, currentScope);
+          await chatSessionStore.send(prompt, currentScope, {
+            evidenceEnabled: settings.evidenceEnabled && !getEvidenceSettingsIssue(settings),
+          });
           return;
         }
 
@@ -179,7 +186,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
         "readerSelectionAction",
         handleReaderSelectionAction,
       );
-  }, [eventBus, location]);
+  }, [eventBus, location, settings]);
 
   useEffect(() => {
     syncResolvedScope();
@@ -209,13 +216,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
     setShowRecentChats(false);
   };
 
+  const evidenceIssue = getEvidenceSettingsIssue(settings);
+  const evidenceEnabled =
+    settings.evidenceEnabled && !evidenceIssue;
+
   const handleSend = async (userInput: string) => {
     if (!isSupportedChatScope(scope)) {
       return;
     }
 
     try {
-      await chatSessionStore.send(userInput, scope);
+      await chatSessionStore.send(userInput, scope, {
+        evidenceEnabled,
+      });
       setComposerDraft("");
       setSettings(getSettings());
       setShowRecentChats(false);
@@ -277,6 +290,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
     eventBus.dispatchEvent(new Event("settingsChange"));
   };
 
+  const handleToggleEvidence = () => {
+    saveSettings({ evidenceEnabled: !settings.evidenceEnabled });
+    setSettings(getSettings());
+    eventBus.dispatchEvent(new Event("settingsChange"));
+  };
+
   const model = buildSidebarViewModel({
     contextSummary,
     location,
@@ -289,8 +308,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
   const isRecentChatsVisible =
     model.recentThreads.length > 0 && (showRecentChats || model.showRecentThreads);
   const theme = getSidebarTheme(hostWindow);
-  const flashLabel = zh ? "轻度思考" : "Light";
-  const proLabel = zh ? "深度思考" : "Deep";
+  const suggestedActionGroups = COMMAND_PRESET_GROUP_ORDER.map((group) => ({
+    group,
+    actions: model.suggestedActions.filter((action) => action.group === group),
+  })).filter((group) => group.actions.length > 0);
+  const evidenceLabel =
+    settings.evidenceProviderMode === "tavily"
+      ? zh
+        ? `联网查证（${evidenceIssue ? "未配置" : "Tavily"}）`
+        : `Evidence Search (${evidenceIssue ? "Unavailable" : "Tavily"})`
+      : zh
+        ? "联网查证（OpenAlex）"
+        : "Evidence Search (OpenAlex)";
 
   return (
     <div
@@ -305,48 +334,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
           </div>
         </div>
         <div style={styles.headerActions}>
-          <div
-            style={{
-              ...styles.modelToggle,
-              background: theme.panelBackground,
-              borderColor: theme.buttonBorder,
-            }}
-          >
-            <button
-              style={{
-                ...styles.modelToggleButton,
-                color: theme.buttonText,
-                background:
-                  settings.model === "deepseek-v4-flash"
-                    ? theme.surfaceBackground
-                    : "transparent",
-                borderColor:
-                  settings.model === "deepseek-v4-flash"
-                    ? theme.buttonBorder
-                    : "transparent",
-              }}
-              onClick={() => handleModelChange("deepseek-v4-flash")}
-            >
-              {flashLabel}
-            </button>
-            <button
-              style={{
-                ...styles.modelToggleButton,
-                color: theme.buttonText,
-                background:
-                  settings.model === "deepseek-v4-pro"
-                    ? theme.surfaceBackground
-                    : "transparent",
-                borderColor:
-                  settings.model === "deepseek-v4-pro"
-                    ? theme.buttonBorder
-                    : "transparent",
-              }}
-              onClick={() => handleModelChange("deepseek-v4-pro")}
-            >
-              {proLabel}
-            </button>
-          </div>
           <button
             style={{
               ...styles.toolbarButton,
@@ -496,22 +483,38 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
         {model.showSuggestedActions && (
           <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
             <div style={{ ...styles.sectionTitle, color: theme.text }}>{model.suggestedActionsLabel}</div>
-            <div style={{ ...styles.list, borderTopColor: theme.border, borderBottomColor: theme.border, background: theme.border }}>
-              {model.suggestedActions.map((action) => (
-                <button
-                  key={action.id}
-                  style={{ ...styles.listButton, background: theme.surfaceBackground }}
-                  onClick={() => {
-                    void handlePresetSend(action.prompt);
-                  }}
-                >
-                  <span style={styles.listRow}>
-                    <span style={{ ...styles.listPrimary, color: theme.text }}>{action.label}</span>
-                    <span style={{ ...styles.listSecondary, color: theme.mutedText }}>
-                      {action.description}
-                    </span>
-                  </span>
-                </button>
+            <div style={styles.suggestedActionGroups}>
+              {suggestedActionGroups.map(({ group, actions }) => (
+                <div key={group} style={styles.actionGroup}>
+                  <div style={{ ...styles.actionGroupTitle, color: theme.mutedText }}>
+                    {getPresetGroupLabel(group, zh)}
+                  </div>
+                  <div
+                    style={{
+                      ...styles.list,
+                      borderTopColor: theme.border,
+                      borderBottomColor: theme.border,
+                      background: theme.border,
+                    }}
+                  >
+                    {actions.map((action) => (
+                      <button
+                        key={action.id}
+                        style={{ ...styles.listButton, background: theme.surfaceBackground }}
+                        onClick={() => {
+                          void handlePresetSend(action.prompt);
+                        }}
+                      >
+                        <span style={styles.listRow}>
+                          <span style={{ ...styles.listPrimary, color: theme.text }}>{action.label}</span>
+                          <span style={{ ...styles.listSecondary, color: theme.mutedText }}>
+                            {action.description}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </section>
@@ -599,6 +602,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
           void handleSend(message);
         }}
         onCancel={handleCancel}
+        onModelModeChange={(mode) =>
+          handleModelChange(mode === "deep" ? "deepseek-v4-pro" : "deepseek-v4-flash")
+        }
+        onToggleEvidence={handleToggleEvidence}
         isStreaming={session.isStreaming}
         currentScopeType={scope?.type || null}
         disabled={model.composerDisabled}
@@ -606,6 +613,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
         placeholder={model.composerPlaceholder}
         draftValue={composerDraft}
         focusNonce={composerFocusNonce}
+        modelMode={settings.model === "deepseek-v4-pro" ? "deep" : "light"}
+        evidenceDisabled={Boolean(evidenceIssue)}
+        evidenceEnabled={evidenceEnabled}
+        evidenceLabel={evidenceLabel}
         onDraftChange={setComposerDraft}
       />
     </div>
@@ -660,10 +671,16 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily:
       '"SF Pro Text", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
     minHeight: "0",
+    minWidth: 0,
+    width: "100%",
+    maxWidth: "100%",
+    overflowX: "hidden",
+    boxSizing: "border-box",
   },
   header: {
     display: "flex",
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: "8px",
     padding: "8px 10px",
     alignItems: "center",
@@ -676,19 +693,23 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     gap: "2px",
     minWidth: 0,
-    flex: 1,
+    flex: "1 1 130px",
   },
   headerTitle: {
     fontSize: "13px",
     fontWeight: 600,
     color: "#222",
+    lineHeight: 1.25,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    overflowWrap: "anywhere",
   },
   headerMeta: {
     fontSize: "11px",
     color: "#666",
-    whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
+    overflowWrap: "anywhere",
   },
   headerActions: {
     display: "flex",
@@ -697,23 +718,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexWrap: "wrap",
     justifyContent: "flex-end",
     minWidth: 0,
-  },
-  modelToggle: {
-    display: "flex",
-    alignItems: "center",
-    border: "1px solid #c9c9c9",
-    borderRadius: "6px",
-    padding: "2px",
-    gap: "2px",
-  },
-  modelToggleButton: {
-    appearance: "none",
-    border: "1px solid transparent",
-    borderRadius: "4px",
-    padding: "3px 8px",
-    fontSize: "11px",
-    fontWeight: 500,
-    cursor: "pointer",
+    flex: "1 1 170px",
   },
   toolbarButton: {
     appearance: "none",
@@ -725,6 +730,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "11px",
     fontWeight: 500,
     cursor: "pointer",
+    whiteSpace: "nowrap",
   },
   toolbarButtonDisabled: {
     opacity: 0.45,
@@ -734,6 +740,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "8px 10px",
     borderBottom: "1px solid #e0e0e0",
     background: "#f7f7f7",
+    minWidth: 0,
   },
   sectionLabel: {
     fontSize: "10px",
@@ -748,6 +755,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "8px",
     alignItems: "center",
     minWidth: 0,
+    flexWrap: "wrap",
   },
   scopeType: {
     flexShrink: 0,
@@ -764,7 +772,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#222",
     overflow: "hidden",
     textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    overflowWrap: "anywhere",
   },
   scopeMetaRow: {
     display: "flex",
@@ -808,6 +816,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "5px 6px",
     fontSize: "11px",
     lineHeight: 1.4,
+    overflowWrap: "anywhere",
   },
   noticeSection: {
     margin: "0",
@@ -827,6 +836,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "11px",
     lineHeight: 1.4,
     color: "#6f6138",
+    overflowWrap: "anywhere",
   },
   noticeButton: {
     alignSelf: "flex-start",
@@ -846,6 +856,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: "8px",
+    minWidth: 0,
+    boxSizing: "border-box",
   },
   introSection: {
     padding: "8px 0 2px",
@@ -860,6 +872,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "12px",
     lineHeight: 1.45,
     color: "#666",
+    overflowWrap: "anywhere",
   },
   section: {
     borderTop: "1px solid #e2e2e2",
@@ -880,6 +893,23 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     background: "#dddddd",
   },
+  suggestedActionGroups: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  actionGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  },
+  actionGroupTitle: {
+    fontSize: "10px",
+    fontWeight: 700,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    color: "#7a7a7a",
+  },
   listButton: {
     display: "flex",
     flexDirection: "column",
@@ -890,6 +920,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "none",
     background: "#fff",
     textAlign: "left",
+    minWidth: 0,
   },
   threadMainButton: {
     display: "flex",
@@ -902,11 +933,14 @@ const styles: Record<string, React.CSSProperties> = {
     background: "transparent",
     cursor: "pointer",
     textAlign: "left",
+    minWidth: 0,
   },
   threadActionRow: {
     display: "flex",
     gap: "6px",
     justifyContent: "flex-end",
+    flexWrap: "wrap",
+    minWidth: 0,
   },
   threadActionButton: {
     appearance: "none",
@@ -916,6 +950,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "2px 8px",
     fontSize: "11px",
     cursor: "pointer",
+    whiteSpace: "nowrap",
   },
   listRow: {
     display: "flex",
@@ -931,7 +966,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#222",
     overflow: "hidden",
     textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    overflowWrap: "anywhere",
   },
   listSecondary: {
     fontSize: "11px",
@@ -939,7 +974,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#666",
     overflow: "hidden",
     textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    overflowWrap: "anywhere",
   },
   listMeta: {
     fontSize: "11px",
@@ -954,6 +989,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderTop: "1px solid #e2e2e2",
     paddingTop: "8px",
     overflow: "visible",
+    minWidth: 0,
   },
   streamingSection: {
     padding: "8px 10px",
@@ -972,6 +1008,7 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.45,
     color: "#33485f",
     whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
   },
   errorSection: {
     padding: "8px 10px",
@@ -981,5 +1018,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#8d3838",
     fontSize: "12px",
     lineHeight: 1.4,
+    overflowWrap: "anywhere",
   },
 };
