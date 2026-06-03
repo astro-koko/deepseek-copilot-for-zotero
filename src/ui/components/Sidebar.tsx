@@ -23,10 +23,6 @@ import { exportThreadAsMarkdown } from "../../services/threadExport";
 import { deleteThreadAndRefresh } from "../../services/threadActions";
 import { getSidebarTheme } from "../theme";
 import { isChineseLocale } from "../../utils/locale";
-import {
-  COMMAND_PRESET_GROUP_ORDER,
-  getPresetGroupLabel,
-} from "../../services/presets";
 
 interface SidebarProps {
   eventBus: EventTarget;
@@ -308,10 +304,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
   const isRecentChatsVisible =
     model.recentThreads.length > 0 && (showRecentChats || model.showRecentThreads);
   const theme = getSidebarTheme(hostWindow);
-  const suggestedActionGroups = COMMAND_PRESET_GROUP_ORDER.map((group) => ({
-    group,
-    actions: model.suggestedActions.filter((action) => action.group === group),
-  })).filter((group) => group.actions.length > 0);
   const evidenceLabel =
     evidenceIssue
       ? zh
@@ -483,38 +475,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
         {model.showSuggestedActions && (
           <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
             <div style={{ ...styles.sectionTitle, color: theme.text }}>{model.suggestedActionsLabel}</div>
-            <div style={styles.suggestedActionGroups}>
-              {suggestedActionGroups.map(({ group, actions }) => (
-                <div key={group} style={styles.actionGroup}>
-                  <div style={{ ...styles.actionGroupTitle, color: theme.mutedText }}>
-                    {getPresetGroupLabel(group, zh)}
-                  </div>
-                  <div
-                    style={{
-                      ...styles.list,
-                      borderTopColor: theme.border,
-                      borderBottomColor: theme.border,
-                      background: theme.border,
-                    }}
-                  >
-                    {actions.map((action) => (
-                      <button
-                        key={action.id}
-                        style={{ ...styles.listButton, background: theme.surfaceBackground }}
-                        onClick={() => {
-                          void handlePresetSend(action.prompt);
-                        }}
-                      >
-                        <span style={styles.listRow}>
-                          <span style={{ ...styles.listPrimary, color: theme.text }}>{action.label}</span>
-                          <span style={{ ...styles.listSecondary, color: theme.mutedText }}>
-                            {action.description}
-                          </span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            <div
+              style={{
+                ...styles.suggestedActionsGrid,
+                borderTopColor: theme.border,
+                borderBottomColor: theme.border,
+                background: theme.border,
+              }}
+            >
+              {model.suggestedActions.map((action) => (
+                <button
+                  key={action.id}
+                  style={{ ...styles.suggestedActionButton, background: theme.surfaceBackground }}
+                  onClick={() => {
+                    void handlePresetSend(action.prompt);
+                  }}
+                >
+                  <span style={styles.listRow}>
+                    <span style={{ ...styles.listPrimary, color: theme.text }}>{action.label}</span>
+                    <span style={{ ...styles.listSecondary, color: theme.mutedText }}>
+                      {action.description}
+                    </span>
+                  </span>
+                </button>
               ))}
             </div>
           </section>
@@ -895,22 +878,26 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     background: "#dddddd",
   },
-  suggestedActionGroups: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
+  suggestedActionsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "1px",
+    borderTop: "1px solid #dddddd",
+    borderBottom: "1px solid #dddddd",
+    overflow: "hidden",
+    background: "#dddddd",
   },
-  actionGroup: {
+  suggestedActionButton: {
     display: "flex",
     flexDirection: "column",
+    alignItems: "stretch",
     gap: "4px",
-  },
-  actionGroupTitle: {
-    fontSize: "10px",
-    fontWeight: 700,
-    letterSpacing: "0.04em",
-    textTransform: "uppercase",
-    color: "#7a7a7a",
+    width: "100%",
+    minWidth: 0,
+    padding: "8px 10px",
+    border: "none",
+    background: "#fff",
+    textAlign: "left",
   },
   listButton: {
     display: "flex",
