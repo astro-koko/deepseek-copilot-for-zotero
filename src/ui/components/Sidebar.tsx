@@ -617,7 +617,7 @@ function getThreadPreview(thread: Thread): string {
     return lastVisibleMessage.content.slice(0, 90);
   }
 
-  return thread.scopeSnapshot?.label || "No messages yet";
+  return thread.scopeSnapshot?.label || "暂无消息";
 }
 
 function formatThreadTimestamp(timestamp: number): string {

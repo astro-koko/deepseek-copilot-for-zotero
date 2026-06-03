@@ -101,7 +101,10 @@ describe("chatEngine", () => {
 
     expect(providerMocks.sendChat).toHaveBeenCalledWith(
       [
-        expect.objectContaining({ role: "system" }),
+        expect.objectContaining({
+          role: "system",
+          content: expect.stringContaining("你是 DS Copilot"),
+        }),
         {
           role: "user",
           content: "Summarize this paper",
@@ -118,7 +121,7 @@ describe("chatEngine", () => {
       metadata: "Metadata block",
       selectedText: "",
       warnings: [
-        "Using the abstract because no extractable PDF text is available for this scope.",
+        "当前范围没有可提取的 PDF 正文，已自动回退到摘要内容。",
       ],
     });
 
@@ -130,10 +133,10 @@ describe("chatEngine", () => {
     });
 
     const [messages] = providerMocks.sendChat.mock.calls[0] || [];
-    expect(messages[0].content).toContain("CONTEXT STATUS");
-    expect(messages[0].content).toContain("abstract-only");
+    expect(messages[0].content).toContain("=== 上下文状态 ===");
+    expect(messages[0].content).toContain("可用性：仅摘要");
     expect(messages[0].content).toContain(
-      "Using the abstract because no extractable PDF text is available for this scope.",
+      "当前范围没有可提取的 PDF 正文，已自动回退到摘要内容。",
     );
   });
 
@@ -208,7 +211,7 @@ describe("chatEngine", () => {
     );
 
     const [messages] = providerMocks.sendChat.mock.calls[0] || [];
-    expect(messages[0].content).toContain("EXTERNAL EVIDENCE");
+    expect(messages[0].content).toContain("=== 外部证据 ===");
     expect(messages[0].content).toContain("[E1]");
     expect(messages[0].content).toContain("RAG improves factual grounding");
     expect(result.evidenceAuditMessage).toBe("联网查证：默认查证 · 1 条结果");

@@ -41,7 +41,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Summarize",
     description: "Concise paper-level summary",
     promptPrefix:
-      "Please provide a concise summary of this paper. Include the main research question, methodology, key findings, and conclusions. Keep it to 3-5 paragraphs.",
+      "请用简洁的方式总结这篇论文。请涵盖核心研究问题、方法、关键发现和结论，控制在 3 到 5 段。",
     aliases: ["summary", "overview"],
     group: "reading",
     scopeHint: ["paper", "pdf"],
@@ -51,7 +51,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Explain",
     description: "Explain a concept or passage",
     promptPrefix:
-      "Please explain the current concept, paragraph, or result in clear, accessible terms. Break down technical jargon and connect it back to the paper's broader argument.",
+      "请用清晰、易懂的语言解释当前概念、段落或结果。拆解专业术语，并说明它与论文整体论点之间的关系。",
     aliases: ["clarify", "passage"],
     group: "reading",
     scopeHint: ["paper", "pdf"],
@@ -61,7 +61,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Core Contribution",
     description: "Extract the main contribution",
     promptPrefix:
-      "Identify the paper's core contribution. Explain what is genuinely new, why it matters, and how the authors justify that contribution.",
+      "请识别这篇论文的核心贡献。说明真正的新意是什么、为什么重要，以及作者是如何论证这项贡献的。",
     aliases: ["novelty", "contribution"],
     group: "reading",
     scopeHint: ["paper", "pdf"],
@@ -71,7 +71,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Method",
     description: "Analyze the research method",
     promptPrefix:
-      "Analyze the methodology used in this paper. Explain the method step by step, its assumptions, and where the approach is likely to be strong or weak.",
+      "请拆解这篇论文的方法。逐步说明方法流程、关键假设，以及该方法最可能强或弱的地方。",
     aliases: ["methodology", "approach"],
     group: "analysis",
     scopeHint: ["paper", "pdf"],
@@ -81,7 +81,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Limitations",
     description: "Identify the main limitations",
     promptPrefix:
-      "Identify the key limitations of this study. Consider methodology, data, assumptions, evaluation design, generalizability, and possible over-claims.",
+      "请识别这项研究的关键局限。考虑方法、数据、假设、评估设计、可推广性以及可能存在的过度结论。",
     aliases: ["weakness", "risk"],
     group: "analysis",
     scopeHint: ["paper", "pdf"],
@@ -91,7 +91,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Verify Claim",
     description: "Check whether the conclusion holds up",
     promptPrefix:
-      "Assess whether the paper's central claim is well supported. Separate what is directly supported by the paper from what needs outside verification or stronger evidence.",
+      "请评估论文的核心结论是否得到充分支持。区分哪些内容是论文直接支持的，哪些部分需要额外查证或更强证据。",
     aliases: ["verify", "fact-check", "evidence"],
     group: "analysis",
     scopeHint: ["paper", "pdf"],
@@ -102,7 +102,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Background",
     description: "Add missing background context",
     promptPrefix:
-      "Provide the background context a researcher would need before reading this paper deeply. Explain the field context, key terms, and the problem setting.",
+      "请补充深入阅读这篇论文前所需的背景信息。解释相关领域背景、关键术语和问题设置。",
     aliases: ["context", "primer"],
     group: "evidence",
     scopeHint: ["paper", "pdf"],
@@ -113,7 +113,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Related Work",
     description: "Place the paper in the literature",
     promptPrefix:
-      "Place this paper in the broader literature. Explain what prior work it builds on, where it differs, and what nearby directions a researcher should also know.",
+      "请把这篇论文放回更广泛的研究脉络中。说明它建立在哪些前人工作之上、与它们有何不同，以及还应关注哪些相邻方向。",
     aliases: ["literature", "related"],
     group: "evidence",
     scopeHint: ["paper", "pdf"],
@@ -123,49 +123,76 @@ const COMMAND_PRESETS: CommandPreset[] = [
 
 const zhMap: Record<
   string,
-  Pick<CommandPreset, "label" | "description"> & { aliases: string[] }
+  Pick<CommandPreset, "label" | "description" | "promptPrefix"> & { aliases: string[] }
 > = {
   summarize: {
     label: "总结论文",
     description: "快速抓住研究问题、方法和结论",
+    promptPrefix:
+      "请用简洁的方式总结这篇论文。请涵盖核心研究问题、方法、关键发现和结论，控制在 3 到 5 段。",
     aliases: ["总结", "概览", "摘要"],
   },
   explain: {
     label: "通俗解释",
     description: "把难懂概念和段落讲清楚",
+    promptPrefix:
+      "请用清晰、易懂的语言解释当前概念、段落或结果。拆解专业术语，并说明它与论文整体论点之间的关系。",
     aliases: ["解释", "看不懂", "讲清楚"],
   },
   "core-contribution": {
     label: "核心贡献",
     description: "提炼这篇论文真正的新意",
+    promptPrefix:
+      "请识别这篇论文的核心贡献。说明真正的新意是什么、为什么重要，以及作者是如何论证这项贡献的。",
     aliases: ["贡献", "创新点", "新意"],
   },
   method: {
     label: "方法拆解",
     description: "逐步分析论文方法和假设",
+    promptPrefix:
+      "请拆解这篇论文的方法。逐步说明方法流程、关键假设，以及该方法最可能强或弱的地方。",
     aliases: ["方法", "方法论", "技术路线"],
   },
   limitations: {
     label: "研究局限",
     description: "识别论文的弱点和边界",
+    promptPrefix:
+      "请识别这项研究的关键局限。考虑方法、数据、假设、评估设计、可推广性以及可能存在的过度结论。",
     aliases: ["局限", "缺点", "风险"],
   },
   "verify-claim": {
     label: "查证结论",
     description: "检查结论是否真的站得住",
+    promptPrefix:
+      "请评估论文的核心结论是否得到充分支持。区分哪些内容是论文直接支持的，哪些部分需要额外查证或更强证据。",
     aliases: ["查证", "核验", "验证", "事实核查"],
   },
   background: {
     label: "补充背景",
     description: "补足理解这篇论文所需的背景",
+    promptPrefix:
+      "请补充深入阅读这篇论文前所需的背景信息。解释相关领域背景、关键术语和问题设置。",
     aliases: ["背景", "上下文", "入门背景"],
   },
   "related-work": {
     label: "相关工作",
     description: "把论文放回更大的研究脉络里",
+    promptPrefix:
+      "请把这篇论文放回更广泛的研究脉络中。说明它建立在哪些前人工作之上、与它们有何不同，以及还应关注哪些相邻方向。",
     aliases: ["相关研究", "文献脉络", "邻近工作"],
   },
 };
+
+function localizePreset(preset: CommandPreset, zh = isChineseLocale()): CommandPreset {
+  if (!zh) {
+    return preset;
+  }
+
+  return {
+    ...preset,
+    ...(zhMap[preset.id] || {}),
+  };
+}
 
 export const PRESETS: CommandPreset[] = COMMAND_PRESETS;
 
@@ -190,14 +217,7 @@ export function getPresetsForScope(scopeType: ScopeType): CommandPreset[] {
     (preset) => !preset.scopeHint || preset.scopeHint.includes(scopeType),
   );
 
-  if (!isChineseLocale()) {
-    return presets;
-  }
-
-  return presets.map((preset) => ({
-    ...preset,
-    ...(zhMap[preset.id] || {}),
-  }));
+  return presets.map((preset) => localizePreset(preset));
 }
 
 export function filterPresets(
@@ -210,10 +230,7 @@ export function filterPresets(
     (preset) => !preset.scopeHint || preset.scopeHint.includes(scopeType),
   );
   const presets = zh
-    ? scopedPresets.map((preset) => ({
-        ...preset,
-        ...(zhMap[preset.id] || {}),
-      }))
+    ? scopedPresets.map((preset) => localizePreset(preset, zh))
     : scopedPresets;
 
   if (!normalized) {
@@ -235,7 +252,8 @@ export function filterPresets(
 export function applyPreset(presetId: string, userInput: string): string {
   const preset = getPresetById(presetId);
   if (!preset) return userInput;
-  return `${preset.promptPrefix}\n\n${userInput}`.trim();
+  const localizedPreset = localizePreset(preset);
+  return `${localizedPreset.promptPrefix}\n\n${userInput}`.trim();
 }
 
 export function getPresetWarning(

@@ -12,10 +12,10 @@ export function buildReaderActionDraft(
 ): string {
   const quoted = `"""${detail.text.trim()}"""`;
   if (detail.action === "explain") {
-    return `Explain the following excerpt from page ${detail.page} in clear research language:\n\n${quoted}`;
+    return `请用清晰的科研语言解释下面这段来自第 ${detail.page} 页的摘录：\n\n${quoted}`;
   }
 
-  return `I am reading page ${detail.page}. Based on this excerpt, help me think through it.\n\n${quoted}\n\nQuestion: `;
+  return `我正在阅读第 ${detail.page} 页。请基于下面这段摘录帮助我理解并继续思考。\n\n${quoted}\n\n问题：`;
 }
 
 export function mergeReaderActionScope(

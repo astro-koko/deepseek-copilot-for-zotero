@@ -29,9 +29,16 @@ describe("presets", () => {
   });
 
   it("applies the selected preset template without discarding existing freeform text", () => {
+    vi.stubGlobal("Zotero", {
+      Prefs: {
+        get: vi.fn((key: string) => (key === "intl.locale.requested" ? "zh-CN" : "")),
+      },
+    });
+
     const prompt = applyPreset("summarize", "请重点看实验部分");
 
-    expect(prompt).toContain("Please provide a concise summary");
+    expect(prompt).toContain("请用简洁的方式总结这篇论文");
+    expect(prompt).not.toContain("Please provide a concise summary");
     expect(prompt).toContain("请重点看实验部分");
   });
 });

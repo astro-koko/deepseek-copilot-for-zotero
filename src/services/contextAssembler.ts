@@ -126,7 +126,7 @@ async function assembleCollectionContext(scope: ScopeContext): Promise<Assembled
     .map((id) => Zotero.Items.get(id))
     .filter((item): item is Zotero.Item => Boolean(item));
 
-  let metadata = `Collection: ${scope.label}\nItems: ${items.length}\n\n`;
+  let metadata = `分类：${scope.label}\n条目数：${items.length}\n\n`;
 
   // Include metadata for all items
   for (const item of items) {
@@ -216,11 +216,11 @@ function formatItemMetadata(
     return `${title}${creators ? ` — ${creators}` : ""}${year ? ` (${year})` : ""}`;
   }
 
-  const lines = [`Title: ${title}
-Authors: ${creators || "N/A"}
-Year: ${year || "N/A"}`];
+  const lines = [`标题：${title}
+作者：${creators || "暂无"}
+年份：${year || "暂无"}`];
   if (includeAbstract) {
-    lines.push(`Abstract: ${abstract || "N/A"}`);
+    lines.push(`摘要：${abstract || "暂无"}`);
   }
 
   return lines.join("\n");

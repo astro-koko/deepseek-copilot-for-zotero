@@ -14,7 +14,7 @@ describe("buildReaderActionDraft", () => {
         text: "This is the highlighted paragraph.",
         page: 7,
       }),
-    ).toContain("Explain the following excerpt from page 7");
+    ).toContain("请用清晰的科研语言解释下面这段来自第 7 页的摘录");
   });
 
   it("builds a prefilled ask prompt from selected text", () => {
@@ -24,7 +24,7 @@ describe("buildReaderActionDraft", () => {
         text: "This is the highlighted paragraph.",
         page: 7,
       }),
-    ).toContain("Question:");
+    ).toContain("问题：");
   });
 
   it("adds selected text to the current pdf scope so the sidebar can show it as active context", () => {

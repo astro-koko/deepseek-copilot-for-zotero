@@ -74,7 +74,7 @@ export const Composer: React.FC<ComposerProps> = ({
   currentScopeType,
   disabled = false,
   disabledReason = null,
-  placeholder = "Ask about this paper... (type / for presets)",
+  placeholder = "围绕这篇论文提问…（输入 / 可查看预设）",
   draftValue,
   focusNonce,
   onDraftChange,
