@@ -21,19 +21,23 @@ const providerMocks = vi.hoisted(() => {
     maxContextBudget: 4000,
     model: "deepseek-v4-flash",
     evidenceEnabled: false,
-    evidenceProviderMode: "builtin-search",
+    evidenceProviderMode: "mcp-web-search",
     tavilyApiKey: "",
   }));
   const searchEvidence = vi.fn<() => Promise<EvidenceSearchResult>>(
     async () => ({
-      providerLabel: "OpenAlex",
+      providerMode: "mcp-web-search",
       items: [],
     }),
+  );
+  const getEvidenceAuditLabel = vi.fn((providerMode: string) =>
+    providerMode === "tavily" ? "Tavily" : "默认查证",
   );
 
   return {
     assembleContext,
     createOpenAICompatibleProvider,
+    getEvidenceAuditLabel,
     getSettings,
     searchEvidence,
     sendChat,
@@ -49,6 +53,7 @@ vi.mock("./contextAssembler", () => ({
 }));
 
 vi.mock("./settingsManager", () => ({
+  getEvidenceAuditLabel: providerMocks.getEvidenceAuditLabel,
   getSettings: providerMocks.getSettings,
 }));
 
@@ -73,6 +78,7 @@ describe("chatEngine", () => {
     providerMocks.createOpenAICompatibleProvider.mockClear();
     providerMocks.assembleContext.mockClear();
     providerMocks.getSettings.mockClear();
+    providerMocks.getEvidenceAuditLabel.mockClear();
     providerMocks.searchEvidence.mockClear();
     providerMocks.sendChat.mockReset();
     providerMocks.sendChat.mockResolvedValue({
@@ -139,7 +145,7 @@ describe("chatEngine", () => {
       maxContextBudget: 4000,
       model: "deepseek-v4-pro",
       evidenceEnabled: false,
-      evidenceProviderMode: "builtin-search",
+      evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
 
@@ -177,13 +183,13 @@ describe("chatEngine", () => {
 
   it("injects external evidence into the system prompt when evidence search is enabled", async () => {
     providerMocks.searchEvidence.mockResolvedValue({
-      providerLabel: "OpenAlex",
+      providerMode: "mcp-web-search",
       items: [
         {
           title: "Retrieval-Augmented Generation for Large Language Models",
           authors: ["Jane Doe", "John Roe"],
           year: "2024",
-          source: "OpenAlex",
+          source: "Academic search",
           url: "https://example.com/rag",
           snippet: "RAG improves factual grounding when paired with citation-aware retrieval.",
         },
@@ -205,7 +211,7 @@ describe("chatEngine", () => {
     expect(messages[0].content).toContain("EXTERNAL EVIDENCE");
     expect(messages[0].content).toContain("[E1]");
     expect(messages[0].content).toContain("RAG improves factual grounding");
-    expect(result.evidenceAuditMessage).toBe("联网查证：OpenAlex · 1 条结果");
+    expect(result.evidenceAuditMessage).toBe("联网查证：默认查证 · 1 条结果");
   });
 
   it("continues without external evidence when evidence search fails", async () => {

@@ -41,6 +41,8 @@ Required local setup:
 3. Point `ZOTERO_PLUGIN_PROFILE_PATH` to a dedicated dev profile.
 4. Point `ZOTERO_PLUGIN_DATA_DIR` to the real Zotero data directory you want to use during smoke tests.
 5. Set `DEEPSEEK_API_KEY` and optionally `DEEPSEEK_MODEL`.
+6. Set `TAVILY_API_KEY` if you want Tavily-backed web verification available in the dev profile.
+7. Optionally set `DS_COPILOT_EVIDENCE_PROVIDER` to `mcp-web-search` or `tavily`, and `DS_COPILOT_EVIDENCE_ENABLED=1` if you want the sidebar to start with evidence mode enabled.
 
 Optional local setup:
 - Set `ZOTERO_DEBUGGER=1` before `npm start` when you need `-ZoteroDebugText` and `-jsdebugger`.
@@ -70,6 +72,7 @@ Use this loop when changing Zotero integration, UI registration, Reader handoff,
 2. Change one layer at a time in this order:
    - Add-ons visibility and startup
    - Settings pane
+   - evidence provider selection and Tavily validation
    - startup and registration
    - Library native host through the right-side pane entry
    - Reader native host through the right-side pane entry

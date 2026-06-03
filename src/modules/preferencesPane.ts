@@ -1,4 +1,5 @@
 import {
+  DEFAULT_EVIDENCE_PROVIDER_MODE,
   type PersistedSettings,
   getSettings,
   saveSettings,
@@ -195,14 +196,17 @@ function readFormValues(doc: PreferencesDocument): Partial<PersistedSettings> {
   return {
     apiKey: apiKeyField?.value?.trim?.() ?? "",
     evidenceProviderMode:
-      evidenceProviderField?.value === "tavily" ? "tavily" : "builtin-search",
+      evidenceProviderField?.value === "tavily"
+        ? "tavily"
+        : DEFAULT_EVIDENCE_PROVIDER_MODE,
     tavilyApiKey: tavilyApiKeyField?.value?.trim?.() ?? "",
   };
 }
 
 function applyEvidenceProviderVisibility(
   doc: PreferencesDocument,
-  providerMode: Partial<PersistedSettings>["evidenceProviderMode"] = "builtin-search",
+  providerMode: Partial<PersistedSettings>["evidenceProviderMode"] =
+    DEFAULT_EVIDENCE_PROVIDER_MODE,
 ): void {
   const tavilySettings = doc.getElementById(TAVILY_SETTINGS_ID) as
     | (HTMLElement & { style?: { display?: string } })

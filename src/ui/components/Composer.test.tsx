@@ -35,7 +35,7 @@ describe("Composer layout", () => {
       React.createElement(Composer, {
         currentScopeType: "paper",
         evidenceEnabled: true,
-        evidenceLabel: "联网查证（Tavily）",
+        evidenceLabel: "联网查证",
         isStreaming: false,
         modelMode: "deep",
         onSend: () => {},
@@ -46,6 +46,27 @@ describe("Composer layout", () => {
 
     expect(markup).toContain("轻度思考");
     expect(markup).toContain("深度思考");
-    expect(markup).toContain("联网查证（Tavily）");
+    expect(markup).toContain("联网查证");
+    expect(markup).not.toContain("OpenAlex");
+  });
+
+  it("uses a source-agnostic default evidence label when no custom label is provided", () => {
+    vi.stubGlobal("Zotero", {
+      Prefs: {
+        get: vi.fn((key: string) => (key === "intl.locale.requested" ? "zh-CN" : "")),
+      },
+    });
+
+    const markup = renderToStaticMarkup(
+      React.createElement(Composer, {
+        currentScopeType: "paper",
+        evidenceEnabled: false,
+        isStreaming: false,
+        onSend: () => {},
+      }),
+    );
+
+    expect(markup).toContain("联网查证");
+    expect(markup).not.toContain("OpenAlex");
   });
 });

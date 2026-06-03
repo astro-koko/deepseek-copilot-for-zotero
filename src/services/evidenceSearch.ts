@@ -1,5 +1,7 @@
 import type { ScopeContext } from "../types/scope";
 import {
+  DEFAULT_EVIDENCE_PROVIDER_MODE,
+  type EvidenceProviderMode,
   type Settings,
   TAVILY_BASE_URL,
   getSettings,
@@ -15,7 +17,7 @@ export interface EvidenceSearchItem {
 }
 
 export interface EvidenceSearchResult {
-  providerLabel: "OpenAlex" | "Tavily";
+  providerMode: EvidenceProviderMode;
   items: EvidenceSearchItem[];
 }
 
@@ -67,7 +69,7 @@ async function searchWithOpenAlex(query: string): Promise<EvidenceSearchResult> 
   });
 
   return {
-    providerLabel: "OpenAlex",
+    providerMode: DEFAULT_EVIDENCE_PROVIDER_MODE,
     items: (payload.results || []).map((item) => ({
       title: item.display_name || "Untitled result",
       authors: (item.authorships || [])
@@ -75,7 +77,7 @@ async function searchWithOpenAlex(query: string): Promise<EvidenceSearchResult> 
         .filter(Boolean)
         .slice(0, 5),
       year: item.publication_year ? String(item.publication_year) : "",
-      source: item.primary_location?.source?.display_name || "OpenAlex",
+      source: item.primary_location?.source?.display_name || "Academic search",
       url: item.primary_location?.landing_page_url || item.id || "",
       snippet: materializeOpenAlexAbstract(item.abstract_inverted_index),
     })),
@@ -109,7 +111,7 @@ async function searchWithTavily(
   });
 
   return {
-    providerLabel: "Tavily",
+    providerMode: "tavily",
     items: (payload.results || []).map((item) => ({
       title: item.title || "Untitled result",
       authors: [],

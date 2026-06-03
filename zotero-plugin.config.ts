@@ -1,11 +1,11 @@
 import { defineConfig } from "zotero-plugin-scaffold";
 import pkg from "./package.json";
 import { buildDevServerStartArgs } from "./src/config/devServerArgs";
+import { buildDevProfilePrefs } from "./src/config/devProfilePrefs";
 
 const prefsPrefix = pkg.config.prefsPrefix;
-const devApiKey = process.env.DEEPSEEK_API_KEY || process.env.API_KEY;
-const devModel = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
 const devStartArgs = buildDevServerStartArgs(process.env.ZOTERO_DEBUGGER);
+const devProfilePrefs = buildDevProfilePrefs({ prefsPrefix });
 
 export default defineConfig({
   source: ["src", "addon"],
@@ -54,6 +54,7 @@ export default defineConfig({
     // Do not inject plugin prefs into the user's daily profile during proxy-mode runs.
     // On macOS we still need the explicit flag to avoid falling back to another profile.
     startArgs: devStartArgs,
+    prefs: devProfilePrefs,
     asProxy: true,
     createProfileIfMissing: true,
   },

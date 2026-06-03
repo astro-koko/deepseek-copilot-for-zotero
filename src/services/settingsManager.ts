@@ -1,7 +1,11 @@
 import { getPref, setPref } from "../utils/prefs";
 import { config } from "../../package.json";
 
-export type EvidenceProviderMode = "builtin-search" | "tavily";
+export const DEFAULT_EVIDENCE_PROVIDER_MODE = "mcp-web-search";
+export type EvidenceProviderMode =
+  | typeof DEFAULT_EVIDENCE_PROVIDER_MODE
+  | "tavily";
+type LegacyEvidenceProviderMode = "builtin-search";
 
 export interface PersistedSettings {
   apiKey: string;
@@ -28,7 +32,7 @@ export const DEFAULT_SETTINGS: Settings = {
   maxContextBudget: 4000,
   keyboardShortcut: "I",
   evidenceEnabled: false,
-  evidenceProviderMode: "builtin-search",
+  evidenceProviderMode: DEFAULT_EVIDENCE_PROVIDER_MODE,
   tavilyApiKey: "",
 };
 
@@ -44,9 +48,9 @@ function normalizeModel(model: string | undefined): string {
 }
 
 function normalizeEvidenceProviderMode(
-  mode: string | undefined,
+  mode: string | LegacyEvidenceProviderMode | undefined,
 ): EvidenceProviderMode {
-  return mode === "tavily" ? "tavily" : "builtin-search";
+  return mode === "tavily" ? "tavily" : DEFAULT_EVIDENCE_PROVIDER_MODE;
 }
 
 function normalizeBoolean(value: unknown): boolean {
@@ -104,7 +108,7 @@ export function getEvidenceSettingsIssue(
   }
 
   if (!settings.tavilyApiKey.trim()) {
-    return "Tavily API key not configured. Open plugin Settings to enable evidence search.";
+    return "Tavily API key not configured. Open plugin Settings to enable web verification.";
   }
 
   return null;
@@ -124,6 +128,12 @@ function mergeSettings(overrides?: Partial<Settings>): Settings {
     model: normalizeModel(overrides.model ?? settings.model),
     tavilyApiKey: String(overrides.tavilyApiKey ?? settings.tavilyApiKey ?? ""),
   };
+}
+
+export function getEvidenceAuditLabel(
+  providerMode: EvidenceProviderMode,
+): string {
+  return providerMode === "tavily" ? "Tavily" : "默认查证";
 }
 
 export async function validateSettings(

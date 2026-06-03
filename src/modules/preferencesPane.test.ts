@@ -103,7 +103,7 @@ describe("registerPreferencesPane", () => {
         maxContextBudget: 8192,
         keyboardShortcut: "I",
         evidenceEnabled: false,
-        evidenceProviderMode: "builtin-search" as const,
+        evidenceProviderMode: "mcp-web-search" as const,
         tavilyApiKey: "",
       })),
       saveSettings: vi.fn(),
@@ -134,7 +134,7 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.getSettings).toHaveBeenCalledTimes(1);
     expect(apiKeyField.value).toBe("sk-test");
-    expect(evidenceProviderField.value).toBe("builtin-search");
+    expect(evidenceProviderField.value).toBe("mcp-web-search");
   });
 
   it("binds listeners only once when the pane is reopened", () => {
@@ -166,7 +166,7 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.saveSettings).toHaveBeenCalledWith({
       apiKey: "sk-next",
-      evidenceProviderMode: "builtin-search",
+      evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
     expect(status.textContent).toBe("l10n:ai-assistant-pref-status-saved");
@@ -181,7 +181,7 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.saveSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-internal-defaults",
-      evidenceProviderMode: "builtin-search",
+      evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
   });
@@ -200,7 +200,7 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.validateSettings).toHaveBeenCalledWith({
       apiKey: "sk-bad",
-      evidenceProviderMode: "builtin-search",
+      evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
     expect(status.textContent).toBe("Invalid API key");
@@ -278,7 +278,7 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.saveSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-command",
-      evidenceProviderMode: "builtin-search",
+      evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
     expect(eventSpy).toHaveBeenCalledTimes(1);
@@ -295,12 +295,12 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.saveSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-click",
-      evidenceProviderMode: "builtin-search",
+      evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
     expect(deps.validateSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-click",
-      evidenceProviderMode: "builtin-search",
+      evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
   });
@@ -341,7 +341,7 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.saveSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-recreated",
-      evidenceProviderMode: "builtin-search",
+      evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
     expect(replacementSaveButton.getListenerCount("command")).toBe(1);

@@ -51,9 +51,15 @@ describe("settingsManager", () => {
       maxContextBudget: 4000,
       keyboardShortcut: "I",
       evidenceEnabled: false,
-      evidenceProviderMode: "builtin-search",
+      evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
+  });
+
+  it("normalizes the legacy builtin-search provider to the new default mode", () => {
+    prefState.set("evidenceProviderMode", "builtin-search");
+
+    expect(getSettings().evidenceProviderMode).toBe("mcp-web-search");
   });
 
   it("falls back to the default DeepSeek model when the saved model is unsupported", () => {

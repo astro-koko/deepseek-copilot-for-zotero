@@ -243,7 +243,7 @@ export const Composer: React.FC<ComposerProps> = ({
   );
 
   const evidenceButtonLabel =
-    evidenceLabel || (zh ? "联网查证（OpenAlex）" : "Evidence Search (OpenAlex)");
+    evidenceLabel || (zh ? "联网查证" : "Web Verification");
 
   return (
     <div

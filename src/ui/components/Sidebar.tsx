@@ -313,13 +313,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
     actions: model.suggestedActions.filter((action) => action.group === group),
   })).filter((group) => group.actions.length > 0);
   const evidenceLabel =
-    settings.evidenceProviderMode === "tavily"
+    evidenceIssue
       ? zh
-        ? `联网查证（${evidenceIssue ? "未配置" : "Tavily"}）`
-        : `Evidence Search (${evidenceIssue ? "Unavailable" : "Tavily"})`
+        ? "联网查证（配置 Tavily）"
+        : "Web Verification (Configure Tavily)"
       : zh
-        ? "联网查证（OpenAlex）"
-        : "Evidence Search (OpenAlex)";
+        ? "联网查证"
+        : "Web Verification";
 
   return (
     <div
@@ -936,10 +936,10 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 0,
   },
   threadActionRow: {
-    display: "flex",
+    display: "grid",
+    gridTemplateColumns: "1fr",
     gap: "6px",
-    justifyContent: "flex-end",
-    flexWrap: "wrap",
+    width: "100%",
     minWidth: 0,
   },
   threadActionButton: {
@@ -950,7 +950,12 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "2px 8px",
     fontSize: "11px",
     cursor: "pointer",
-    whiteSpace: "nowrap",
+    whiteSpace: "normal",
+    lineHeight: 1.3,
+    width: "100%",
+    minWidth: 0,
+    textAlign: "center",
+    boxSizing: "border-box",
   },
   listRow: {
     display: "flex",
@@ -964,17 +969,23 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 500,
     lineHeight: 1.35,
     color: "#222",
+    display: "-webkit-box",
     overflow: "hidden",
     textOverflow: "ellipsis",
     overflowWrap: "anywhere",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 2,
   },
   listSecondary: {
     fontSize: "11px",
     lineHeight: 1.35,
     color: "#666",
+    display: "-webkit-box",
     overflow: "hidden",
     textOverflow: "ellipsis",
     overflowWrap: "anywhere",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 2,
   },
   listMeta: {
     fontSize: "11px",

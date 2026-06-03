@@ -45,7 +45,7 @@ function makeSettings(overrides: Partial<Settings> = {}): Settings {
     maxContextBudget: 4000,
     keyboardShortcut: "I",
     evidenceEnabled: false,
-    evidenceProviderMode: "builtin-search",
+    evidenceProviderMode: "mcp-web-search",
     tavilyApiKey: "",
     ...overrides,
   };

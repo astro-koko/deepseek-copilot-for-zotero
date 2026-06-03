@@ -6,7 +6,7 @@ import type {
 } from "./provider/types";
 import { createOpenAICompatibleProvider } from "./provider/openAICompatibleProvider";
 import { assembleContext } from "./contextAssembler";
-import { getSettings } from "./settingsManager";
+import { getEvidenceAuditLabel, getSettings } from "./settingsManager";
 import { searchEvidence } from "./evidenceSearch";
 
 export interface ChatRequestOptions {
@@ -90,7 +90,9 @@ export async function buildMessages(
           contextContent += "\n";
         });
       }
-      evidenceAuditMessage = `联网查证：${evidence.providerLabel} · ${evidence.items.length} 条结果`;
+      evidenceAuditMessage = `联网查证：${getEvidenceAuditLabel(
+        evidence.providerMode,
+      )} · ${evidence.items.length} 条结果`;
     } catch (error) {
       const message =
         error instanceof Error && error.message ? error.message : "Evidence search failed";
