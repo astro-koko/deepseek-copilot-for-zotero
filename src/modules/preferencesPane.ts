@@ -27,6 +27,10 @@ interface PreferencesFieldElement extends HTMLElement {
   __aiAssistantListeners?: Map<string, EventListener>;
 }
 
+interface PreferencesInteractiveElement extends HTMLElement {
+  __aiAssistantListeners?: Map<string, EventListener>;
+}
+
 interface PreferencesStatusElement extends HTMLElement {
   dataset: DOMStringMap & {
     variant?: string;
@@ -42,14 +46,19 @@ export interface PreferencesPaneDeps {
 
 const ROOT_ID = "zotero-ai-assistant-prefs";
 const API_KEY_ID = "zotero-ai-assistant-pref-api-key";
+const API_KEY_LINK_ID = "zotero-ai-assistant-pref-api-key-link";
 const SAVE_BUTTON_ID = "zotero-ai-assistant-pref-save";
 const VALIDATE_BUTTON_ID = "zotero-ai-assistant-pref-validate";
 const STATUS_ID = "zotero-ai-assistant-pref-status";
 const EVIDENCE_PROVIDER_ID = "zotero-ai-assistant-pref-evidence-provider";
 const TAVILY_API_KEY_ID = "zotero-ai-assistant-pref-tavily-api-key";
+const TAVILY_LINK_ID = "zotero-ai-assistant-pref-tavily-link";
 const TAVILY_VALIDATE_BUTTON_ID = "zotero-ai-assistant-pref-tavily-validate";
 const TAVILY_STATUS_ID = "zotero-ai-assistant-pref-tavily-status";
 const TAVILY_SETTINGS_ID = "zotero-ai-assistant-pref-tavily-settings";
+
+export const DEEPSEEK_PLATFORM_URL = "https://platform.deepseek.com/";
+export const TAVILY_APP_URL = "https://app.tavily.com/";
 
 export function registerPreferencesPane(
   win: Window,
@@ -157,8 +166,15 @@ export function registerPreferencesPane(
   };
 
   bindFieldEvent(doc, API_KEY_ID, "change", persist);
-  bindTriggeredFieldEvents(doc, EVIDENCE_PROVIDER_ID, ["change", "command"], persist);
+  bindTriggeredFieldEvents(
+    doc,
+    EVIDENCE_PROVIDER_ID,
+    ["change", "command"],
+    persist,
+  );
   bindFieldEvent(doc, TAVILY_API_KEY_ID, "change", persist);
+  bindExternalLink(doc, API_KEY_LINK_ID, DEEPSEEK_PLATFORM_URL);
+  bindExternalLink(doc, TAVILY_LINK_ID, TAVILY_APP_URL);
   bindButtonActivation(doc, SAVE_BUTTON_ID, persist);
   bindButtonActivation(doc, VALIDATE_BUTTON_ID, () => {
     void validate();
@@ -205,8 +221,7 @@ function readFormValues(doc: PreferencesDocument): Partial<PersistedSettings> {
 
 function applyEvidenceProviderVisibility(
   doc: PreferencesDocument,
-  providerMode: Partial<PersistedSettings>["evidenceProviderMode"] =
-    DEFAULT_EVIDENCE_PROVIDER_MODE,
+  providerMode: Partial<PersistedSettings>["evidenceProviderMode"] = DEFAULT_EVIDENCE_PROVIDER_MODE,
 ): void {
   const tavilySettings = doc.getElementById(TAVILY_SETTINGS_ID) as
     | (HTMLElement & { style?: { display?: string } })
@@ -221,10 +236,30 @@ function applyEvidenceProviderVisibility(
 function getField(
   doc: PreferencesDocument,
   id: string,
-): (PreferencesFieldElement & {
-  removeEventListener?(type: string, listener: (...args: any[]) => void): void;
-  addEventListener(type: string, listener: (...args: any[]) => void): void;
-}) | null {
+):
+  | (PreferencesFieldElement & {
+      removeEventListener?(
+        type: string,
+        listener: (...args: any[]) => void,
+      ): void;
+      addEventListener(type: string, listener: (...args: any[]) => void): void;
+    })
+  | null {
+  return doc.getElementById(id) as any;
+}
+
+function getInteractiveElement(
+  doc: PreferencesDocument,
+  id: string,
+):
+  | (PreferencesInteractiveElement & {
+      removeEventListener?(
+        type: string,
+        listener: (...args: any[]) => void,
+      ): void;
+      addEventListener(type: string, listener: (...args: any[]) => void): void;
+    })
+  | null {
   return doc.getElementById(id) as any;
 }
 
@@ -232,20 +267,21 @@ function bindFieldEvent(
   doc: PreferencesDocument,
   id: string,
   type: string,
-  listener: () => void,
+  listener: (event?: Event) => void,
 ): void {
-  const field = getField(doc, id);
+  const field = getInteractiveElement(doc, id);
   if (!field) {
     return;
   }
 
-  const listeners = field.__aiAssistantListeners ?? new Map<string, EventListener>();
+  const listeners =
+    field.__aiAssistantListeners ?? new Map<string, EventListener>();
   const previous = listeners.get(type);
   if (previous && typeof field.removeEventListener === "function") {
     field.removeEventListener(type, previous);
   }
 
-  const eventListener = (() => listener()) as EventListener;
+  const eventListener = ((event: Event) => listener(event)) as EventListener;
   field.addEventListener(type, eventListener);
   listeners.set(type, eventListener);
   field.__aiAssistantListeners = listeners;
@@ -257,7 +293,7 @@ function bindTriggeredFieldEvents(
   types: string[],
   listener: () => void,
 ): void {
-  const field = getField(doc, id);
+  const field = getInteractiveElement(doc, id);
   if (!field) {
     return;
   }
@@ -273,7 +309,8 @@ function bindTriggeredFieldEvents(
     });
   };
 
-  const listeners = field.__aiAssistantListeners ?? new Map<string, EventListener>();
+  const listeners =
+    field.__aiAssistantListeners ?? new Map<string, EventListener>();
   for (const type of types) {
     const listenerKey = `trigger:${type}`;
     const previous = listeners.get(listenerKey);
@@ -314,6 +351,34 @@ function bindButtonActivation(
   bindFieldEvent(doc, id, "click", invokeFromClick);
 }
 
+function bindExternalLink(
+  doc: PreferencesDocument,
+  id: string,
+  href: string,
+): void {
+  bindFieldEvent(doc, id, "click", (event) => {
+    openPreferencesLink(
+      href,
+      event as { preventDefault?: () => void } | undefined,
+    );
+  });
+}
+
+export function openPreferencesLink(
+  href: string,
+  event?: { preventDefault?: () => void },
+): void {
+  const launchURL = (
+    globalThis as { Zotero?: { launchURL?: (url: string) => void } }
+  ).Zotero?.launchURL;
+  if (typeof launchURL !== "function") {
+    return;
+  }
+
+  event?.preventDefault?.();
+  launchURL(href);
+}
+
 function setStatusText(
   status: PreferencesStatusElement | null,
   value: string,
@@ -327,17 +392,25 @@ function setStatusText(
   status.textContent = value;
 }
 
-function getStatusElement(doc: PreferencesDocument): PreferencesStatusElement | null {
+function getStatusElement(
+  doc: PreferencesDocument,
+): PreferencesStatusElement | null {
   return doc.getElementById(STATUS_ID) as PreferencesStatusElement | null;
 }
 
 function getEvidenceStatusElement(
   doc: PreferencesDocument,
 ): PreferencesStatusElement | null {
-  return doc.getElementById(TAVILY_STATUS_ID) as PreferencesStatusElement | null;
+  return doc.getElementById(
+    TAVILY_STATUS_ID,
+  ) as PreferencesStatusElement | null;
 }
 
-function showValidationDialog(win: Window, title: string, message: string): void {
+function showValidationDialog(
+  win: Window,
+  title: string,
+  message: string,
+): void {
   try {
     Zotero.alert(win, title, message);
   } catch (error) {

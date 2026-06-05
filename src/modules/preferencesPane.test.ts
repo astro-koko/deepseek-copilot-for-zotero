@@ -19,8 +19,14 @@ class FakeEventTarget {
     this.listeners.get(type)?.delete(listener);
   }
 
-  dispatch(type: string) {
-    this.listeners.get(type)?.forEach((listener) => listener({ type }));
+  dispatch(type: string, event: Record<string, unknown> = {}) {
+    this.listeners.get(type)?.forEach((listener) =>
+      listener({
+        type,
+        preventDefault: vi.fn(),
+        ...event,
+      }),
+    );
   }
 
   getListenerCount(type: string) {
@@ -36,6 +42,10 @@ class FakeField extends FakeEventTarget {
 
 class FakeButton extends FakeField {}
 
+class FakeLink extends FakeField {
+  href = "";
+}
+
 class FakeStatusElement {
   textContent = "";
   dataset: Record<string, string> = {};
@@ -50,9 +60,7 @@ class FakeDocument {
     formatValue: vi.fn(async (id: string) => `l10n:${id}`),
   };
 
-  constructor(
-    private readonly elements: Record<string, unknown>,
-  ) {}
+  constructor(private readonly elements: Record<string, unknown>) {}
 
   getElementById(id: string) {
     return (this.elements[id] as HTMLElement | null) ?? null;
@@ -74,6 +82,8 @@ describe("registerPreferencesPane", () => {
   let tavilyValidateButton: FakeButton;
   let tavilyStatus: FakeStatusElement;
   let tavilySettingsRow: FakeField;
+  let deepSeekLink: FakeLink;
+  let tavilyLink: FakeLink;
   let deps: PreferencesPaneDeps;
 
   beforeEach(() => {
@@ -94,6 +104,8 @@ describe("registerPreferencesPane", () => {
     tavilyValidateButton = new FakeButton();
     tavilyStatus = new FakeStatusElement();
     tavilySettingsRow = new FakeField();
+    deepSeekLink = new FakeLink();
+    tavilyLink = new FakeLink();
 
     deps = {
       getSettings: vi.fn(() => ({
@@ -124,9 +136,13 @@ describe("registerPreferencesPane", () => {
       "zotero-ai-assistant-pref-tavily-validate": tavilyValidateButton,
       "zotero-ai-assistant-pref-tavily-status": tavilyStatus,
       "zotero-ai-assistant-pref-tavily-settings": tavilySettingsRow,
+      "zotero-ai-assistant-pref-api-key-link": deepSeekLink,
+      "zotero-ai-assistant-pref-tavily-link": tavilyLink,
     });
 
-    return new FakeWindow(document as unknown as FakeDocument) as unknown as Window;
+    return new FakeWindow(
+      document as unknown as FakeDocument,
+    ) as unknown as Window;
   }
 
   it("hydrates field values from settings on load", () => {
@@ -152,7 +168,30 @@ describe("registerPreferencesPane", () => {
     expect(evidenceProviderField.getListenerCount("change")).toBe(1);
     expect(evidenceProviderField.getListenerCount("command")).toBe(1);
     expect(tavilyValidateButton.getListenerCount("command")).toBe(1);
+    expect(deepSeekLink.getListenerCount("click")).toBe(1);
+    expect(tavilyLink.getListenerCount("click")).toBe(1);
     expect(deps.saveSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the DeepSeek and Tavily signup links through Zotero.launchURL", () => {
+    (Zotero as any).launchURL = vi.fn();
+    registerPreferencesPane(createWindow(), deps);
+
+    const deepSeekEvent = { preventDefault: vi.fn() };
+    const tavilyEvent = { preventDefault: vi.fn() };
+    deepSeekLink.dispatch("click", deepSeekEvent);
+    tavilyLink.dispatch("click", tavilyEvent);
+
+    expect((Zotero as any).launchURL).toHaveBeenNthCalledWith(
+      1,
+      "https://platform.deepseek.com/",
+    );
+    expect((Zotero as any).launchURL).toHaveBeenNthCalledWith(
+      2,
+      "https://app.tavily.com/",
+    );
+    expect(deepSeekEvent.preventDefault).toHaveBeenCalledTimes(1);
+    expect(tavilyEvent.preventDefault).toHaveBeenCalledTimes(1);
   });
 
   it("saves normalized values on change and reports success", async () => {
@@ -205,7 +244,7 @@ describe("registerPreferencesPane", () => {
     });
     expect(status.textContent).toBe("Invalid API key");
     expect(status.dataset.variant).toBe("error");
-    expect((Zotero.alert as any)).toHaveBeenCalledWith(
+    expect(Zotero.alert as any).toHaveBeenCalledWith(
       expect.anything(),
       "DS Copilot Validation Failed",
       "Invalid API key",
@@ -234,8 +273,10 @@ describe("registerPreferencesPane", () => {
     if (!resolveValidation) {
       throw new Error("Expected validation promise resolver to be captured");
     }
-    const finishValidation: (value: { valid: boolean; error?: string }) => void =
-      resolveValidation;
+    const finishValidation: (value: {
+      valid: boolean;
+      error?: string;
+    }) => void = resolveValidation;
     finishValidation({ valid: true });
     await Promise.resolve();
     await Promise.resolve();
@@ -243,7 +284,7 @@ describe("registerPreferencesPane", () => {
 
     expect(status.textContent).toBe("DeepSeek connection looks good");
     expect(status.dataset.variant).toBe("success");
-    expect((Zotero.alert as any)).toHaveBeenCalledWith(
+    expect(Zotero.alert as any).toHaveBeenCalledWith(
       expect.anything(),
       "DS Copilot",
       "DeepSeek connection looks good",
@@ -251,8 +292,8 @@ describe("registerPreferencesPane", () => {
   });
 
   it("uses zh-CN validation copy when Zotero is running in Chinese", async () => {
-    (Zotero.Prefs.get as any).mockImplementation(
-      (key: string) => (key === "intl.locale.requested" ? "zh-CN" : ""),
+    (Zotero.Prefs.get as any).mockImplementation((key: string) =>
+      key === "intl.locale.requested" ? "zh-CN" : "",
     );
     registerPreferencesPane(createWindow(), deps);
 
@@ -261,7 +302,7 @@ describe("registerPreferencesPane", () => {
     await Promise.resolve();
 
     expect(status.textContent).toBe("DeepSeek 连接正常");
-    expect((Zotero.alert as any)).toHaveBeenCalledWith(
+    expect(Zotero.alert as any).toHaveBeenCalledWith(
       expect.anything(),
       "DS Copilot",
       "DeepSeek 连接正常",
@@ -318,21 +359,29 @@ describe("registerPreferencesPane", () => {
     const replacementTavilyValidateButton = new FakeButton();
     const replacementTavilyStatus = new FakeStatusElement();
     const replacementTavilySettingsRow = new FakeField();
+    const replacementDeepSeekLink = new FakeLink();
+    const replacementTavilyLink = new FakeLink();
     const replacementDocument = new FakeDocument({
       "zotero-ai-assistant-prefs": root,
       "zotero-ai-assistant-pref-api-key": replacementApiKeyField,
       "zotero-ai-assistant-pref-save": replacementSaveButton,
       "zotero-ai-assistant-pref-validate": replacementValidateButton,
       "zotero-ai-assistant-pref-status": replacementStatus,
-      "zotero-ai-assistant-pref-evidence-provider": replacementEvidenceProviderField,
+      "zotero-ai-assistant-pref-evidence-provider":
+        replacementEvidenceProviderField,
       "zotero-ai-assistant-pref-tavily-api-key": replacementTavilyApiKeyField,
-      "zotero-ai-assistant-pref-tavily-validate": replacementTavilyValidateButton,
+      "zotero-ai-assistant-pref-tavily-validate":
+        replacementTavilyValidateButton,
       "zotero-ai-assistant-pref-tavily-status": replacementTavilyStatus,
       "zotero-ai-assistant-pref-tavily-settings": replacementTavilySettingsRow,
+      "zotero-ai-assistant-pref-api-key-link": replacementDeepSeekLink,
+      "zotero-ai-assistant-pref-tavily-link": replacementTavilyLink,
     });
 
     registerPreferencesPane(
-      new FakeWindow(replacementDocument as unknown as FakeDocument) as unknown as Window,
+      new FakeWindow(
+        replacementDocument as unknown as FakeDocument,
+      ) as unknown as Window,
       deps,
     );
 
@@ -345,6 +394,8 @@ describe("registerPreferencesPane", () => {
       tavilyApiKey: "",
     });
     expect(replacementSaveButton.getListenerCount("command")).toBe(1);
+    expect(replacementDeepSeekLink.getListenerCount("click")).toBe(1);
+    expect(replacementTavilyLink.getListenerCount("click")).toBe(1);
   });
 
   it("shows the Tavily settings only when the Tavily provider is selected", async () => {

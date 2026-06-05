@@ -14,7 +14,9 @@
 
   <groupbox>
     <caption label="DS Copilot" />
-    <vbox style="display: flex; flex-direction: column; gap: 12px; padding: 8px 0;">
+    <vbox
+      style="display: flex; flex-direction: column; gap: 12px; padding: 8px 0"
+    >
       <description data-l10n-id="ai-assistant-pref-description" />
 
       <hbox align="center">
@@ -22,18 +24,28 @@
           value="DeepSeek API Key"
           data-l10n-id="ai-assistant-pref-api-key-label"
           control="zotero-ai-assistant-pref-api-key"
-          style="width: 120px;"
+          style="width: 120px"
         />
         <html:input
           id="zotero-ai-assistant-pref-api-key"
           type="password"
-          style="flex: 1; min-width: 0;"
+          style="flex: 1; min-width: 0"
         />
       </hbox>
 
       <description data-l10n-id="ai-assistant-pref-api-key-help" />
+      <html:div style="margin-top: -6px">
+        <html:a
+          id="zotero-ai-assistant-pref-api-key-link"
+          href="https://platform.deepseek.com/"
+          data-l10n-id="ai-assistant-pref-api-key-link"
+          style="color: #0a66cc; text-decoration: underline; cursor: pointer"
+        ></html:a>
+      </html:div>
 
-      <hbox style="display: flex; gap: 8px; align-items: center; margin-top: 6px;">
+      <hbox
+        style="display: flex; gap: 8px; align-items: center; margin-top: 6px"
+      >
         <button
           id="zotero-ai-assistant-pref-save"
           label="Save"
@@ -46,59 +58,90 @@
         />
         <description
           id="zotero-ai-assistant-pref-status"
-          style="margin-inline-start: 8px;"
+          style="margin-inline-start: 8px"
         />
       </hbox>
 
-      <separator class="thin"/>
+      <separator class="thin" />
 
       <description data-l10n-id="ai-assistant-pref-evidence-description" />
 
-      <vbox style="display: flex; flex-direction: column; gap: 6px;">
+      <vbox style="display: flex; flex-direction: column; gap: 6px">
         <label
           value="Evidence Provider"
           data-l10n-id="ai-assistant-pref-evidence-provider-label"
           control="zotero-ai-assistant-pref-evidence-provider"
-          style="width: 120px;"
+          style="width: 120px"
         />
-        <radiogroup
+        <html:select
           id="zotero-ai-assistant-pref-evidence-provider"
-          orient="vertical"
+          style="
+            min-width: 320px;
+            max-width: 520px;
+            padding: 6px 8px;
+            border-radius: 6px;
+          "
         >
-          <radio
+          <html:option
             value="mcp-web-search"
-            label="Default web verification (recommended)"
             data-l10n-id="ai-assistant-pref-evidence-provider-builtin"
-          />
-          <radio
+          >
+            Default web verification (recommended, no API key)
+          </html:option>
+          <html:option
             value="tavily"
-            label="Tavily evidence search"
             data-l10n-id="ai-assistant-pref-evidence-provider-tavily"
-          />
-        </radiogroup>
+          >
+            Tavily web verification (requires API key)
+          </html:option>
+        </html:select>
+        <description
+          data-l10n-id="ai-assistant-pref-evidence-provider-help"
+        />
       </vbox>
 
       <vbox
         id="zotero-ai-assistant-pref-tavily-settings"
-        style="display: none; flex-direction: column; gap: 10px;"
+        style="
+          display: none;
+          flex-direction: column;
+          gap: 10px;
+          padding: 12px;
+          border: 1px solid rgba(10, 102, 204, 0.35);
+          border-radius: 8px;
+          background: rgba(10, 102, 204, 0.06);
+        "
       >
+        <description
+          data-l10n-id="ai-assistant-pref-tavily-settings-title"
+          style="font-weight: 600; margin: 0"
+        />
+
         <hbox align="center">
           <label
             value="Tavily API Key"
             data-l10n-id="ai-assistant-pref-tavily-api-key-label"
             control="zotero-ai-assistant-pref-tavily-api-key"
-            style="width: 120px;"
+            style="width: 120px"
           />
           <html:input
             id="zotero-ai-assistant-pref-tavily-api-key"
             type="password"
-            style="flex: 1; min-width: 0;"
+            style="flex: 1; min-width: 0"
           />
         </hbox>
 
         <description data-l10n-id="ai-assistant-pref-tavily-help" />
+        <html:div style="margin-top: -4px">
+          <html:a
+            id="zotero-ai-assistant-pref-tavily-link"
+            href="https://app.tavily.com/"
+            data-l10n-id="ai-assistant-pref-tavily-link"
+            style="color: #0a66cc; text-decoration: underline; cursor: pointer"
+          ></html:a>
+        </html:div>
 
-        <hbox style="display: flex; gap: 8px; align-items: center;">
+        <hbox style="display: flex; gap: 8px; align-items: center">
           <button
             id="zotero-ai-assistant-pref-tavily-validate"
             label="Validate Tavily"
@@ -106,7 +149,7 @@
           />
           <description
             id="zotero-ai-assistant-pref-tavily-status"
-            style="margin-inline-start: 8px;"
+            style="margin-inline-start: 8px"
           />
         </hbox>
       </vbox>

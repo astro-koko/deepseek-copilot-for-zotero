@@ -17,12 +17,26 @@ Use [docs/zotero-dev-workbench.md](/Users/Liang/project/agentpaper_zotero/docs/z
 9. Set `ZOTERO_DEBUGGER=1` only when you need `-ZoteroDebugText` and `-jsdebugger`.
 
 `npm start` uses the scaffold dev server to:
+
 - start Zotero against the dedicated dev profile
 - reuse the configured data directory
 - install DS Copilot in proxy mode so it is visible in the plugin list
 - preload the dev profile with DeepSeek and optional evidence-search prefs before Zotero starts
 
 `npm start` is only for rapid iteration. A change is not accepted until the built `.xpi` is imported through Zotero's plugin manager and the frontend survives a full Zotero restart.
+
+## Public GitHub release smoke
+
+公开 GitHub release 不要复用开发期 profile，也不要把本地 `.env` 里的 key 预灌进 smoke 环境。
+
+推荐约束：
+
+1. 使用一个全新的 clean profile，例如 `/absolute/path/to/agentpaper_zotero/.scaffold/release-profile`。
+2. 同时使用一个全新的 Zotero data directory；如果继续指向你原来的 `extensions.zotero.dataDir`，插件最近会话仍会从同一套 Zotero 数据库里读出来。
+3. 公开 release smoke 时不要设置 `DEEPSEEK_API_KEY`、`TAVILY_API_KEY`、`DS_COPILOT_EVIDENCE_PROVIDER`、`DS_COPILOT_EVIDENCE_ENABLED`。
+4. 不要复用 `.scaffold/profile`、`.scaffold/dev-profile`、现有 `Zotero` 日常 profile，或任何已有 `threads` 数据库。
+5. 先安装打包出来的 `.xpi`，确认设置页默认不会带出你的本地 API key，也不会显示旧测试会话。
+6. 如果需要验证真实 provider round-trip，再在 Zotero Settings 里手动录入临时测试 key，并在 smoke 后清理。
 
 ## Current frontend target
 
@@ -90,6 +104,7 @@ Treat the next smoke run as an evidence-collection pass, not a vibe check. Captu
 16. Type a manual message in Reader and verify whether `Send` creates a visible active thread.
 17. Restart Zotero and re-check plugin list, settings pane, Library host, Reader host, and Reader handoff.
 18. Treat any top-toolbar-only discovery, including a truncated `D...` artifact, as a release-blocking surface regression.
+19. For public release smoke, confirm the clean profile starts without prefilled API keys and without restored test threads before entering any temporary credentials.
 
 ## Runtime evidence
 
@@ -156,6 +171,8 @@ Isolation order:
 ## Release validation
 
 - Use Zotero's plugin manager to install the built `.xpi` into the dedicated dev profile.
+- For public GitHub release validation, switch to a separate clean profile such as `.scaffold/release-profile` instead of the dev profile.
 - `npm start` proxy mode is never enough for release acceptance.
 - Do not validate releases by copying files into `extensions/` or editing Zotero registry files by hand.
 - The acceptance surface is the native right-side Zotero pane entry in Library and Reader; any toolbar-only DS Copilot entry fails release UX acceptance.
+- Do not preload API keys or old thread history into the public release smoke profile.

@@ -2,6 +2,7 @@ import React from "react";
 import { EventBus } from "../utils/eventBus";
 import { getLocaleID } from "../utils/locale";
 import { Sidebar } from "./components/Sidebar";
+import { getCurrentScope } from "../services/scopeResolver";
 import {
   attachSidebarHost,
   createFallbackSidebarHost,
@@ -10,7 +11,6 @@ import {
   type SidebarLocation,
   type SidebarSurfaceHost,
 } from "./sidebarSection";
-import { getCurrentScope } from "../services/scopeResolver";
 import { registerSidebarRefreshHandler } from "./sidebarRuntime";
 
 interface AIAssistantWindow extends Window {
@@ -44,7 +44,6 @@ interface SectionRenderBody {
 const SECTION_PANE_ID = "ai-assistant-sidebar";
 const LIBRARY_HOST_ID = "ai-assistant-pane-library-mount";
 const READER_HOST_ID = "ai-assistant-pane-reader-mount";
-const SURFACE_DIAGNOSTIC_PATH = "/tmp/ds-copilot-surface-state.json";
 const LEGACY_STANDALONE_ARTIFACT_IDS = [
   "ai-assistant-library-empty-state",
   "ai-assistant-library-empty-state-sidenav-btn",
@@ -53,10 +52,15 @@ const LEGACY_STANDALONE_ARTIFACT_IDS = [
 
 const windowHosts = new WeakMap<AIAssistantWindow, SidebarHostState>();
 const windowRefreshCleanup = new WeakMap<AIAssistantWindow, () => void>();
-const windowSectionRefresh = new WeakMap<AIAssistantWindow, () => Promise<void>>();
+const windowSectionRefresh = new WeakMap<
+  AIAssistantWindow,
+  () => Promise<void>
+>();
+const windowScopeRetryTimer = new WeakMap<AIAssistantWindow, number>();
 
 let sectionRegistered = false;
-let reactDomClientPromise: Promise<typeof import("react-dom/client")> | null = null;
+let reactDomClientPromise: Promise<typeof import("react-dom/client")> | null =
+  null;
 
 export class UIFactory {
   static registerChatPanel(win: AIAssistantWindow) {
@@ -79,6 +83,7 @@ export class UIFactory {
       windowHosts.delete(win);
     }
 
+    this.clearScopeRetryTimer(win);
     this.removeTabSelectionRefreshRegistration(win);
     windowRefreshCleanup.get(win)?.();
     windowRefreshCleanup.delete(win);
@@ -87,8 +92,7 @@ export class UIFactory {
   }
 
   static refreshWindow(win: AIAssistantWindow) {
-    const selectedType = this.getSelectedLocation(win);
-    this.writeSurfaceDiagnostic(win, true, selectedType);
+    void win;
   }
 
   static refreshAllWindows() {
@@ -133,11 +137,16 @@ export class UIFactory {
         icon: `chrome://${addon.data.config.addonRef}/content/icons/icon-20.png`,
       },
       onInit: ({ setEnabled, tabType, body, refresh }) => {
-        setEnabled(this.shouldEnableSection(tabType || "", body as SectionRenderBody));
+        setEnabled(
+          this.shouldEnableSection(tabType || "", body as SectionRenderBody),
+        );
         this.registerSectionRefresh(body as SectionRenderBody, refresh);
       },
       onItemChange: ({ setEnabled, tabType, body }) => {
-        setEnabled(this.shouldEnableSection(tabType || "", body as SectionRenderBody));
+        setEnabled(
+          this.shouldEnableSection(tabType || "", body as SectionRenderBody),
+        );
+        this.syncSectionScope(body as SectionRenderBody, tabType || "");
         return true;
       },
       onRender: ({ body, tabType }) => {
@@ -158,10 +167,7 @@ export class UIFactory {
     return this.resolveSectionLocation(tabType, body) != null;
   }
 
-  private static renderSectionBody(
-    body: SectionRenderBody,
-    tabType: string,
-  ) {
+  private static renderSectionBody(body: SectionRenderBody, tabType: string) {
     const location = this.resolveSectionLocation(tabType, body);
     if (!location) {
       body.replaceChildren();
@@ -175,7 +181,9 @@ export class UIFactory {
       this.renderBootstrapFailure(
         host,
         location,
-        new Error("DS Copilot could not access the Zotero window while rendering."),
+        new Error(
+          "DS Copilot could not access the Zotero window while rendering.",
+        ),
       );
       return;
     }
@@ -188,23 +196,24 @@ export class UIFactory {
       delete hosts[location];
     }
 
-    const host =
-      hosts[location] ??
-      {
-        attachmentTarget: "section-body" as const,
-        mountPoint: sectionBody,
-        reactRoot: null,
-        reactRootElement: sectionBody,
-        bootstrapped: false,
-        bootstrappingPromise: null,
-      };
+    const host = hosts[location] ?? {
+      attachmentTarget: "section-body" as const,
+      mountPoint: sectionBody,
+      reactRoot: null,
+      reactRootElement: sectionBody,
+      bootstrapped: false,
+      bootstrappingPromise: null,
+    };
     host.attachmentTarget = "section-body";
     hosts[location] = host;
 
     host.mountPoint.style.display = "flex";
 
     void this.ensureHostBootstrapped(win, host, location).catch((error) => {
-      ztoolkit.log(`Failed to bootstrap DS Copilot ${location} section host:`, error);
+      ztoolkit.log(
+        `Failed to bootstrap DS Copilot ${location} section host:`,
+        error,
+      );
       this.renderBootstrapFailure(host, location, error);
     });
   }
@@ -244,7 +253,10 @@ export class UIFactory {
         `${addon.data.config.addonID}-ui-tab-refresh`,
       );
     } catch (error) {
-      ztoolkit.log("Failed to register DS Copilot tab refresh observer:", error);
+      ztoolkit.log(
+        "Failed to register DS Copilot tab refresh observer:",
+        error,
+      );
       win.__aiAssistantTabObserverId = null;
     }
   }
@@ -290,7 +302,58 @@ export class UIFactory {
     windowSectionRefresh.set(win, refresh);
   }
 
-  private static async requestSectionRefresh(win: AIAssistantWindow): Promise<void> {
+  private static syncSectionScope(body: SectionRenderBody, tabType: string) {
+    const win = body.ownerDocument.defaultView as AIAssistantWindow | null;
+    const eventBus = win?.__aiAssistantEventBus ?? EventBus.getInstance();
+    const initialScope = getCurrentScope();
+    this.dispatchScopeChange(eventBus, initialScope);
+
+    if (!win || this.resolveSectionLocation(tabType, body) !== "library") {
+      return;
+    }
+
+    this.clearScopeRetryTimer(win);
+    const retryTimer = win.setTimeout(() => {
+      this.clearScopeRetryTimer(win);
+      const retriedScope = getCurrentScope();
+      if (!this.areScopesEquivalent(initialScope, retriedScope)) {
+        this.dispatchScopeChange(eventBus, retriedScope);
+      }
+    }, 100);
+    windowScopeRetryTimer.set(win, retryTimer);
+  }
+
+  private static dispatchScopeChange(
+    eventBus: EventTarget,
+    scope: ReturnType<typeof getCurrentScope>,
+  ) {
+    eventBus.dispatchEvent(
+      new CustomEvent("scopeChange", {
+        detail: scope,
+      }),
+    );
+  }
+
+  private static areScopesEquivalent(
+    left: ReturnType<typeof getCurrentScope>,
+    right: ReturnType<typeof getCurrentScope>,
+  ): boolean {
+    return left?.type === right?.type && left?.id === right?.id;
+  }
+
+  private static clearScopeRetryTimer(win: AIAssistantWindow) {
+    const retryTimer = windowScopeRetryTimer.get(win);
+    if (retryTimer == null) {
+      return;
+    }
+
+    win.clearTimeout(retryTimer);
+    windowScopeRetryTimer.delete(win);
+  }
+
+  private static async requestSectionRefresh(
+    win: AIAssistantWindow,
+  ): Promise<void> {
     try {
       await windowSectionRefresh.get(win)?.();
     } catch (error) {
@@ -348,195 +411,17 @@ export class UIFactory {
       return direct;
     }
 
-    const win = body?.ownerDocument?.defaultView as AIAssistantWindow | null | undefined;
+    const win = body?.ownerDocument?.defaultView as
+      | AIAssistantWindow
+      | null
+      | undefined;
     return win ? this.getSelectedLocation(win) : null;
   }
 
-  private static getSelectedLocation(win: AIAssistantWindow): SidebarLocation | null {
-    return resolveSidebarLocation(win.Zotero_Tabs?.selectedType || "");
-  }
-
-  private static writeSurfaceDiagnostic(
+  private static getSelectedLocation(
     win: AIAssistantWindow,
-    visible: boolean,
-    selectedLocation: SidebarLocation | null,
-  ) {
-    try {
-      const doc = win.document;
-      const summarizeNode = (id: string) => {
-        const element = doc.getElementById(id) as HTMLElement | null;
-        if (!element) {
-          return null;
-        }
-
-        const rect =
-          typeof element.getBoundingClientRect === "function"
-            ? element.getBoundingClientRect()
-            : null;
-
-        return {
-          id,
-          parent: element.parentElement?.id || element.parentElement?.tagName || null,
-          display: element.style.display || "",
-          hidden: Boolean(element.hidden),
-          selected: element.getAttribute("selected"),
-          ariaPressed: element.getAttribute("aria-pressed"),
-          rect: rect
-            ? {
-                width: rect.width,
-                height: rect.height,
-              }
-            : null,
-          childIDs: Array.from(element.children).map(
-            (child) => (child as HTMLElement).id || child.tagName,
-          ),
-        };
-      };
-
-      const summarizeChildren = (id: string) => {
-        const element = doc.getElementById(id) as HTMLElement | null;
-        if (!element) {
-          return null;
-        }
-
-        return Array.from(element.children).map((child) => ({
-          id: (child as HTMLElement).id || child.tagName,
-          display: (child as HTMLElement).style?.display || "",
-        }));
-      };
-
-      const summarizeComposer = (mountId: string) => {
-        const mount = doc.getElementById(mountId) as HTMLElement | null;
-        if (!mount) {
-          return null;
-        }
-
-        const findFirstByTag = (node: Element | null, tagName: string): HTMLElement | null => {
-          if (!node) {
-            return null;
-          }
-
-          const normalizedTag = tagName.toUpperCase();
-          if (node.tagName?.toUpperCase() === normalizedTag) {
-            return node as HTMLElement;
-          }
-
-          for (const child of Array.from(node.children)) {
-            const match = findFirstByTag(child, tagName);
-            if (match) {
-              return match;
-            }
-          }
-
-          return null;
-        };
-
-        const collectByTag = (node: Element | null, tagName: string, matches: HTMLElement[] = []): HTMLElement[] => {
-          if (!node) {
-            return matches;
-          }
-
-          const normalizedTag = tagName.toUpperCase();
-          if (node.tagName?.toUpperCase() === normalizedTag) {
-            matches.push(node as HTMLElement);
-          }
-
-          for (const child of Array.from(node.children)) {
-            collectByTag(child, tagName, matches);
-          }
-
-          return matches;
-        };
-
-        const textarea = findFirstByTag(mount, "textarea") as HTMLTextAreaElement | null;
-        const buttons = collectByTag(mount, "button") as HTMLButtonElement[];
-        const sendButton =
-          buttons.find((button) => {
-            const label = button.textContent?.trim().toLowerCase();
-            return label === "send" || label === "发送";
-          }) || null;
-
-        return {
-          textarea: textarea
-            ? {
-                disabled: textarea.disabled,
-                placeholder: textarea.placeholder,
-                value: textarea.value,
-              }
-            : null,
-          sendButton: sendButton
-            ? {
-                disabled: sendButton.disabled,
-                text: sendButton.textContent?.trim() || "",
-              }
-            : null,
-        };
-      };
-
-      const diagnostics = (globalThis as any).__aiAssistantDiagnostics ?? {};
-      const lastProviderRequest = diagnostics.lastProviderRequest ?? null;
-      const composerDiagnostic = diagnostics.composer ?? null;
-      const currentScope = getCurrentScope();
-
-      // TEMP probe for daily-profile host debugging. Remove before release acceptance.
-      const diagnosticTarget =
-        typeof Zotero.File.pathToFile === "function"
-          ? Zotero.File.pathToFile(SURFACE_DIAGNOSTIC_PATH)
-          : SURFACE_DIAGNOSTIC_PATH;
-      Zotero.File.putContents(
-        diagnosticTarget as unknown as nsIFile,
-        JSON.stringify(
-          {
-            timestamp: new Date().toISOString(),
-            visible,
-            selectedType: win.Zotero_Tabs?.selectedType || null,
-            selectedID: (win.Zotero_Tabs as { selectedID?: string | number } | undefined)?.selectedID ?? null,
-            resolvedLocation: selectedLocation,
-            currentScope: currentScope
-              ? {
-                  id: currentScope.id,
-                  itemIds: currentScope.itemIds,
-                  label: currentScope.label,
-                  readerAttachmentId: currentScope.readerAttachmentId ?? null,
-                  type: currentScope.type,
-                }
-              : null,
-            modelState: {
-              lastProviderRequestEndpoint: lastProviderRequest?.endpoint ?? null,
-              lastProviderRequestMessageCount:
-                lastProviderRequest?.messageCount ?? null,
-              lastProviderRequestModel: lastProviderRequest?.model ?? null,
-            },
-            composerState: composerDiagnostic
-              ? {
-                  disabled: composerDiagnostic.disabled ?? null,
-                  input: composerDiagnostic.input ?? null,
-                  isStreaming: composerDiagnostic.isStreaming ?? null,
-                  sendDisabled: composerDiagnostic.sendDisabled ?? null,
-                  timestamp: composerDiagnostic.timestamp ?? null,
-                }
-              : null,
-            itemPaneChildren: summarizeChildren("zotero-item-pane"),
-            contextPaneChildren: summarizeChildren("zotero-context-pane"),
-            nodes: {
-              itemPane: summarizeNode("zotero-item-pane"),
-              contextPane: summarizeNode("zotero-context-pane"),
-              contextPaneInner: summarizeNode("zotero-context-pane-inner"),
-              libraryMount: summarizeNode(LIBRARY_HOST_ID),
-              readerMount: summarizeNode(READER_HOST_ID),
-            },
-            composer: {
-              library: summarizeComposer(LIBRARY_HOST_ID),
-              reader: summarizeComposer(READER_HOST_ID),
-            },
-          },
-          null,
-          2,
-        ),
-      );
-    } catch (error) {
-      ztoolkit.log("Failed to write DS Copilot surface diagnostic:", error);
-    }
+  ): SidebarLocation | null {
+    return resolveSidebarLocation(win.Zotero_Tabs?.selectedType || "");
   }
 
   private static async getReactDomClient(win: AIAssistantWindow) {
@@ -570,7 +455,8 @@ export class UIFactory {
     mountId: string,
     keepMount: HTMLElement,
   ) {
-    const root = (win.document.documentElement || win.document.body) as ParentNode | null;
+    const root = (win.document.documentElement ||
+      win.document.body) as ParentNode | null;
     const staleMounts = this.collectElementsById(root, mountId).filter(
       (element) => element !== keepMount,
     );
@@ -581,7 +467,8 @@ export class UIFactory {
   }
 
   private static removeLegacyStandaloneArtifacts(win: AIAssistantWindow) {
-    const root = (win.document.documentElement || win.document.body) as ParentNode | null;
+    const root = (win.document.documentElement ||
+      win.document.body) as ParentNode | null;
     for (const artifactId of LEGACY_STANDALONE_ARTIFACT_IDS) {
       this.collectElementsById(root, artifactId).forEach((element) => {
         element.remove();
@@ -602,11 +489,7 @@ export class UIFactory {
 
     while (stack.length > 0) {
       const next = stack.shift();
-      if (
-        !next ||
-        typeof next !== "object" ||
-        !("children" in next)
-      ) {
+      if (!next || typeof next !== "object" || !("children" in next)) {
         continue;
       }
 

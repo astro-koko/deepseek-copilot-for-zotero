@@ -1,13 +1,13 @@
 {
   "name": "ds-copilot",
   "type": "module",
-  "version": "0.7.0",
+  "version": "0.9.0",
   "description": "Reading copilot for Zotero powered by the DeepSeek API and scoped to your local papers, PDFs, and collections.",
   "author": "AgentPaper",
-  "homepage": "https://github.com/agentpaper/zotero-ai-assistant#readme",
+  "homepage": "https://github.com/astro-koko/deepseek-copilot-for-zotero#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/agentpaper/zotero-ai-assistant.git"
+    "url": "git+https://github.com/astro-koko/deepseek-copilot-for-zotero.git"
   },
   "config": {
     "addonName": "DS Copilot",

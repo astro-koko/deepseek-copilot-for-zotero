@@ -3,6 +3,7 @@
 This document is the repo-specific workbench for developing and validating DS Copilot inside Zotero.
 
 The default target is:
+
 - Zotero 9 release for daily development and main smoke
 - Zotero 10 beta only for compatibility checks
 
@@ -29,6 +30,7 @@ The intended user-facing surface for this phase is the native Zotero right-side 
 ## Environment baseline
 
 Required local tools:
+
 - Zotero 9 release
 - Zotero 10 beta if you are doing compatibility checks
 - Node.js LTS
@@ -36,6 +38,7 @@ Required local tools:
 - `rg`, `unzip`, `jq`
 
 Required local setup:
+
 1. Copy `.env.example` to `.env`.
 2. Point `ZOTERO_PLUGIN_ZOTERO_BIN_PATH` to the Zotero app binary.
 3. Point `ZOTERO_PLUGIN_PROFILE_PATH` to a dedicated dev profile.
@@ -45,7 +48,19 @@ Required local setup:
 7. Optionally set `DS_COPILOT_EVIDENCE_PROVIDER` to `mcp-web-search` or `tavily`, and `DS_COPILOT_EVIDENCE_ENABLED=1` if you want the sidebar to start with evidence mode enabled.
 
 Optional local setup:
+
 - Set `ZOTERO_DEBUGGER=1` before `npm start` when you need `-ZoteroDebugText` and `-jsdebugger`.
+
+## Public release profile
+
+本地开发 profile 和公开 GitHub release smoke profile 必须分开。
+
+- 开发期可以继续使用 `.scaffold/profile` 或 `.scaffold/dev-profile`，并允许通过 `.env` 预灌测试 key。
+- 公开 release smoke 必须改用一个全新的 clean profile，例如 `.scaffold/release-profile`。
+- 公开 release smoke 还必须搭配一个全新的 Zotero data directory；仅仅切换 profile 但继续指向旧 data dir，会把历史线程和会话一起带回来。
+- 公开 release smoke 时不要设置 `DEEPSEEK_API_KEY`、`TAVILY_API_KEY`、`DS_COPILOT_EVIDENCE_PROVIDER`、`DS_COPILOT_EVIDENCE_ENABLED`。
+- 公开 release smoke 不得复用旧的线程数据库、cookies、或任何带测试聊天记录的 profile 内容。
+- 如果必须验证真实 provider round-trip，只能在 Zotero Settings 里手动录入临时 key，并在 smoke 完成后清理。
 
 ## Three loops
 
@@ -59,6 +74,7 @@ Use this loop when changing services, state, parser logic, persistence, or view 
 4. Do not open Zotero until the behavior is covered by tests.
 
 Use this loop for:
+
 - `src/services/**`
 - `src/types/**`
 - `src/ui/**ViewModel*`
@@ -88,6 +104,7 @@ For host debugging, collect the same runtime evidence each pass:
 - whether the native right-pane content is truly hidden or merely obscured
 
 Prefer these built-in tools:
+
 - `Tools -> Developer -> Run JavaScript`
 - `Help -> Debug Output Logging -> View Output`
 - Browser Toolbox via `ZOTERO_DEBUGGER=1 npm start`
@@ -97,9 +114,10 @@ Prefer these built-in tools:
 Use this loop before calling any change done.
 
 1. Run `npm run check`.
-2. Import the built `.xpi` from Zotero's plugin manager.
-3. Re-run the real smoke checks in Zotero.
-4. Restart Zotero and repeat the critical checks.
+2. For public GitHub release smoke, switch to a clean profile such as `.scaffold/release-profile`.
+3. Import the built `.xpi` from Zotero's plugin manager.
+4. Re-run the real smoke checks in Zotero.
+5. Restart Zotero and repeat the critical checks.
 
 If a change has not passed the packaged `.xpi` loop, it is not complete.
 
@@ -108,6 +126,7 @@ Reloading the dev plugin is allowed only as an iteration tool. It is not accepta
 ## Fixed triage order
 
 Always debug in this order:
+
 1. Add-ons list shows `DS Copilot`
 2. Settings pane exists
 3. Library native host exists and is visibly correct through the right-side pane entry
@@ -117,6 +136,7 @@ Always debug in this order:
 7. Restart Zotero and confirm the same path still works
 
 Do not skip ahead:
+
 - Missing Add-ons entry: inspect install chain only
 - Add-ons exists but no Settings pane: inspect prefs registration and pane wiring
 - Add-ons exists but no sidebar: inspect startup, registration, native host ownership, and mounting
@@ -157,6 +177,7 @@ Do not prioritize disabling unrelated plugins such as `Better BibTeX`, `Add-on M
 Use `docs/zotero-doc-index.md` as the entry point.
 
 Open upstream references when:
+
 - you are unsure whether a behavior is a Zotero host rule vs. a plugin bug
 - you need the canonical scaffold or toolkit workflow
 - you are working on Preferences, Item Pane sections, Reader integration, menu injection, or shutdown cleanup
@@ -164,6 +185,7 @@ Open upstream references when:
 ## What stays out of this workbench
 
 This workbench intentionally does not define:
+
 - provider-specific SSE debugging workflow
 - external MCP server workflows
 - release publishing or auto-update hosting

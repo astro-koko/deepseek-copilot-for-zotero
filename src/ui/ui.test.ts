@@ -4,7 +4,12 @@ const mocks = vi.hoisted(() => ({
   sidebarVisible: vi.fn(() => true),
   registerSidebarRefreshHandler: vi.fn(() => vi.fn()),
   setSidebarVisible: vi.fn(),
-  eventBusGetInstance: vi.fn(() => ({ addEventListener() {}, removeEventListener() {} })),
+  eventBusDispatchEvent: vi.fn(),
+  eventBusGetInstance: vi.fn(() => ({
+    addEventListener() {},
+    dispatchEvent: mocks.eventBusDispatchEvent,
+    removeEventListener() {},
+  })),
   getPref: vi.fn(() => "I"),
   getCurrentScope: vi.fn(() => ({
     id: "paper-17",
@@ -19,7 +24,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock(import("react-dom/client"), async () => {
-  const actual = await vi.importActual<typeof import("react-dom/client")>("react-dom/client");
+  const actual =
+    await vi.importActual<typeof import("react-dom/client")>(
+      "react-dom/client",
+    );
   return {
     ...actual,
     createRoot: mocks.createRoot,
@@ -176,7 +184,9 @@ class FakeElement {
     if (!selector.startsWith("#")) {
       return null;
     }
-    return this.ownerDocument.getElementById(selector.slice(1)) as FakeElement | null;
+    return this.ownerDocument.getElementById(
+      selector.slice(1),
+    ) as FakeElement | null;
   }
 }
 
@@ -280,6 +290,7 @@ describe("UIFactory", () => {
     mocks.registerSidebarRefreshHandler.mockReset();
     mocks.registerSidebarRefreshHandler.mockImplementation(() => vi.fn());
     mocks.setSidebarVisible.mockReset();
+    mocks.eventBusDispatchEvent.mockReset();
     mocks.eventBusGetInstance.mockClear();
     mocks.getPref.mockReset();
     mocks.getPref.mockReturnValue("I");
@@ -367,11 +378,19 @@ describe("UIFactory", () => {
     const win = new FakeWindow();
     win.Zotero_Tabs.selectedType = "library";
     win.ZoteroPane.getSelectedItems = () => [];
-    const sidenav = attachRoot(win.document, win.document.body, "zotero-view-item-sidenav");
+    const sidenav = attachRoot(
+      win.document,
+      win.document.body,
+      "zotero-view-item-sidenav",
+    );
     const buttonContainer = win.document.createElement("div");
     buttonContainer.className = "inherit-flex";
     sidenav.appendChild(buttonContainer);
-    const messagePane = attachRoot(win.document, win.document.body, "zotero-item-message");
+    const messagePane = attachRoot(
+      win.document,
+      win.document.body,
+      "zotero-item-message",
+    );
     (messagePane as any).render = vi.fn((node: unknown) => {
       messagePane.replaceChildren(node);
     });
@@ -381,9 +400,13 @@ describe("UIFactory", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(win.document.getElementById("ai-assistant-library-empty-state")).toBeNull();
     expect(
-      win.document.getElementById("ai-assistant-library-empty-state-sidenav-btn"),
+      win.document.getElementById("ai-assistant-library-empty-state"),
+    ).toBeNull();
+    expect(
+      win.document.getElementById(
+        "ai-assistant-library-empty-state-sidenav-btn",
+      ),
     ).toBeNull();
     expect(messagePane.children).toHaveLength(0);
   });
@@ -393,23 +416,47 @@ describe("UIFactory", () => {
     win.Zotero_Tabs.selectedType = "library";
     win.ZoteroPane.getSelectedItems = () => [];
 
-    const messagePane = attachRoot(win.document, win.document.body, "zotero-item-message");
-    const nativeMessage = attachRoot(win.document, messagePane, "zotero-native-empty-message");
+    const messagePane = attachRoot(
+      win.document,
+      win.document.body,
+      "zotero-item-message",
+    );
+    const nativeMessage = attachRoot(
+      win.document,
+      messagePane,
+      "zotero-native-empty-message",
+    );
     attachRoot(win.document, messagePane, "ai-assistant-library-empty-state");
 
-    const sidenav = attachRoot(win.document, win.document.body, "zotero-view-item-sidenav");
-    attachRoot(win.document, sidenav, "ai-assistant-library-empty-state-sidenav-btn");
+    const sidenav = attachRoot(
+      win.document,
+      win.document.body,
+      "zotero-view-item-sidenav",
+    );
+    attachRoot(
+      win.document,
+      sidenav,
+      "ai-assistant-library-empty-state-sidenav-btn",
+    );
 
-    const toolbar = attachRoot(win.document, win.document.body, "zotero-items-toolbar");
+    const toolbar = attachRoot(
+      win.document,
+      win.document.body,
+      "zotero-items-toolbar",
+    );
     attachRoot(win.document, toolbar, "zotero-ai-assistant-tb-chat-toggle");
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(win.document.getElementById("ai-assistant-library-empty-state")).toBeNull();
     expect(
-      win.document.getElementById("ai-assistant-library-empty-state-sidenav-btn"),
+      win.document.getElementById("ai-assistant-library-empty-state"),
+    ).toBeNull();
+    expect(
+      win.document.getElementById(
+        "ai-assistant-library-empty-state-sidenav-btn",
+      ),
     ).toBeNull();
     expect(
       win.document.getElementById("zotero-ai-assistant-tb-chat-toggle"),
@@ -417,50 +464,20 @@ describe("UIFactory", () => {
     expect(messagePane.children).toEqual([nativeMessage]);
   });
 
-  it("writes host diagnostics including selected tab state and model evidence for smoke collection", async () => {
+  it("does not write release-only host diagnostics during refresh", async () => {
     const win = new FakeWindow();
     mainWindows.push(win);
     win.Zotero_Tabs.selectedType = "reader";
     (win.Zotero_Tabs as any).selectedID = "reader-tab-7";
-
-    (globalThis as any).__aiAssistantDiagnostics = {
-      lastProviderRequest: {
-        endpoint: "https://api.deepseek.com/chat/completions",
-        messageCount: 3,
-        model: "deepseek-v4-pro",
-        stream: true,
-      },
-    };
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
     UIFactory.refreshWindow(win as unknown as Window & typeof globalThis);
     await Promise.resolve();
     await Promise.resolve();
 
-    const putContents = (globalThis as any).Zotero.File.putContents as ReturnType<typeof vi.fn>;
-    const latestCall = putContents.mock.calls.at(-1) ?? [];
-    const latestPayload = [...latestCall]
-      .reverse()
-      .find((value) => typeof value === "string");
-    expect(typeof latestPayload).toBe("string");
-
-    const parsed = JSON.parse(String(latestPayload));
-    expect(parsed.selectedType).toBe("reader");
-    expect(parsed.selectedID).toBe("reader-tab-7");
-    expect(parsed.currentScope).toEqual({
-      id: "paper-17",
-      itemIds: [17],
-      label: "Scope Probe",
-      readerAttachmentId: null,
-      type: "paper",
-    });
-    expect(parsed.modelState).toEqual({
-      lastProviderRequestEndpoint: "https://api.deepseek.com/chat/completions",
-      lastProviderRequestModel: "deepseek-v4-pro",
-      lastProviderRequestMessageCount: 3,
-    });
-    expect(parsed.nodes.libraryMount).toBeNull();
-    expect(parsed.nodes.readerMount).toBeNull();
+    const putContents = (globalThis as any).Zotero.File
+      .putContents as ReturnType<typeof vi.fn>;
+    expect(putContents).toHaveBeenCalledTimes(0);
   });
 
   it("does not mutate native pane collapsed state in section-body mode", async () => {
@@ -545,7 +562,11 @@ describe("UIFactory", () => {
 
   it("does not render fallback content when a native pane exists", () => {
     const win = new FakeWindow();
-    const libraryPane = attachRoot(win.document, win.document.body, "zotero-item-pane");
+    const libraryPane = attachRoot(
+      win.document,
+      win.document.body,
+      "zotero-item-pane",
+    );
     attachRoot(win.document, libraryPane, "native-library-content");
     win.ZoteroPane.getSelectedItems = () => [{}];
 
@@ -574,7 +595,11 @@ describe("UIFactory", () => {
     const win = new FakeWindow();
     mainWindows.push(win);
     win.ZoteroPane.getSelectedItems = () => [];
-    const messagePane = attachRoot(win.document, win.document.body, "zotero-item-message");
+    const messagePane = attachRoot(
+      win.document,
+      win.document.body,
+      "zotero-item-message",
+    );
     (messagePane as any).render = vi.fn((node: unknown) => {
       messagePane.replaceChildren(node);
     });
@@ -585,13 +610,17 @@ describe("UIFactory", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(win.document.getElementById("ai-assistant-library-empty-state")).toBeNull();
+    expect(
+      win.document.getElementById("ai-assistant-library-empty-state"),
+    ).toBeNull();
     expect(messagePane.children).toHaveLength(0);
 
     win.ZoteroPane.getSelectedItems = () => [{}];
     UIFactory.refreshWindow(win as unknown as Window & typeof globalThis);
 
-    expect(win.document.getElementById("ai-assistant-library-empty-state")).toBeNull();
+    expect(
+      win.document.getElementById("ai-assistant-library-empty-state"),
+    ).toBeNull();
     expect(messagePane.children).toHaveLength(0);
   });
 
@@ -599,7 +628,11 @@ describe("UIFactory", () => {
     const win = new FakeWindow();
     mainWindows.push(win);
     win.ZoteroPane.getSelectedItems = () => [];
-    const messagePane = attachRoot(win.document, win.document.body, "zotero-item-message");
+    const messagePane = attachRoot(
+      win.document,
+      win.document.body,
+      "zotero-item-message",
+    );
     (messagePane as any).render = vi.fn((node: unknown) => {
       messagePane.replaceChildren(node);
     });
@@ -609,11 +642,15 @@ describe("UIFactory", () => {
     UIFactory.refreshWindow(win as unknown as Window & typeof globalThis);
     await Promise.resolve();
     await Promise.resolve();
-    expect(win.document.getElementById("ai-assistant-library-empty-state")).toBeNull();
+    expect(
+      win.document.getElementById("ai-assistant-library-empty-state"),
+    ).toBeNull();
 
     UIFactory.removeChatPanel(win as unknown as Window & typeof globalThis);
 
-    expect(win.document.getElementById("ai-assistant-library-empty-state")).toBeNull();
+    expect(
+      win.document.getElementById("ai-assistant-library-empty-state"),
+    ).toBeNull();
     expect(messagePane.children).toHaveLength(0);
   });
 
@@ -673,10 +710,22 @@ describe("UIFactory", () => {
 
   it("registers the right-side item pane section as the primary visible entry point", () => {
     const win = new FakeWindow();
-    const libraryPane = attachRoot(win.document, win.document.body, "zotero-item-pane");
+    const libraryPane = attachRoot(
+      win.document,
+      win.document.body,
+      "zotero-item-pane",
+    );
     attachRoot(win.document, libraryPane, "native-library-content");
-    const readerOuter = attachRoot(win.document, win.document.body, "zotero-context-pane");
-    const readerInner = attachRoot(win.document, readerOuter, "zotero-context-pane-inner");
+    const readerOuter = attachRoot(
+      win.document,
+      win.document.body,
+      "zotero-context-pane",
+    );
+    const readerInner = attachRoot(
+      win.document,
+      readerOuter,
+      "zotero-context-pane-inner",
+    );
     attachRoot(win.document, readerInner, "native-reader-content");
     win.ZoteroPane.getSelectedItems = () => [{}];
 
@@ -797,9 +846,17 @@ describe("UIFactory", () => {
     });
 
     const registerObserverMock = mocks.registerObserver as unknown as {
-      mock: { calls: Array<[{
-        notify: (event: string, type: string) => void;
-      }, string[], string]> };
+      mock: {
+        calls: Array<
+          [
+            {
+              notify: (event: string, type: string) => void;
+            },
+            string[],
+            string,
+          ]
+        >;
+      };
     };
     const observerCallback = registerObserverMock.mock.calls[0]?.[0];
     expect(observerCallback).toBeTruthy();
@@ -813,5 +870,111 @@ describe("UIFactory", () => {
 
     UIFactory.removeChatPanel(win as unknown as Window & typeof globalThis);
     expect(mocks.unregisterObserver).toHaveBeenCalledWith("tab-observer-id");
+  });
+
+  it("pushes the latest library scope to the mounted sidebar when the native item pane selection changes", async () => {
+    const win = new FakeWindow();
+    mainWindows.push(win);
+    win.Zotero_Tabs.selectedType = "library";
+    win.ZoteroPane.getSelectedItems = () => [{}];
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+    const body = win.document.createElement("vbox");
+    body.ownerDocument = win.document;
+    const setEnabled = vi.fn();
+
+    sectionConfig.onRender({
+      body,
+      tabType: "library",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    mocks.eventBusDispatchEvent.mockClear();
+    mocks.getCurrentScope.mockReturnValue({
+      id: "paper-202",
+      itemIds: [202],
+      label: "Fresh Library Paper",
+      type: "paper",
+    });
+
+    sectionConfig.onItemChange({
+      body,
+      setEnabled,
+      tabType: "library",
+    });
+
+    expect(setEnabled).toHaveBeenCalledWith(true);
+    expect(mocks.eventBusDispatchEvent).toHaveBeenCalledTimes(1);
+    const dispatchedEvent = mocks.eventBusDispatchEvent.mock.calls[0]?.[0] as CustomEvent;
+    expect(dispatchedEvent.type).toBe("scopeChange");
+    expect(dispatchedEvent.detail).toEqual({
+      id: "paper-202",
+      itemIds: [202],
+      label: "Fresh Library Paper",
+      type: "paper",
+    });
+  });
+
+  it("retries library scope sync when the first item-pane pass still sees the previous paper", async () => {
+    const win = new FakeWindow();
+    mainWindows.push(win);
+    win.Zotero_Tabs.selectedType = "library";
+    win.ZoteroPane.getSelectedItems = () => [{}];
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+    const body = win.document.createElement("vbox");
+    body.ownerDocument = win.document;
+    const setEnabled = vi.fn();
+
+    sectionConfig.onRender({
+      body,
+      tabType: "library",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    mocks.eventBusDispatchEvent.mockClear();
+    mocks.getCurrentScope
+      .mockReturnValueOnce({
+        id: "paper-101",
+        itemIds: [101],
+        label: "Old Library Paper",
+        type: "paper",
+      })
+      .mockReturnValueOnce({
+        id: "paper-202",
+        itemIds: [202],
+        label: "Fresh Library Paper",
+        type: "paper",
+      });
+
+    sectionConfig.onItemChange({
+      body,
+      setEnabled,
+      tabType: "library",
+    });
+
+    expect(setEnabled).toHaveBeenCalledWith(true);
+    expect(mocks.eventBusDispatchEvent).toHaveBeenCalledTimes(2);
+    const dispatchedEvents = mocks.eventBusDispatchEvent.mock.calls.map(
+      (call) => call[0] as CustomEvent,
+    );
+    expect(dispatchedEvents[0]?.detail).toEqual({
+      id: "paper-101",
+      itemIds: [101],
+      label: "Old Library Paper",
+      type: "paper",
+    });
+    expect(dispatchedEvents[1]?.detail).toEqual({
+      id: "paper-202",
+      itemIds: [202],
+      label: "Fresh Library Paper",
+      type: "paper",
+    });
   });
 });
