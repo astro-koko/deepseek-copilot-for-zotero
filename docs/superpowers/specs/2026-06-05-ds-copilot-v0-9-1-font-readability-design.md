@@ -1,106 +1,106 @@
-# DS Copilot v0.9.1 Font Readability Design
+# DS Copilot v0.9.1 字体可读性设计
 
-## Status
+## 状态
 
-Approved design for a small readability-focused UI pass.
+已确认方向，属于一次聚焦可读性的小版本设计。
 
-## Goal
+## 目标
 
-Ship `v0.9.1` as a narrow, user-visible polish release that makes DS Copilot's default font sizing feel slightly more readable across the Zotero sidebar surfaces without introducing a new settings control or a separate plugin-specific font scaling system.
+将本次修改作为 `v0.9.1` 发布，聚焦解决 DS Copilot 默认字体“略小、略挤”的使用反馈，让 Zotero 侧边栏里的主要阅读与输入体验更舒适一些，同时不新增新的字体设置项，也不额外引入一套插件私有的字体缩放系统。
 
-## Context
+## 背景
 
-User feedback indicates that the current DS Copilot UI reads slightly too small in daily use.
+已有用户反馈当前 DS Copilot 的界面字体偏小，日常使用时阅读压力稍高。
 
-The current frontend uses many hard-coded `10px`, `11px`, and `12px` font sizes across sidebar, composer, message rendering, and support surfaces. This creates two problems:
+从现有实现来看，前端里分散存在大量硬编码的 `10px`、`11px`、`12px` 字号，主要分布在侧边栏、消息区、输入区和辅助提示区域。这带来两个问题：
 
-- the default reading experience feels cramped
-- future font-related adjustments would require touching many disconnected literals again
+- 默认阅读体验偏紧凑
+- 后续如果还想继续优化字号，需要在多个文件里重复修改零散字面量
 
-Zotero itself already treats font size as a host-level concern:
+与此同时，Zotero 自身已经把字体大小视为宿主级能力：
 
-- the official knowledge base documents `View -> Font Size` and `View -> Note Font Size`
-- hidden preferences include `extensions.zotero.fontSize` and `note.fontSize`
+- 官方知识库明确提供 `View -> Font Size` 与 `View -> Note Font Size`
+- hidden preferences 中也存在 `extensions.zotero.fontSize` 与 `note.fontSize`
 
-Other Zotero plugins also tend to either follow Zotero's host-level controls or expose narrowly scoped font sizing only for a distinct reading surface, rather than building a broad parallel scaling system for all plugin UI.
+其他 Zotero 插件通常也遵循类似思路：要么跟随 Zotero 的宿主心智，要么只在某个明确的阅读表面上做局部字号控制，而不是为整套插件 UI 再平行造一套通用缩放系统。
 
-This suggests that the right move for this pass is to improve the DS Copilot default sizing while keeping the interaction model simple and host-friendly.
+因此，这一轮更合适的方向是：先把 DS Copilot 的默认字号整体抬高一点，让开箱体验更顺眼，同时把相关实现收敛得更容易维护。
 
-## Scope
+## 范围
 
-This pass covers:
+本次修改包括：
 
-- slightly increasing DS Copilot's default font sizes across the primary sidebar experience
-- consolidating repeated font-size literals into a small shared set of size tiers where practical
-- adjusting supporting line-height and spacing where needed so the larger text still feels calm
-- bumping the project version from `0.9.0` to `0.9.1`
+- 将 DS Copilot 主要侧边栏体验中的默认字体适度调大
+- 在可行范围内，把重复出现的字号字面量收敛成少量共享档位
+- 在字号上调时同步微调行高与间距，避免文字变大后界面显得拥挤
+- 将项目版本从 `0.9.0` 升级到 `0.9.1`
 
-This pass does not cover:
+本次修改不包括：
 
-- adding a user-facing `Small / Medium / Large` font setting
-- wiring DS Copilot directly to Zotero's global font-size preference values
-- a broader visual redesign
-- changing copy, prompts, or feature behavior unrelated to readability
-- changing Zotero native preferences pane typography unless a DS Copilot-owned custom element is clearly too small
+- 新增用户可选的 `小 / 中 / 大` 字体设置
+- 直接把 DS Copilot 绑定到 Zotero 全局字体偏好值
+- 更大范围的视觉改版
+- 修改与可读性无关的功能、文案或交互行为
+- 主动调整 Zotero 原生设置页控件的字体，除非发现某个明显属于 DS Copilot 自己控制的元素仍然过小
 
-## Core Decision
+## 核心决策
 
-Use a default-only readability uplift for `v0.9.1`.
+`v0.9.1` 采用“只提升默认体验，不新增设置项”的方案。
 
-That means:
+这意味着：
 
-- DS Copilot becomes slightly easier to read out of the box
-- the plugin does not add another settings decision for the user
-- the implementation prepares the codebase for a future font-size option if user demand continues
+- DS Copilot 开箱默认更易读
+- 用户不需要为这次小优化多做一个设置决定
+- 代码结构会顺手为未来可能的字体选项打一点基础，但这一轮不把它做出来
 
-This is preferred over adding a new setting now because:
+之所以优先选这条路，是因为：
 
-- the user request is for a small default increase
-- Zotero already has an existing mental model for global font changes
-- the current codebase will benefit more from style consolidation than from another preference surface
+- 当前需求本身就是“默认稍微调大一点”
+- Zotero 已经有自己的全局字体调整心智
+- 现阶段比起增加偏好项，更值得先解决的是现有字号分散、过小的问题
 
-## Design
+## 设计
 
-### 1. Target surfaces
+### 1. 目标表面
 
-Adjust DS Copilot-owned text on the surfaces that make up the main daily reading loop:
+优先调整 DS Copilot 自己掌控、且构成日常使用主路径的文本区域：
 
-- sidebar header and metadata
-- current scope summary
-- notices and badges
-- recent thread list and thread actions
-- empty state copy
-- composer textarea, helper text, and preset UI
-- thread message rendering, including markdown headings, lists, tables, and code blocks
-- selection popup buttons and any DS Copilot-owned inline labels that still read too small
+- 侧边栏头部与其元信息
+- 当前 scope 摘要区域
+- notice、badge、提示条
+- 最近线程列表与线程操作按钮
+- 空状态文案
+- composer 输入框、辅助文案与预设菜单
+- 聊天消息渲染区域，包括 markdown 标题、列表、表格与代码块
+- 选中文本后的 popup 按钮，以及仍然明显偏小的 DS Copilot 自有标签
 
-Do not treat the Zotero native preferences pane controls as the primary target for this pass. Those controls already inherit host styling and are not the main source of the readability complaint.
+本轮不把 Zotero 原生设置页控件作为主要优化目标。设置页大多继承宿主样式，并不是这次“字体偏小”反馈的主要来源。
 
-### 2. Typography strategy
+### 2. 字体策略
 
-Avoid a blanket mechanical `+1px` across every literal. Instead, move the UI one step toward a more readable hierarchy:
+不建议简单粗暴地把所有字号统一机械 `+1px`。更合适的做法是顺着阅读层级整体抬一档：
 
-- primary body text should generally move from `12px` to `13px`
-- common secondary text should generally move from `11px` to `12px`
-- tiny uppercase or badge-style labels should generally move from `10px` to `11px`
-- heading levels in rendered markdown should shift up together so hierarchy stays intact
+- 主体正文一般从 `12px` 提升到 `13px`
+- 常见次级说明一般从 `11px` 提升到 `12px`
+- 很小的标签或全大写辅助文本一般从 `10px` 提升到 `11px`
+- markdown 渲染里的标题层级一起顺移，保持层次关系不变
 
-Where text size increases, line-height should remain generous enough for dense academic content. Tight button rows and compact badges may also need minor padding adjustments so the UI does not feel cramped.
+在字号变大的同时，相关区域的 `line-height` 需要保持足够宽松，尤其是面向论文内容的长文本区域。某些紧凑的按钮行、badge 或列表项，可能还需要轻微增加 padding，避免出现“字大了但挤成一团”的情况。
 
-### 3. Code structure
+### 3. 代码结构
 
-Where the current files use repeated inline font-size literals, introduce a lightweight shared size vocabulary instead of continuing to hard-code one-off values everywhere.
+对当前已经分散在多个文件里的字号字面量，不继续维持“一处一个 magic number”的方式，而是引入一个轻量的共享字号层级。
 
-This can stay intentionally small, for example:
+这一层不需要做成完整设计系统，只需要足够支撑这次改动，例如：
 
 - `xs`
 - `sm`
 - `md`
 - `lg`
 
-The goal is not a full design-token framework. The goal is to reduce repeated magic numbers in the DS Copilot surfaces that are being adjusted now.
+目标不是搭建庞大的 token 体系，而是在处理这一轮可读性问题时，顺手把最常见的字号收敛起来，减少后续重复劳动。
 
-The likely implementation center is the React UI layer:
+这次实现的重点预计仍在 React UI 层：
 
 - `src/ui/components/Sidebar.tsx`
 - `src/ui/components/Composer.tsx`
@@ -108,21 +108,21 @@ The likely implementation center is the React UI layer:
 - `src/ui/components/EmptyState.tsx`
 - `src/ui/components/ScopeBar.tsx`
 
-Secondary review targets:
+次级检查目标：
 
 - `addon/content/styles.css`
 - `src/modules/readerIntegration.ts`
-- `src/ui/ui.ts` if any legacy DS Copilot-controlled sizing there still affects the shipped experience
+- `src/ui/ui.ts`，前提是其中仍有会影响最终交付体验的旧字号实现
 
-### 4. Versioning
+### 4. 版本策略
 
-This work is part of `v0.9.1`.
+这次工作归入 `v0.9.1`。
 
-The public package version should move from `0.9.0` to `0.9.1`, and any release-facing metadata derived from `package.json` should continue to resolve correctly through the existing release build pipeline.
+对外发布版本应从 `0.9.0` 升级到 `0.9.1`，并保持现有基于 `package.json` 派生出来的构建与发布链路继续正常工作。
 
-## Files Expected To Change
+## 预计修改文件
 
-Likely modifications:
+大概率会修改：
 
 - `package.json`
 - `package-lock.json`
@@ -133,69 +133,69 @@ Likely modifications:
 - `src/ui/components/ScopeBar.tsx`
 - `addon/content/styles.css`
 
-Possible modifications:
+视实现情况可能会修改：
 
 - `src/modules/readerIntegration.ts`
-- relevant UI tests that assert style output or rendered structure
+- 与样式输出或渲染结构相关的 UI 测试
 
-## Acceptance Criteria
+## 验收标准
 
-The `v0.9.1` readability pass is successful when:
+如果满足下面这些条件，就可以认为 `v0.9.1` 的字体可读性优化达标：
 
-1. DS Copilot feels slightly easier to read by default in both library and reader sidebar contexts
-2. primary body text, secondary metadata, and tiny labels each move up consistently enough that the UI feels intentionally sized rather than patched
-3. no major truncation, overlap, or visibly cramped controls appear after the size increase
-4. markdown message rendering still preserves clear heading hierarchy and readable tables/code blocks
-5. no new font-size preference UI is added
-6. the project version is `0.9.1`
+1. DS Copilot 在 library 与 reader 两种侧边栏场景下，默认观感都比当前版本更易读
+2. 主正文、次级元信息、极小标签三类文字都能一致地上调，而不是零散打补丁
+3. 字号变大后，没有出现明显的截断、重叠或控件拥挤
+4. markdown 消息渲染仍然保留清晰的标题层级，并且表格、代码块可读
+5. 没有新增字体大小设置项
+6. 项目版本号为 `0.9.1`
 
-## Verification
+## 验证方式
 
-Use a focused verification loop for this pass:
+优先使用聚焦这次改动的验证闭环：
 
 ```bash
 npm test
 npm run build
 ```
 
-If versioning or artifact naming changes touch release-facing packaging paths, also run:
+如果这次版本调整或构建产物命名触及了 release 路径，再补跑：
 
 ```bash
 npm run verify:xpi
 ```
 
-Manual verification should confirm:
+人工检查需要覆盖：
 
-- library sidebar appearance
-- reader sidebar appearance
-- empty state
-- recent thread list
-- active thread with markdown content
-- composer and slash preset UI
-- any DS Copilot-owned selection popup elements that still use very small text
+- library 侧边栏
+- reader 侧边栏
+- 空状态
+- 最近线程列表
+- 带 markdown 内容的活跃线程
+- composer 与 slash 预设菜单
+- 仍然使用极小字号的 DS Copilot 自有 popup 或标签
 
-## Risks and Mitigations
+## 风险与缓解
 
-### Risk: text becomes larger but hierarchy becomes muddy
+### 风险：字体变大了，但层级关系变乱了
 
-Mitigation:
+缓解方式：
 
-- raise related tiers together instead of changing isolated literals
-- keep headings and metadata visually separated through size and weight
+- 相关字号档位一起上调，而不是孤立修改某几个点
+- 继续通过字号、字重和间距拉开标题与元信息的层次
 
-### Risk: larger text causes cramped controls in narrow sidebars
+### 风险：窄侧边栏里文字变大后显得拥挤
 
-Mitigation:
+缓解方式：
 
-- adjust line-height and padding alongside font-size changes
-- verify on both library and reader mounts
+- 字号调整时同步检查 `line-height` 与 padding
+- 在 library 和 reader 两种挂载面都做验证
 
-### Risk: the pass fixes today's complaint but leaves the codebase hard to tune later
+### 风险：这次解决了眼前问题，但以后还是不好继续调
 
-Mitigation:
+缓解方式：
 
-- consolidate repeated font sizes into a minimal shared vocabulary while touching the affected files
+- 在本轮修改中，把常见字号尽量收敛成一组轻量共享档位
 
-## Implementation Notes
+## 实施备注
 
-This should remain a small polish release. If the work starts to imply a fully configurable typography system, direct syncing with Zotero global font preferences, or a broader sidebar redesign, stop and treat that as a separate project after `v0.9.1`.
+这次应保持为一次小而稳的 polish 版本。如果实现过程中开始演变成完整的字体配置系统、与 Zotero 全局字体偏好的深度联动，或者更广泛的侧边栏改版，就应当停止扩展范围，并把那部分拆成 `v0.9.1` 之后的独立项目。
