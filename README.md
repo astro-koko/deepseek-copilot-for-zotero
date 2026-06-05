@@ -36,7 +36,7 @@
 如果你是普通使用者，最简单的安装方式是从 GitHub Releases 下载 `.xpi` 插件包。
 
 1. 打开本仓库的 GitHub Releases 页面。
-2. 下载最新的 `DS Copilot-<version>.xpi`。
+2. 下载最新的 `DS.Copilot-<version>.xpi`。
 3. 在 Zotero 中打开 `工具 -> 插件`。
 4. 点击右上角齿轮菜单，选择 `Install Add-on From File...`。
 5. 选中下载好的 `.xpi` 文件并完成安装。
