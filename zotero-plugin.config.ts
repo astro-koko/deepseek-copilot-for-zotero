@@ -6,6 +6,7 @@ import { buildDevProfilePrefs } from "./src/config/devProfilePrefs";
 const prefsPrefix = pkg.config.prefsPrefix;
 const devStartArgs = buildDevServerStartArgs(process.env.ZOTERO_DEBUGGER);
 const devProfilePrefs = buildDevProfilePrefs({ prefsPrefix });
+const releaseXpiName = `${pkg.config.addonName.replace(/\s+/g, ".")}-${pkg.version}`;
 
 export default defineConfig({
   source: ["src", "addon"],
@@ -13,7 +14,7 @@ export default defineConfig({
   name: pkg.config.addonName,
   id: pkg.config.addonID,
   namespace: pkg.config.addonRef,
-  xpiName: `${pkg.config.addonName}-${pkg.version}`,
+  xpiName: releaseXpiName,
   updateURL: `https://github.com/{{owner}}/{{repo}}/releases/download/release/${
     pkg.version.includes("-") ? "update-beta.json" : "update.json"
   }`,

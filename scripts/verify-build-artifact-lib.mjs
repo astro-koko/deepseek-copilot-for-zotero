@@ -20,9 +20,10 @@ function normalizeArchiveEntry(entry) {
 }
 
 export function buildVerificationContext({ buildRoot, pkg }) {
+  const xpiFileName = `${pkg.config.addonName.replace(/\s+/g, ".")}-${pkg.version}.xpi`;
   const xpiPath = path.join(
     buildRoot,
-    `${pkg.config.addonName}-${pkg.version}.xpi`,
+    xpiFileName,
   );
   const updateJsonName = pkg.version.includes("-")
     ? "update-beta.json"

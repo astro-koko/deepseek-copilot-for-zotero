@@ -15,6 +15,15 @@ const pkg = {
 };
 
 describe("build artifact verifier", () => {
+  it("uses a release-safe xpi file name", () => {
+    const context = buildVerificationContext({
+      buildRoot: "/tmp/ds-copilot-build",
+      pkg,
+    });
+
+    expect(context.xpiPath).toBe("/tmp/ds-copilot-build/DS.Copilot-0.8.0.xpi");
+  });
+
   it("requires update.json for stable releases", () => {
     const context = buildVerificationContext({
       buildRoot: "/tmp/ds-copilot-build",
