@@ -70,7 +70,7 @@ function onRenderTextSelectionPopup(event: any): void {
 
   const label = doc.createElement("span");
   label.textContent = "DS Copilot";
-  label.style.cssText = "font-size: 11px; color: #888; user-select: none; padding-left: 4px;";
+  label.style.cssText = "font-size: 0.92em; color: #888; user-select: none; padding-left: 4px;";
   container.appendChild(label);
 
   const row = doc.createElement("div");

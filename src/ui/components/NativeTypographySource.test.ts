@@ -1,4 +1,5 @@
-import stylesSource from "../../../addon/content/styles.css?raw";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import readerIntegrationSource from "../../modules/readerIntegration.ts?raw";
 import uiSource from "../ui.ts?raw";
 import emptyStateSource from "./EmptyState.tsx?raw";
@@ -6,6 +7,11 @@ import scopeBarSource from "./ScopeBar.tsx?raw";
 import sidebarSource from "./Sidebar.tsx?raw";
 
 import { describe, expect, it } from "vitest";
+
+const stylesSource = readFileSync(
+  fileURLToPath(new URL("../../../addon/content/styles.css", import.meta.url)),
+  "utf8",
+);
 
 describe("Native typography source contract", () => {
   it("removes hard-coded host typography from sidebar and empty shell surfaces", () => {

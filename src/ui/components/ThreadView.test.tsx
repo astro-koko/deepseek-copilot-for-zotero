@@ -114,7 +114,11 @@ describe("ThreadView markdown rendering", () => {
     expect(markup).toContain("<table");
     expect(markup).toContain("font-size:1.24em");
     expect(markup).toContain("font-size:0.95em");
+    expect(markup).toContain("font-size:1em");
+    expect(markup).toContain("font-size:0.9em");
     expect(markup).not.toContain("font-size:16px");
+    expect(markup).not.toContain("font-size:12px");
+    expect(markup).not.toContain("font-size:11px");
   });
 });
 

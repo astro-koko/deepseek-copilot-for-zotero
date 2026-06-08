@@ -8,16 +8,16 @@
 }
 
 .ai-assistant-selection-popup {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font: inherit;
 }
 
 .ai-assistant-selection-popup .toolbar-button {
+  font: inherit;
   background: #f0f0f0;
   border: 1px solid #ccc;
   border-radius: 4px;
   padding: 4px 8px;
   cursor: pointer;
-  font-size: 12px;
 }
 
 .ai-assistant-selection-popup .toolbar-button:hover {

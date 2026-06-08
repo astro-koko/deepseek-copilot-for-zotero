@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import type { Thread, Message } from "../../types/thread";
 import { EmptyState } from "./EmptyState";
 import { getSidebarTheme } from "../theme";
+import { typography } from "../typography";
 
 interface ThreadViewProps {
   hasScope?: boolean;
@@ -97,32 +98,50 @@ function buildMarkdownComponents(
       </code>
     ),
     h1: ({ node: _node, children, ...props }) => (
-      <h1 {...props} style={{ margin: "0 0 8px", fontSize: "16px", lineHeight: 1.3 }}>
+      <h1
+        {...props}
+        style={{ margin: "0 0 8px", fontSize: typography.headingLg, lineHeight: 1.3 }}
+      >
         {children}
       </h1>
     ),
     h2: ({ node: _node, children, ...props }) => (
-      <h2 {...props} style={{ margin: "0 0 7px", fontSize: "15px", lineHeight: 1.35 }}>
+      <h2
+        {...props}
+        style={{ margin: "0 0 7px", fontSize: typography.headingMd, lineHeight: 1.35 }}
+      >
         {children}
       </h2>
     ),
     h3: ({ node: _node, children, ...props }) => (
-      <h3 {...props} style={{ margin: "0 0 6px", fontSize: "14px", lineHeight: 1.35 }}>
+      <h3
+        {...props}
+        style={{ margin: "0 0 6px", fontSize: typography.headingSm, lineHeight: 1.35 }}
+      >
         {children}
       </h3>
     ),
     h4: ({ node: _node, children, ...props }) => (
-      <h4 {...props} style={{ margin: "0 0 6px", fontSize: "13px", lineHeight: 1.35 }}>
+      <h4
+        {...props}
+        style={{ margin: "0 0 6px", fontSize: typography.headingSm, lineHeight: 1.35 }}
+      >
         {children}
       </h4>
     ),
     h5: ({ node: _node, children, ...props }) => (
-      <h5 {...props} style={{ margin: "0 0 5px", fontSize: "12px", lineHeight: 1.35 }}>
+      <h5
+        {...props}
+        style={{ margin: "0 0 5px", fontSize: typography.body, lineHeight: 1.35 }}
+      >
         {children}
       </h5>
     ),
     h6: ({ node: _node, children, ...props }) => (
-      <h6 {...props} style={{ margin: "0 0 5px", fontSize: "12px", lineHeight: 1.35 }}>
+      <h6
+        {...props}
+        style={{ margin: "0 0 5px", fontSize: typography.body, lineHeight: 1.35 }}
+      >
         {children}
       </h6>
     ),
@@ -159,7 +178,7 @@ function buildMarkdownComponents(
           width: "100%",
           margin: "6px 0",
           borderCollapse: "collapse",
-          fontSize: "11px",
+          fontSize: typography.meta,
         }}
       >
         {children}
@@ -261,7 +280,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "7px 9px",
     borderRadius: "4px",
     border: "1px solid transparent",
-    fontSize: "12px",
+    fontSize: typography.body,
     lineHeight: 1.4,
   },
   content: {
@@ -269,7 +288,7 @@ const styles: Record<string, React.CSSProperties> = {
     overflowWrap: "anywhere",
   },
   timestamp: {
-    fontSize: "10px",
+    fontSize: typography.caption,
     opacity: 0.65,
     marginTop: "2px",
     textAlign: "right",
@@ -281,6 +300,6 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#f6f6f6",
     color: "#666",
     border: "1px solid #e1e1e1",
-    fontSize: "11px",
+    fontSize: typography.meta,
   },
 };

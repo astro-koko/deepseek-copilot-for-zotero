@@ -12,6 +12,7 @@ import {
   type SidebarSurfaceHost,
 } from "./sidebarSection";
 import { registerSidebarRefreshHandler } from "./sidebarRuntime";
+import { typography } from "./typography";
 
 interface AIAssistantWindow extends Window {
   __aiAssistantEventBus?: EventTarget;
@@ -536,7 +537,7 @@ export class UIFactory {
     title.textContent = `${location === "reader" ? "Reader" : "Library"} panel unavailable`;
     Object.assign(title.style, {
       color: "#7f1d1d",
-      fontSize: "14px",
+      fontSize: typography.headingSm,
       fontWeight: "700",
       marginBottom: "8px",
     });
@@ -545,7 +546,7 @@ export class UIFactory {
     detail.textContent = message;
     Object.assign(detail.style, {
       color: "#991b1b",
-      fontSize: "12px",
+      fontSize: typography.meta,
       lineHeight: "1.5",
     });
 
@@ -590,7 +591,7 @@ function SectionErrorCard({
       "div",
       {
         style: {
-          fontSize: "14px",
+          fontSize: typography.headingSm,
           fontWeight: 700,
         },
       },
@@ -600,7 +601,7 @@ function SectionErrorCard({
       "div",
       {
         style: {
-          fontSize: "12px",
+          fontSize: typography.meta,
           lineHeight: 1.5,
         },
       },
