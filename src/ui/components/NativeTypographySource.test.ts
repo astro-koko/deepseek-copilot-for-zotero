@@ -8,13 +8,19 @@ import sidebarSource from "./Sidebar.tsx?raw";
 import { describe, expect, it } from "vitest";
 
 describe("Native typography source contract", () => {
-  it("removes hard-coded host typography and preserves inheritance hooks", () => {
+  it("removes hard-coded host typography from sidebar and empty shell surfaces", () => {
     expect(sidebarSource).not.toContain('"SF Pro Text"');
     expect(emptyStateSource).not.toContain('fontSize: "16px"');
     expect(scopeBarSource).not.toContain('fontSize: "13px"');
+  });
+
+  it("preserves popup surface inheritance hooks", () => {
     expect(stylesSource).toContain("font: inherit");
     expect(stylesSource).not.toContain("font-size: 12px");
     expect(readerIntegrationSource).not.toContain("font-size: 11px");
+  });
+
+  it("removes fallback card pixel sizing from ui helpers", () => {
     expect(uiSource).not.toContain('fontSize: "14px"');
     expect(uiSource).not.toContain('fontSize: "12px"');
   });
