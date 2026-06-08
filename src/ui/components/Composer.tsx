@@ -485,7 +485,6 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "space-between",
     flexWrap: "wrap",
-    fontSize: typography.meta,
   },
   footerControls: {
     display: "flex",
@@ -518,7 +517,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid #c9c9c9",
     borderRadius: "999px",
     padding: "4px 10px",
-    fontSize: typography.label,
+    fontSize: typography.meta,
     fontWeight: 500,
     cursor: "pointer",
     whiteSpace: "nowrap",
