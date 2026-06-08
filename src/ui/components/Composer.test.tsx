@@ -69,4 +69,18 @@ describe("Composer layout", () => {
     expect(markup).toContain("联网查证");
     expect(markup).not.toContain("OpenAlex");
   });
+
+  it("renders inherited typography markup for the composer controls", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(Composer, {
+        currentScopeType: "paper",
+        isStreaming: false,
+        onSend: () => {},
+      }),
+    );
+
+    expect(markup).toContain("font-family:inherit");
+    expect(markup).toContain("font-size:1em");
+    expect(markup).toContain("font-size:0.95em");
+  });
 });

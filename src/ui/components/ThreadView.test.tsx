@@ -95,6 +95,25 @@ describe("ThreadView markdown rendering", () => {
     expect(markup).toContain("&lt;span");
     expect(markup).not.toContain('<span class="unsafe">unsafe</span>');
   });
+
+  it("renders relative heading and table sizing for assistant markdown", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-assistant",
+            role: "assistant",
+            content: ["# Title", "", "| A | B |", "| - | - |", "| 1 | 2 |"].join("\n"),
+            timestamp: 1,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup).toContain("font-size:1.24em");
+    expect(markup).toContain("font-size:0.95em");
+    expect(markup).not.toContain("font-size:16px");
+  });
 });
 
 describe("openMarkdownLink", () => {
