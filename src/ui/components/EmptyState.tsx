@@ -1,5 +1,6 @@
 import React from "react";
 import { getSidebarTheme } from "../theme";
+import { typography } from "../typography";
 
 function isChineseLocale(): boolean {
   try {
@@ -69,13 +70,13 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#666",
   },
   title: {
-    fontSize: "16px",
+    fontSize: typography.headingMd,
     fontWeight: 600,
     marginBottom: "8px",
     color: "#333",
   },
   description: {
-    fontSize: "13px",
+    fontSize: typography.body,
     lineHeight: 1.6,
   },
   kbd: {
@@ -85,6 +86,6 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid #ddd",
     borderRadius: "3px",
     fontFamily: "monospace",
-    fontSize: "12px",
+    fontSize: typography.label,
   },
 };

@@ -10,6 +10,7 @@ import {
 } from "../../services/presets";
 import type { ScopeType } from "../../types/scope";
 import { getSidebarTheme } from "../theme";
+import { typography } from "../typography";
 import { isChineseLocale } from "../../utils/locale";
 
 type ModelMode = "light" | "deep";
@@ -469,7 +470,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "6px 8px",
     border: "1px solid #d4d4d4",
     borderRadius: "6px",
-    fontSize: "12px",
+    fontSize: typography.body,
     resize: "none",
     minHeight: "56px",
     maxHeight: "140px",
@@ -484,6 +485,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "space-between",
     flexWrap: "wrap",
+    fontSize: typography.meta,
   },
   footerControls: {
     display: "flex",
@@ -506,7 +508,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid transparent",
     borderRadius: "4px",
     padding: "4px 8px",
-    fontSize: "11px",
+    fontSize: typography.label,
     fontWeight: 500,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -516,7 +518,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid #c9c9c9",
     borderRadius: "999px",
     padding: "4px 10px",
-    fontSize: "11px",
+    fontSize: typography.label,
     fontWeight: 500,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -530,7 +532,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid #cfcfcf",
     borderRadius: "4px",
     cursor: "pointer",
-    fontSize: "12px",
+    fontSize: typography.body,
     fontWeight: 500,
     whiteSpace: "nowrap",
   },
@@ -542,7 +544,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid #d3c2c2",
     borderRadius: "4px",
     cursor: "pointer",
-    fontSize: "12px",
+    fontSize: typography.body,
     whiteSpace: "nowrap",
   },
   presetMenu: {
@@ -576,7 +578,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "6px 0",
   },
   presetGroupLabel: {
-    fontSize: "10px",
+    fontSize: typography.caption,
     fontWeight: 700,
     letterSpacing: "0.04em",
     textTransform: "uppercase",
@@ -584,16 +586,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
   presetLabel: {
     fontWeight: 600,
-    fontSize: "12px",
+    fontSize: typography.body,
     color: "#333",
   },
   presetDesc: {
-    fontSize: "11px",
+    fontSize: typography.meta,
     color: "#777",
   },
   disabledReason: {
     marginTop: "2px",
-    fontSize: "11px",
+    fontSize: typography.meta,
     color: "#6c6c6c",
     lineHeight: 1.4,
   },

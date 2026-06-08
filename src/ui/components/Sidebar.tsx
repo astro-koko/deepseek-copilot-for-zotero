@@ -22,6 +22,7 @@ import { deleteThread, listThreads } from "../../services/threadController";
 import { exportThreadAsMarkdown } from "../../services/threadExport";
 import { deleteThreadAndRefresh } from "../../services/threadActions";
 import { getSidebarTheme } from "../theme";
+import { typography } from "../typography";
 import { isChineseLocale } from "../../utils/locale";
 
 interface SidebarProps {
@@ -653,8 +654,6 @@ const styles: Record<string, React.CSSProperties> = {
     height: "auto",
     background: "#f7f7f7",
     color: "#222",
-    fontFamily:
-      '"SF Pro Text", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
     minHeight: "0",
     minWidth: 0,
     width: "100%",
@@ -681,7 +680,7 @@ const styles: Record<string, React.CSSProperties> = {
     flex: "1 1 130px",
   },
   headerTitle: {
-    fontSize: "13px",
+    fontSize: typography.headingSm,
     fontWeight: 600,
     color: "#222",
     lineHeight: 1.25,
@@ -690,7 +689,7 @@ const styles: Record<string, React.CSSProperties> = {
     overflowWrap: "anywhere",
   },
   headerMeta: {
-    fontSize: "11px",
+    fontSize: typography.caption,
     color: "#666",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -712,7 +711,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "transparent",
     color: "#333",
     padding: "3px 6px",
-    fontSize: "11px",
+    fontSize: typography.label,
     fontWeight: 500,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -728,7 +727,7 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 0,
   },
   sectionLabel: {
-    fontSize: "10px",
+    fontSize: typography.caption,
     fontWeight: 700,
     letterSpacing: "0.04em",
     textTransform: "uppercase",
@@ -745,14 +744,14 @@ const styles: Record<string, React.CSSProperties> = {
   scopeType: {
     flexShrink: 0,
     color: "#666",
-    fontSize: "11px",
+    fontSize: typography.label,
     fontWeight: 600,
     textTransform: "uppercase",
   },
   scopeLabel: {
     minWidth: 0,
     flex: 1,
-    fontSize: "12px",
+    fontSize: typography.body,
     fontWeight: 600,
     color: "#222",
     overflow: "hidden",
@@ -767,7 +766,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   scopeMeta: {
     color: "#666",
-    fontSize: "11px",
+    fontSize: typography.meta,
   },
   selectionBadge: {
     color: "#2a5a86",
@@ -775,7 +774,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid #d6e5f4",
     borderRadius: "4px",
     padding: "1px 6px",
-    fontSize: "11px",
+    fontSize: typography.label,
     fontWeight: 500,
   },
   contextAvailabilityBadge: {
@@ -784,7 +783,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid #e7dfc3",
     borderRadius: "4px",
     padding: "1px 6px",
-    fontSize: "11px",
+    fontSize: typography.label,
     fontWeight: 500,
   },
   contextWarningList: {
@@ -799,7 +798,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid #e5dcc0",
     borderRadius: "4px",
     padding: "5px 6px",
-    fontSize: "11px",
+    fontSize: typography.meta,
     lineHeight: 1.4,
     overflowWrap: "anywhere",
   },
@@ -813,12 +812,12 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "6px",
   },
   noticeTitle: {
-    fontSize: "12px",
+    fontSize: typography.body,
     fontWeight: 600,
     color: "#5d4d23",
   },
   noticeText: {
-    fontSize: "11px",
+    fontSize: typography.meta,
     lineHeight: 1.4,
     color: "#6f6138",
     overflowWrap: "anywhere",
@@ -830,7 +829,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid #d4c8a5",
     background: "#fffdf8",
     cursor: "pointer",
-    fontSize: "11px",
+    fontSize: typography.label,
     fontWeight: 500,
   },
   content: {
@@ -848,13 +847,13 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "8px 0 2px",
   },
   heroTitle: {
-    fontSize: "13px",
+    fontSize: typography.headingSm,
     fontWeight: 600,
     color: "#222",
   },
   heroBody: {
     marginTop: "4px",
-    fontSize: "12px",
+    fontSize: typography.body,
     lineHeight: 1.45,
     color: "#666",
     overflowWrap: "anywhere",
@@ -864,7 +863,7 @@ const styles: Record<string, React.CSSProperties> = {
     paddingTop: "8px",
   },
   sectionTitle: {
-    fontSize: "12px",
+    fontSize: typography.body,
     fontWeight: 600,
     color: "#333",
     marginBottom: "6px",
@@ -937,7 +936,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "4px",
     background: "transparent",
     padding: "2px 8px",
-    fontSize: "11px",
+    fontSize: typography.label,
     cursor: "pointer",
     whiteSpace: "normal",
     lineHeight: 1.3,
@@ -954,7 +953,7 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
   },
   listPrimary: {
-    fontSize: "12px",
+    fontSize: typography.body,
     fontWeight: 500,
     lineHeight: 1.35,
     color: "#222",
@@ -965,7 +964,7 @@ const styles: Record<string, React.CSSProperties> = {
     overflowWrap: "anywhere",
   },
   listSecondary: {
-    fontSize: "11px",
+    fontSize: typography.meta,
     lineHeight: 1.35,
     color: "#666",
     display: "block",
@@ -975,7 +974,7 @@ const styles: Record<string, React.CSSProperties> = {
     overflowWrap: "anywhere",
   },
   listMeta: {
-    fontSize: "11px",
+    fontSize: typography.meta,
     color: "#777",
     flexShrink: 0,
   },
@@ -1001,13 +1000,13 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#f7f9fb",
   },
   streamingLabel: {
-    fontSize: "11px",
+    fontSize: typography.label,
     fontWeight: 600,
     color: "#4f6b8a",
     marginBottom: "4px",
   },
   streamingContent: {
-    fontSize: "12px",
+    fontSize: typography.body,
     lineHeight: 1.45,
     color: "#33485f",
     whiteSpace: "pre-wrap",
@@ -1019,7 +1018,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderTop: "1px solid #ead2d2",
     borderBottom: "1px solid #ead2d2",
     color: "#8d3838",
-    fontSize: "12px",
+    fontSize: typography.body,
     lineHeight: 1.4,
     overflowWrap: "anywhere",
   },

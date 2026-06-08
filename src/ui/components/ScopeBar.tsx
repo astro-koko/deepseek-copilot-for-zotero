@@ -1,5 +1,6 @@
 import React from "react";
 import type { ScopeContext } from "../../types/scope";
+import { typography } from "../typography";
 
 interface ScopeBarProps {
   scope: ScopeContext | null;
@@ -44,7 +45,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "8px",
     padding: "8px 12px",
     borderBottom: "1px solid #e0e0e0",
-    fontSize: "13px",
+    fontSize: typography.body,
     minHeight: "36px",
   },
   chip: {
@@ -52,7 +53,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#1976d2",
     padding: "2px 8px",
     borderRadius: "4px",
-    fontSize: "11px",
+    fontSize: typography.label,
     fontWeight: 600,
     textTransform: "uppercase",
   },
@@ -65,14 +66,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
   count: {
     color: "#888",
-    fontSize: "12px",
+    fontSize: typography.meta,
   },
   selectedText: {
     color: "#4caf50",
-    fontSize: "11px",
+    fontSize: typography.label,
   },
   empty: {
     color: "#888",
     fontStyle: "italic",
+    fontSize: typography.meta,
   },
 };
