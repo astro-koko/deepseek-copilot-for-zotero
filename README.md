@@ -1,10 +1,14 @@
 # DeepSeek Copilot for Zotero
 
+[![Release](https://img.shields.io/github/v/release/astro-koko/deepseek-copilot-for-zotero?display_name=tag&style=flat-square)](https://github.com/astro-koko/deepseek-copilot-for-zotero/releases)
+[![Zotero](https://img.shields.io/badge/Zotero-9%20stable-CC2936?style=flat-square)](https://www.zotero.org/)
+[![Install XPI](https://img.shields.io/badge/Install-XPI-2ea44f?style=flat-square)](https://github.com/astro-koko/deepseek-copilot-for-zotero/releases)
+
 把 DeepSeek 对话能力直接放进 Zotero 的原生阅读工作流里。
 
 `DeepSeek Copilot for Zotero` 面向“边读边问”的论文场景：你可以在文库里选中一篇论文后直接提问，在 PDF Reader 里选中文本后发起解释或追问，并按需开启联网查证，而不用在 Zotero、浏览器聊天页和临时笔记之间来回切换。
 
-当前最新公开发布目标是 `v0.9.2`。这一版重点补齐了单篇 PDF / 单篇论文全文发送链路，并继续收紧 Zotero 宿主内的真实打包 smoke 验收。
+当前最新公开发布版本仍是 `v0.9.2`。下一波 GitHub-facing 发布会直接切到 `v0.9.3`，并补齐稳定的 XPI release 资产、社区收录和对外发布素材。
 
 > 仓库对外名称使用 `DeepSeek Copilot for Zotero`。当前插件内部历史 ID 与部分界面文案仍保留 `DS Copilot`，在插件界面里看到这个名字是正常的，不影响安装和使用。
 
