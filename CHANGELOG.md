@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.9.3
+
+- Added GitHub Actions release automation so future Zotero XPI releases publish consistently from version tags.
+- Polished the GitHub landing page with install-first release badges and community launch copy.
+- Prepared the scraper submission and forum launch materials for wider Zotero community discovery.
+
 ## v0.9.2
 
 - Refined sidebar typography to inherit Zotero host sizing more naturally and kept DS Copilot branding visible on plugin-owned icon surfaces.
