@@ -5,13 +5,16 @@ import type {
   StreamingResponse,
 } from "./provider/types";
 import { createOpenAICompatibleProvider } from "./provider/openAICompatibleProvider";
-import { assembleContext } from "./contextAssembler";
+import { assembleContext, type AssembledContext } from "./contextAssembler";
 import { getEvidenceAuditLabel, getSettings } from "./settingsManager";
 import { searchEvidence } from "./evidenceSearch";
 
 export interface ChatRequestOptions {
   evidenceEnabled?: boolean;
 }
+
+const DOCUMENT_TAIL_HIGHLIGHT_CHARS = 2500;
+const DOCUMENT_TAIL_HIGHLIGHT_MIN_FULLTEXT_CHARS = 4000;
 
 export function buildSystemPrompt(scope: ScopeContext | undefined): string {
   const basePrompt = `你是 DS Copilot，是运行在 Zotero 内的 AI 阅读助手。你的任务是帮助研究者理解论文、比较研究发现，并梳理他们的文献库。
@@ -21,6 +24,7 @@ export function buildSystemPrompt(scope: ScopeContext | undefined): string {
 - 不要假装自己看到了当前范围之外的内容。
 - 如果问题针对分类范围，请只基于当前纳入范围的条目进行综合。
 - 回答要简洁但充分，必要时可以使用 Markdown。
+- 如果系统上下文中提供了“文档末尾重点”片段，而用户在问最后一页、文末、附录结尾或最后几页，请先核对该片段，再结合全文回答。
 - 如果问题超出了当前范围，请明确说明。`;
 
   if (!scope) return basePrompt;
@@ -43,21 +47,31 @@ export async function buildMessages(
 ): Promise<ChatCompletionMessage[]> {
   let contextContent = "";
   let evidenceAuditMessage: string | undefined;
+  let assembledContext: AssembledContext | undefined;
   if (scope) {
-    try {
-      const assembled = await assembleContext(scope);
-      contextContent =
-        `\n\n=== 上下文状态 ===\n可用性：${formatAvailability(assembled.availability)}\n` +
-        `警告：${assembled.warnings.length > 0 ? assembled.warnings.join(" | ") : "无"}`;
-      contextContent += `\n\n=== 上下文 ===\n${assembled.metadata}`;
-      if (assembled.selectedText) {
-        contextContent += `\n\n=== 选中文本 ===\n${assembled.selectedText}`;
+    assembledContext = await assembleContext(scope);
+    if (assembledContext.blockingMessage) {
+      throw new Error(assembledContext.blockingMessage);
+    }
+
+    contextContent =
+      `\n\n=== 上下文状态 ===\n可用性：${formatAvailability(assembledContext.availability)}\n` +
+      `警告：${assembledContext.warnings.length > 0 ? assembledContext.warnings.join(" | ") : "无"}`;
+    contextContent += `\n\n=== 上下文 ===\n${assembledContext.metadata}`;
+    if (assembledContext.selectedText) {
+      contextContent += `\n\n=== 选中文本 ===\n${assembledContext.selectedText}`;
+    }
+    if (assembledContext.fullText) {
+      contextContent += `\n\n=== 正文内容 ===\n${assembledContext.fullText}`;
+      const documentTailHighlight = buildDocumentTailHighlight(
+        assembledContext.fullText,
+      );
+      if (documentTailHighlight) {
+        contextContent +=
+          `\n\n=== 文档末尾重点 ===\n` +
+          "以下片段直接截取自同一篇正文的末尾，用于帮助回答最后一页、附录结尾或文末相关问题。\n" +
+          `${documentTailHighlight}`;
       }
-      if (assembled.fullText) {
-        contextContent += `\n\n=== 正文内容 ===\n${assembled.fullText}`;
-      }
-    } catch (e) {
-      ztoolkit.log("Context assembly failed:", e);
     }
   }
 
@@ -114,7 +128,7 @@ export async function buildMessages(
     });
   }
 
-  return Object.assign(messages, { evidenceAuditMessage });
+  return Object.assign(messages, { evidenceAuditMessage, assembledContext });
 }
 
 export async function sendChatMessage(
@@ -132,7 +146,21 @@ export async function sendChatMessage(
   const provider = createOpenAICompatibleProvider({ baseURL, apiKey, model });
 
   const messages = await buildMessages(thread, scope, requestOptions);
-  const response = await provider.sendChat(messages, signal);
+  const systemMessage = messages[0]?.content || "";
+  const assembledContext = (messages as typeof messages & {
+    assembledContext?: AssembledContext;
+  }).assembledContext;
+
+  let response: StreamingResponse;
+  try {
+    response = await provider.sendChat(messages, signal, {
+      fullTextChars: assembledContext?.fullText.length || 0,
+      fullTextSource: assembledContext?.fullTextSource,
+      systemPromptChars: systemMessage.length,
+    });
+  } catch (error) {
+    throw normalizeProviderError(error);
+  }
   return {
     ...response,
     evidenceAuditMessage: (messages as typeof messages & {
@@ -160,6 +188,10 @@ function formatAvailability(availability: string): string {
   switch (availability) {
     case "pdf-text-ready":
       return "PDF 正文可用";
+    case "fulltext-required-error":
+      return "全文不可用";
+    case "fulltext-unsupported-scope":
+      return "范围不支持";
     case "abstract-only":
       return "仅摘要";
     case "metadata-only":
@@ -169,4 +201,29 @@ function formatAvailability(availability: string): string {
     default:
       return availability;
   }
+}
+
+function normalizeProviderError(error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  if (
+    /context[_\s-]*length[_\s-]*exceeded/i.test(message) ||
+    /maximum context length/i.test(message)
+  ) {
+    return new Error("当前论文全文超出模型上下文上限，请更换模型或缩小范围。");
+  }
+  return error instanceof Error ? error : new Error(message);
+}
+
+function buildDocumentTailHighlight(fullText: string): string {
+  const normalized = fullText.trim();
+  if (normalized.length < DOCUMENT_TAIL_HIGHLIGHT_MIN_FULLTEXT_CHARS) {
+    return "";
+  }
+
+  const rawExcerpt = normalized.slice(-DOCUMENT_TAIL_HIGHLIGHT_CHARS);
+  const firstNewline = rawExcerpt.indexOf("\n");
+  if (firstNewline >= 0 && firstNewline <= 300) {
+    return rawExcerpt.slice(firstNewline + 1).trim();
+  }
+  return rawExcerpt.trim();
 }

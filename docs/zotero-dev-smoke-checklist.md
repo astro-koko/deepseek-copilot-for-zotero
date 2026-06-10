@@ -4,6 +4,8 @@ This repo is developed against a dedicated Zotero profile for fast iteration, bu
 
 Use [docs/zotero-dev-workbench.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-dev-workbench.md) as the primary development guide and [docs/zotero-doc-index.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-doc-index.md) as the upstream reference map.
 
+Before any real packaged import or cold-restart acceptance pass, read [docs/zotero-real-smoke-guardrails.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-real-smoke-guardrails.md). It records prior mistakes from real Zotero smoke work and defines the hard stop rules for GUI automation, install-chain proof, and icon ownership.
+
 ## Dev setup
 
 1. Create a local `.env` from `.env.example`.
@@ -93,8 +95,8 @@ Treat the next smoke run as an evidence-collection pass, not a vibe check. Captu
 5. In Zotero, confirm `DS Copilot` appears in the plugin/add-ons list with the new icon.
 6. Open Zotero Settings and confirm the `DS Copilot` pane exists.
 7. Confirm the settings pane already has a usable API key state from the dev-profile preload, or enter a real API key for packaged smoke.
-8. Select a real library item and confirm the DS Copilot native right-pane host appears and is visibly correct.
-9. Open a real PDF Reader tab and confirm the DS Copilot Reader host appears, uses the active tab scope, and is visibly correct.
+8. Select a real library item and confirm the DS Copilot native right-pane host appears, is visibly correct, and still uses the DS Copilot branded icon rather than a generic Zotero document icon.
+9. Open a real PDF Reader tab and confirm the DS Copilot Reader host appears, uses the active tab scope, and keeps the same branded DS Copilot entry icon in the right-side surface.
 10. Open Zotero Settings and verify the DeepSeek `API key`, evidence provider, and optional Tavily key can be edited, saved, and persisted when you reopen the pane.
 11. If `Tavily` is selected, run the built-in Tavily validation button and record the result.
 12. In Reader, select text and confirm the popup shows `Explain` and `Ask...`.
@@ -105,6 +107,7 @@ Treat the next smoke run as an evidence-collection pass, not a vibe check. Captu
 17. Restart Zotero and re-check plugin list, settings pane, Library host, Reader host, and Reader handoff.
 18. Treat any top-toolbar-only discovery, including a truncated `D...` artifact, as a release-blocking surface regression.
 19. For public release smoke, confirm the clean profile starts without prefilled API keys and without restored test threads before entering any temporary credentials.
+20. If a packaged icon change does not show up after reinstall, clear the profile-level add-on startup cache such as `addonStartup.json.lz4`, cold-restart Zotero, and then re-check the Library and Reader surfaces before changing code again.
 
 ## Runtime evidence
 
@@ -140,6 +143,7 @@ The most useful user-visible checks by layer are:
 - Install chain: `DS Copilot` appears in the plugin list.
 - Settings registration: a `DS Copilot` pane exists in Zotero Settings.
 - Host registration: a DS Copilot native right-pane host exists in library and reader contexts.
+- Icon ownership: DS Copilot-owned entry points such as Add-ons, Settings, and the native right-side pane entry keep DS Copilot branding; only typography/layout should inherit Zotero host styling.
 - Reader scope signal: the active PDF tab, not a stale prior tab, determines the visible Reader scope.
 - Reader registration: the text-selection popup and right-click menu show DS Copilot actions.
 - Handoff connectivity: Reader actions reach the sidebar flow.
@@ -151,6 +155,7 @@ Packaged `.xpi` install is the only real acceptance gate. If the plugin is missi
 
 - If `DS Copilot` is missing from the plugin list after `.xpi` install, only inspect the install chain: build output, packaged manifest, addon ID, startup hooks, and import path. Do not debug business logic yet.
 - If the plugin is listed but the settings pane or native host is missing, inspect the startup registration chain in `src/hooks.ts`, `src/modules/preferencesPane.ts`, and `src/ui/ui.ts`.
+- If the plugin is listed and the pane exists but the DS Copilot icon looks generic or disappears, inspect the icon ownership chain in `src/hooks.ts`, `src/ui/ui.ts`, packaged icon assets, and then rule out stale `addonStartup.json.lz4` before changing business logic.
 - If the sidebar shell appears with a fallback error, inspect the React bootstrap path in `src/ui/ui.ts`.
 - If Reader entry points are missing, inspect `src/modules/readerIntegration.ts` only.
 - If Reader menus appear but clicking them does nothing, inspect the event handoff between Reader actions and the sidebar conversation flow before touching provider code.

@@ -407,6 +407,10 @@ function mapContextAvailabilityLabel(
   switch (availability) {
     case "pdf-text-ready":
       return zh ? "PDF 正文可用" : "PDF text ready";
+    case "fulltext-required-error":
+      return zh ? "全文不可用" : "Full text unavailable";
+    case "fulltext-unsupported-scope":
+      return zh ? "范围不支持全文模式" : "Scope unsupported for full-text mode";
     case "abstract-only":
       return zh ? "已回退到摘要" : "Abstract fallback";
     case "metadata-only":

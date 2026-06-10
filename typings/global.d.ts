@@ -16,6 +16,18 @@ declare interface Window {
   };
 }
 
+declare module "node:fs" {
+  export function readFileSync(path: string | URL, options: "utf8"): string;
+}
+
+declare module "node:url" {
+  export function fileURLToPath(url: string | URL): string;
+}
+
+declare interface ImportMeta {
+  url: string;
+}
+
 // DOM globals for React components
 declare function setInterval(handler: TimerHandler, timeout?: number, ...arguments: any[]): number;
 declare function clearInterval(handle?: number): void;

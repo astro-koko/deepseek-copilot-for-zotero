@@ -6,6 +6,7 @@ import { getCurrentScope } from "../services/scopeResolver";
 import {
   attachSidebarHost,
   createFallbackSidebarHost,
+  createSectionSidebarHost,
   resolveSidebarLocation,
   type SidebarHostState,
   type SidebarLocation,
@@ -35,6 +36,15 @@ interface AIAssistantWindow extends Window {
   };
 }
 
+interface ItemMessagePaneLike extends HTMLElement {
+  renderCustomHead?(
+    callback?: (args: {
+      append: (...nodes: unknown[]) => void;
+      doc: Document;
+    }) => void,
+  ): void;
+}
+
 interface SectionRenderBody {
   appendChild?(node: unknown): unknown;
   contains(node: unknown): boolean;
@@ -58,6 +68,10 @@ const windowSectionRefresh = new WeakMap<
   () => Promise<void>
 >();
 const windowScopeRetryTimer = new WeakMap<AIAssistantWindow, number>();
+const windowLibraryEmptyStateRetryTimer = new WeakMap<AIAssistantWindow, number>();
+const windowLibraryEmptyStateRetryBudget = new WeakMap<AIAssistantWindow, number>();
+const BRANDED_SECTION_ICON =
+  "chrome://zotero-ai-assistant/content/icons/icon-20.png";
 
 let sectionRegistered = false;
 let reactDomClientPromise: Promise<typeof import("react-dom/client")> | null =
@@ -85,6 +99,9 @@ export class UIFactory {
     }
 
     this.clearScopeRetryTimer(win);
+    this.clearLibraryEmptyStateRetryTimer(win);
+    windowLibraryEmptyStateRetryBudget.delete(win);
+    this.renderLibraryEmptyStateHead(win, false);
     this.removeTabSelectionRefreshRegistration(win);
     windowRefreshCleanup.get(win)?.();
     windowRefreshCleanup.delete(win);
@@ -93,7 +110,8 @@ export class UIFactory {
   }
 
   static refreshWindow(win: AIAssistantWindow) {
-    void win;
+    void this.requestSectionRefresh(win);
+    this.syncLibraryEmptyStateHost(win);
   }
 
   static refreshAllWindows() {
@@ -131,11 +149,11 @@ export class UIFactory {
       pluginID: addon.data.config.addonID,
       header: {
         l10nID: getLocaleID("ai-assistant-sidebar-title"),
-        icon: `chrome://${addon.data.config.addonRef}/content/icons/icon-20.png`,
+        icon: BRANDED_SECTION_ICON,
       },
       sidenav: {
         l10nID: getLocaleID("ai-assistant-sidebar-sidenav"),
-        icon: `chrome://${addon.data.config.addonRef}/content/icons/icon-20.png`,
+        icon: BRANDED_SECTION_ICON,
       },
       onInit: ({ setEnabled, tabType, body, refresh }) => {
         setEnabled(
@@ -360,6 +378,121 @@ export class UIFactory {
     } catch (error) {
       ztoolkit.log("Failed to refresh DS Copilot section state:", error);
     }
+  }
+
+  private static syncLibraryEmptyStateHost(win: AIAssistantWindow): void {
+    const selectedLocation = this.getSelectedLocation(win);
+    if (selectedLocation !== "library") {
+      this.clearLibraryEmptyStateRetryTimer(win);
+      windowLibraryEmptyStateRetryBudget.delete(win);
+      this.renderLibraryEmptyStateHead(win, false);
+      return;
+    }
+
+    const selectedItems = win.ZoteroPane?.getSelectedItems?.() ?? [];
+    const shouldRender = selectedItems.length === 0;
+    const didRender = this.renderLibraryEmptyStateHead(win, shouldRender);
+
+    if (!shouldRender || didRender) {
+      this.clearLibraryEmptyStateRetryTimer(win);
+      windowLibraryEmptyStateRetryBudget.delete(win);
+      return;
+    }
+
+    this.scheduleLibraryEmptyStateRetry(win);
+  }
+
+  private static renderLibraryEmptyStateHead(
+    win: AIAssistantWindow,
+    shouldRender: boolean,
+  ): boolean {
+    const messagePane = this.getLibraryMessagePane(win.document);
+    if (!messagePane?.renderCustomHead) {
+      return false;
+    }
+
+    const libraryHost = windowHosts.get(win)?.library;
+    if (!shouldRender) {
+      messagePane.renderCustomHead();
+      if (libraryHost?.attachmentTarget === "message-head") {
+        libraryHost.reactRoot?.unmount();
+        libraryHost.reactRoot = null;
+        libraryHost.bootstrapped = false;
+        libraryHost.bootstrappingPromise = null;
+        libraryHost.attachmentTarget = null;
+      }
+      return true;
+    }
+
+    const host = this.getOrCreateLibraryMessageHeadHost(win);
+    messagePane.renderCustomHead(({ append }) => {
+      append(host.mountPoint);
+      host.attachmentTarget = "message-head";
+    });
+
+    void this.ensureHostBootstrapped(win, host, "library").catch((error) => {
+      ztoolkit.log(
+        "Failed to bootstrap DS Copilot library empty-state host:",
+        error,
+      );
+      this.renderBootstrapFailure(host, "library", error);
+    });
+    return true;
+  }
+
+  private static getOrCreateLibraryMessageHeadHost(
+    win: AIAssistantWindow,
+  ): SidebarSurfaceHost {
+    const hosts = this.ensureWindowHosts(win);
+    const existing = hosts.library;
+    if (existing?.attachmentTarget === "message-head") {
+      return existing;
+    }
+
+    if (existing) {
+      existing.reactRoot?.unmount();
+    }
+
+    const host = createSectionSidebarHost(
+      "library",
+      win.document as unknown as Document,
+    );
+    hosts.library = host;
+    return host;
+  }
+
+  private static getLibraryMessagePane(
+    doc: Pick<Document, "getElementById">,
+  ): ItemMessagePaneLike | null {
+    return doc.getElementById("zotero-item-message") as ItemMessagePaneLike | null;
+  }
+
+  private static scheduleLibraryEmptyStateRetry(win: AIAssistantWindow): void {
+    if (windowLibraryEmptyStateRetryTimer.has(win)) {
+      return;
+    }
+
+    const retries = windowLibraryEmptyStateRetryBudget.get(win) ?? 0;
+    if (retries >= 5) {
+      return;
+    }
+    windowLibraryEmptyStateRetryBudget.set(win, retries + 1);
+
+    const timer = win.setTimeout(() => {
+      windowLibraryEmptyStateRetryTimer.delete(win);
+      this.syncLibraryEmptyStateHost(win);
+    }, 100);
+    windowLibraryEmptyStateRetryTimer.set(win, timer);
+  }
+
+  private static clearLibraryEmptyStateRetryTimer(win: AIAssistantWindow): void {
+    const retryTimer = windowLibraryEmptyStateRetryTimer.get(win);
+    if (retryTimer == null) {
+      return;
+    }
+
+    win.clearTimeout(retryTimer);
+    windowLibraryEmptyStateRetryTimer.delete(win);
   }
 
   private static ensureHostBootstrapped(

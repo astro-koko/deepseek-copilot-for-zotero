@@ -5,6 +5,7 @@ export type SidebarHostMount = HTMLElement;
 export type SidebarAttachmentTarget =
   | "native-library"
   | "native-reader"
+  | "message-head"
   | "section-body"
   | "section-fallback"
   | null;

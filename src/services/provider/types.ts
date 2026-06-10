@@ -15,6 +15,12 @@ export interface StreamingResponse {
   stream: AsyncIterable<string>;
 }
 
+export interface ProviderRequestDiagnostics {
+  fullTextChars?: number;
+  fullTextSource?: string;
+  systemPromptChars?: number;
+}
+
 export interface ChatCompletionRequest {
   model: string;
   messages: ChatCompletionMessage[];

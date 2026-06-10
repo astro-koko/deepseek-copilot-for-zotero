@@ -3,6 +3,7 @@ import type {
   ChatCompletionMessage,
   StreamingResponse,
   ChatCompletionRequest,
+  ProviderRequestDiagnostics,
 } from "./types";
 
 const PROVIDER_DIAGNOSTIC_PATH = "/tmp/ds-copilot-provider-request.json";
@@ -13,6 +14,7 @@ export function createOpenAICompatibleProvider(
   async function sendChat(
     messages: ChatCompletionMessage[],
     signal?: AbortSignal,
+    diagnostics?: ProviderRequestDiagnostics,
   ): Promise<StreamingResponse> {
     const requestBody: ChatCompletionRequest = {
       model: config.model,
@@ -21,7 +23,7 @@ export function createOpenAICompatibleProvider(
       temperature: 0.7,
     };
 
-    recordProviderRequestDiagnostic(config, requestBody);
+    recordProviderRequestDiagnostic(config, requestBody, diagnostics);
 
     const AbortControllerCtor = (globalThis as any).AbortController;
     const controller =
@@ -96,14 +98,18 @@ export function createOpenAICompatibleProvider(
 function recordProviderRequestDiagnostic(
   config: ProviderConfig,
   requestBody: ChatCompletionRequest,
+  diagnosticsMeta?: ProviderRequestDiagnostics,
 ): void {
   const diagnostics = ((globalThis as any).__aiAssistantDiagnostics ??= {});
   const payload = {
     endpoint: `${config.baseURL}/chat/completions`,
+    fullTextChars: diagnosticsMeta?.fullTextChars,
+    fullTextSource: diagnosticsMeta?.fullTextSource,
     hasApiKey: Boolean(config.apiKey),
     messageCount: requestBody.messages.length,
     model: requestBody.model,
     stream: requestBody.stream,
+    systemPromptChars: diagnosticsMeta?.systemPromptChars,
     timestamp: new Date().toISOString(),
   };
   diagnostics.lastProviderRequest = payload;

@@ -77,6 +77,13 @@ describe("chatEngine", () => {
   beforeEach(() => {
     providerMocks.createOpenAICompatibleProvider.mockClear();
     providerMocks.assembleContext.mockClear();
+    providerMocks.assembleContext.mockReturnValue({
+      availability: "pdf-text-ready",
+      fullText: "",
+      metadata: "Test metadata",
+      selectedText: "",
+      warnings: [],
+    });
     providerMocks.getSettings.mockClear();
     providerMocks.getEvidenceAuditLabel.mockClear();
     providerMocks.searchEvidence.mockClear();
@@ -111,33 +118,32 @@ describe("chatEngine", () => {
         },
       ],
       undefined,
+      expect.objectContaining({
+        fullTextChars: 0,
+        systemPromptChars: expect.any(Number),
+      }),
     );
   });
 
   it("includes context availability warnings in the system prompt when full text is unavailable", async () => {
     providerMocks.assembleContext.mockReturnValue({
-      availability: "abstract-only",
-      fullText: "Abstract text",
+      availability: "fulltext-required-error",
+      blockingMessage: "当前论文全文不可用，无法发送请求。",
+      fullText: "",
       metadata: "Metadata block",
       selectedText: "",
-      warnings: [
-        "当前范围没有可提取的 PDF 正文，已自动回退到摘要内容。",
-      ],
+      warnings: [],
     });
 
-    await sendChatMessage(makeThread([]), {
-      type: "paper",
-      id: "paper-1",
-      label: "Paper 1",
-      itemIds: [1],
-    });
-
-    const [messages] = providerMocks.sendChat.mock.calls[0] || [];
-    expect(messages[0].content).toContain("=== 上下文状态 ===");
-    expect(messages[0].content).toContain("可用性：仅摘要");
-    expect(messages[0].content).toContain(
-      "当前范围没有可提取的 PDF 正文，已自动回退到摘要内容。",
-    );
+    await expect(
+      sendChatMessage(makeThread([]), {
+        type: "paper",
+        id: "paper-1",
+        label: "Paper 1",
+        itemIds: [1],
+      }),
+    ).rejects.toThrow("当前论文全文不可用，无法发送请求。");
+    expect(providerMocks.sendChat).not.toHaveBeenCalled();
   });
 
   it("uses the persisted pro model when the sidebar switches to deep mode", async () => {
@@ -164,7 +170,8 @@ describe("chatEngine", () => {
   it("passes later-page full text segments through the system prompt when context assembly selects them", async () => {
     providerMocks.assembleContext.mockReturnValue({
       availability: "pdf-text-ready",
-      fullText: "Page 5\nCode Availability\nThe SHARP template is available at https://github.com/stanford-ai4physics/sharp.",
+      fullText:
+        "Introduction text.\nPage 5\nCode Availability\nThe SHARP template is available at https://github.com/stanford-ai4physics/sharp.",
       metadata: "Metadata block",
       selectedText: "",
       warnings: [],
@@ -180,8 +187,93 @@ describe("chatEngine", () => {
     });
 
     const [messages] = providerMocks.sendChat.mock.calls[0] || [];
+    expect(messages[0].content).toContain("Introduction text.");
     expect(messages[0].content).toContain("Code Availability");
     expect(messages[0].content).toContain("stanford-ai4physics/sharp");
+  });
+
+  it("adds a document-tail helper section while still sending the full paper text", async () => {
+    const bodyPrefix = "Introduction text.\n" + "Background paragraph.\n".repeat(220);
+    const tailSection =
+      "Figure A7. Diffusion guidance with self-recurrence.\n" +
+      "Figure A8. General guidance for the Two Moons task.\n";
+    providerMocks.assembleContext.mockReturnValue({
+      availability: "pdf-text-ready",
+      fullText: `${bodyPrefix}${tailSection}`,
+      metadata: "Metadata block",
+      selectedText: "",
+      warnings: [],
+    });
+
+    await sendChatMessage(
+      makeThread([
+        {
+          id: "msg-1",
+          role: "user",
+          content: "这篇论文最后一页讲了什么？",
+          timestamp: 1,
+        },
+      ]),
+      {
+        type: "paper",
+        id: "paper-1",
+        label: "Paper 1",
+        itemIds: [1],
+      },
+    );
+
+    const [messages] = providerMocks.sendChat.mock.calls[0] || [];
+    expect(messages[0].content).toContain("=== 正文内容 ===");
+    expect(messages[0].content).toContain("Introduction text.");
+    expect(messages[0].content).toContain("=== 文档末尾重点 ===");
+    expect(messages[0].content).toContain("Figure A7");
+    expect(messages[0].content).toContain("Figure A8");
+  });
+
+  it("propagates an unsupported-scope blocking message before calling the provider", async () => {
+    providerMocks.assembleContext.mockReturnValue({
+      availability: "fulltext-unsupported-scope",
+      blockingMessage: "当前仅支持单篇论文或当前 PDF 的全文模式。",
+      fullText: "",
+      metadata: "Metadata block",
+      selectedText: "",
+      warnings: [],
+    });
+
+    await expect(
+      sendChatMessage(makeThread([]), {
+        type: "collection",
+        id: "collection-1",
+        label: "Collection 1",
+        itemIds: [1, 2],
+      }),
+    ).rejects.toThrow("当前仅支持单篇论文或当前 PDF 的全文模式。");
+    expect(providerMocks.sendChat).not.toHaveBeenCalled();
+  });
+
+  it("translates provider context-limit errors into a clearer Chinese message", async () => {
+    providerMocks.sendChat.mockRejectedValue(
+      new Error("Provider error 400: context_length_exceeded"),
+    );
+
+    await expect(
+      sendChatMessage(
+        makeThread([
+          {
+            id: "msg-1",
+            role: "user",
+            content: "Summarize this paper",
+            timestamp: 1,
+          },
+        ]),
+        {
+          type: "paper",
+          id: "paper-1",
+          label: "Paper 1",
+          itemIds: [1],
+        },
+      ),
+    ).rejects.toThrow("当前论文全文超出模型上下文上限，请更换模型或缩小范围。");
   });
 
   it("injects external evidence into the system prompt when evidence search is enabled", async () => {

@@ -3,6 +3,12 @@ import sidebarSource from "./Sidebar.tsx?raw";
 import { describe, expect, it } from "vitest";
 
 describe("Sidebar recent thread layout", () => {
+  it("renders a branded header icon next to the DS Copilot title", () => {
+    expect(sidebarSource).toContain("headerBrand");
+    expect(sidebarSource).toContain("headerBrandIcon");
+    expect(sidebarSource).toContain("deepseek-favicon.png");
+  });
+
   it("renders suggested actions as one compact grid instead of grouped subsections", () => {
     expect(sidebarSource).toContain("model.suggestedActions.map((action) =>");
     expect(sidebarSource).toContain('suggestedActionsGrid: {');

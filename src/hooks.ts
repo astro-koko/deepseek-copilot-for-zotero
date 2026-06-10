@@ -10,12 +10,15 @@ import { EventBus } from "./utils/eventBus";
 import { createRefCountedRegistration, createWindowEventDispatcher } from "./utils/windowLifecycle";
 import { buildStartupDiagnostic } from "./utils/startupDiagnostics";
 import { registerPreferencesPane } from "./modules/preferencesPane";
+import { maybeRunConfiguredHostSmoke } from "./services/hostSmoke";
 
 let scopeChangeCallback: ((scope: any) => void) | null = null;
 const scopeChangeDispatcher = createWindowEventDispatcher<
   Window & { __aiAssistantEventBus?: EventTarget },
   unknown
 >("scopeChange");
+const BRANDED_PREFERENCES_ICON =
+  "chrome://zotero-ai-assistant/content/icons/icon-20.png";
 const stylesheetRegistration = createRefCountedRegistration(
   loadStylesheet,
   unloadStylesheet,
@@ -60,7 +63,7 @@ async function onStartup() {
       src: `chrome://${addon.data.config.addonRef}/content/preferences.xhtml`,
       id: `${addon.data.config.addonRef}-prefpane`,
       label: "DS Copilot",
-      image: `chrome://${addon.data.config.addonRef}/content/icons/icon-20.png`,
+      image: BRANDED_PREFERENCES_ICON,
     });
     ztoolkit.log("Preferences pane registered");
   } catch (e) {
@@ -77,6 +80,16 @@ async function onStartup() {
       }
     });
   }
+
+  void maybeRunConfiguredHostSmoke()
+    .then((report) => {
+      if (report.status !== "skipped") {
+        ztoolkit.log("Host smoke run finished:", report);
+      }
+    })
+    .catch((error) => {
+      ztoolkit.log("Host smoke runner failed:", error);
+    });
 }
 
 function loadStylesheet() {

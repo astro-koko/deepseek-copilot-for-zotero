@@ -2,6 +2,8 @@
 
 This document is the repo-specific workbench for developing and validating DS Copilot inside Zotero.
 
+For real packaged import, cold restart, or GUI-driven acceptance work, also follow [docs/zotero-real-smoke-guardrails.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-real-smoke-guardrails.md). That document records the actual mistakes made during smoke work and turns them into required execution rules.
+
 The default target is:
 
 - Zotero 9 release for daily development and main smoke

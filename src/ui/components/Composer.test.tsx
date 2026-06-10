@@ -80,7 +80,7 @@ describe("Composer layout", () => {
     );
 
     expect(markup).toContain("font-family:inherit");
-    expect(markup).toContain("font-size:1em");
-    expect(markup).toContain("font-size:0.95em");
+    expect(markup).toContain("font-size:1.04em");
+    expect(markup).toContain("font-size:0.98em");
   });
 });

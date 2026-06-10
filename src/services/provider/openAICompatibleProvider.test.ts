@@ -77,6 +77,50 @@ describe("openAICompatibleProvider", () => {
     ).toBeUndefined();
   });
 
+  it("records prompt and full-text character diagnostics for full-paper verification", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          new ReadableStream({
+            start(controller: ReadableStreamDefaultController) {
+              controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+              controller.close();
+            },
+          }),
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createOpenAICompatibleProvider({
+      baseURL: "https://api.deepseek.com",
+      apiKey: "test-key",
+      model: "deepseek-v4-flash",
+    });
+
+    await provider.sendChat(
+      [
+        {
+          role: "system",
+          content:
+            "=== 上下文 ===\n标题：Paper\n\n=== 正文内容 ===\nFull PDF text body",
+        },
+        { role: "user", content: "最后一页讲了什么？" },
+      ],
+      undefined,
+      {
+        fullTextChars: 18,
+        fullTextSource: "pdf-worker",
+        systemPromptChars: 47,
+      },
+    );
+
+    expect((globalThis as any).__aiAssistantDiagnostics?.lastProviderRequest).toMatchObject({
+      fullTextChars: 18,
+      fullTextSource: "pdf-worker",
+      systemPromptChars: 47,
+    });
+  });
+
   it("writes the latest provider request to a dedicated runtime diagnostic file", async () => {
     const fetchMock = vi.fn(
       async () =>

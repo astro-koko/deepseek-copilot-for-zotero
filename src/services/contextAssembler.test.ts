@@ -13,6 +13,8 @@ interface FakeItemShape {
   abstractNote?: string;
   attachmentContentType?: string;
   attachmentText?: string | Promise<string>;
+  cacheFileExists?: boolean;
+  cacheFilePath?: string;
   creators?: FakeCreator[];
   date?: string;
   displayTitle: string;
@@ -57,6 +59,19 @@ function makeScope(overrides: Partial<ScopeContext>): ScopeContext {
 beforeEach(() => {
   itemRegistry.clear();
   vi.stubGlobal("Zotero", {
+    File: {
+      getContentsAsync: vi.fn(async () => ""),
+    },
+    FullText: {
+      getItemCacheFile: vi.fn((item: { id: number }) => {
+        const entry = itemRegistry.get(item.id);
+        if (!entry?.cacheFilePath) return null;
+        return {
+          path: entry.cacheFilePath,
+          exists: () => entry.cacheFileExists ?? true,
+        };
+      }),
+    },
     Items: {
       get: (id: number) => {
         const item = itemRegistry.get(id);
@@ -156,7 +171,7 @@ describe("assembleContext", () => {
     expect(result.fullText).toContain("Worker extracted PDF text");
   });
 
-  it("prefers later-page content near the active reader page instead of truncating to the document head", async () => {
+  it("returns the full PDF text even when the active reader page is later in the document", async () => {
     const parent = registerItem({
       id: 40,
       abstractNote: "Parent abstract",
@@ -186,11 +201,40 @@ describe("assembleContext", () => {
     );
 
     expect(result.availability).toBe("pdf-text-ready");
+    expect(result.fullText).toContain("Introduction text.");
     expect(result.fullText).toContain("Code Availability");
     expect(result.fullText).toContain("stanford-ai4physics/sharp");
+    expect(result.fullText).not.toContain("[...content truncated...]");
   });
 
-  it("falls back to the abstract when a paper has no extractable PDF text", async () => {
+  it("reads the Zotero full-text cache when PDFWorker returns no text", async () => {
+    registerItem({
+      id: 1,
+      attachmentIDs: [2],
+      creators: [{ firstName: "Grace", lastName: "Hopper" }],
+      date: "2024-02-20",
+      displayTitle: "Cached Paper",
+    });
+    registerItem({
+      id: 2,
+      attachmentContentType: "application/pdf",
+      cacheFileExists: true,
+      cacheFilePath: "/tmp/zotero/storage/ABCD1234/.zotero-ft-cache",
+      displayTitle: "Cached PDF",
+    });
+    (Zotero.File.getContentsAsync as ReturnType<typeof vi.fn>).mockResolvedValue(
+      "This indexed Zotero text should be used when PDFWorker is empty.",
+    );
+
+    const result = await assembleContext(makeScope({}));
+
+    expect(result.availability).toBe("pdf-text-ready");
+    expect(result.fullText).toContain(
+      "This indexed Zotero text should be used when PDFWorker is empty.",
+    );
+  });
+
+  it("blocks single-paper mode when no PDF attachment is available", async () => {
     registerItem({
       id: 1,
       abstractNote: "Abstract fallback content",
@@ -202,36 +246,95 @@ describe("assembleContext", () => {
 
     const result = await assembleContext(makeScope({}));
 
-    expect(result.availability).toBe("abstract-only");
-    expect(result.fullText).toContain("Abstract fallback content");
-    expect(result.warnings).toContain(
-      "Using the abstract because no extractable PDF text is available for this scope.",
-    );
+    expect(result.availability).toBe("fulltext-required-error");
+    expect(result.blockingMessage).toContain("全文");
   });
 
-  it("reports collection truncation for large collections instead of pretending full text is available", async () => {
-    for (let index = 1; index <= 4; index += 1) {
-      registerItem({
-        id: index,
-        abstractNote: `Abstract ${index}`,
-        attachmentIDs: [],
-        displayTitle: `Paper ${index}`,
-      });
-    }
+  it("blocks single-paper mode when multiple PDF attachments are present", async () => {
+    registerItem({
+      id: 1,
+      attachmentIDs: [2, 3],
+      displayTitle: "Multi PDF Paper",
+    });
+    registerItem({
+      id: 2,
+      attachmentContentType: "application/pdf",
+      displayTitle: "Main PDF",
+    });
+    registerItem({
+      id: 3,
+      attachmentContentType: "application/pdf",
+      displayTitle: "Supplement PDF",
+    });
+
+    const result = await assembleContext(makeScope({}));
+
+    expect(result.availability).toBe("fulltext-required-error");
+    expect(result.blockingMessage).toContain("多个 PDF");
+  });
+
+  it("blocks single-pdf mode when no extractable full text is available", async () => {
+    const parent = registerItem({
+      id: 50,
+      abstractNote: "Parent abstract",
+      displayTitle: "Reader Paper",
+    });
+    registerItem({
+      id: 51,
+      attachmentContentType: "application/pdf",
+      displayTitle: "Reader PDF",
+      parentItem: parent,
+    });
+
+    const result = await assembleContext(
+      makeScope({
+        type: "pdf",
+        id: "pdf-51",
+        itemIds: [50],
+        readerAttachmentId: 51,
+      }),
+    );
+
+    expect(result.availability).toBe("fulltext-required-error");
+    expect(result.blockingMessage).toContain("无法读取");
+  });
+
+  it("marks collection scope as unsupported for full-text mode", async () => {
+    registerItem({
+      id: 1,
+      displayTitle: "Paper 1",
+    });
 
     const result = await assembleContext(
       makeScope({
         type: "collection",
         id: "collection-1",
         label: "Large Collection",
-        itemIds: [1, 2, 3, 4],
+        itemIds: [1],
       }),
     );
 
-    expect(result.availability).toBe("collection-truncated");
+    expect(result.availability).toBe("fulltext-unsupported-scope");
     expect(result.fullText).toBe("");
-    expect(result.warnings).toContain(
-      "Collection too large for full text inclusion; using metadata summary only.",
+    expect(result.blockingMessage).toContain("仅支持单篇论文或当前 PDF");
+  });
+
+  it("marks manual selection scope as unsupported for full-text mode", async () => {
+    registerItem({
+      id: 1,
+      displayTitle: "Paper 1",
+    });
+
+    const result = await assembleContext(
+      makeScope({
+        type: "manual-selection",
+        id: "selection-1",
+        label: "Picked Papers",
+        itemIds: [1],
+      }),
     );
+
+    expect(result.availability).toBe("fulltext-unsupported-scope");
+    expect(result.blockingMessage).toContain("仅支持单篇论文或当前 PDF");
   });
 });

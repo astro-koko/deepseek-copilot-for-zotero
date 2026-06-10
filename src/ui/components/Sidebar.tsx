@@ -25,6 +25,9 @@ import { getSidebarTheme } from "../theme";
 import { typography } from "../typography";
 import { isChineseLocale } from "../../utils/locale";
 
+const BRAND_ICON_SRC =
+  "chrome://zotero-ai-assistant/content/icons/deepseek-favicon.png";
+
 interface SidebarProps {
   eventBus: EventTarget;
   hostWindow: Window;
@@ -321,7 +324,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
     >
       <div style={{ ...styles.header, background: theme.background, borderBottomColor: theme.border }}>
         <div style={styles.headerMain}>
-          <div style={{ ...styles.headerTitle, color: theme.text }}>DS Copilot</div>
+          <div style={styles.headerBrand}>
+            <img alt="" src={BRAND_ICON_SRC} style={styles.headerBrandIcon} />
+            <div style={{ ...styles.headerTitle, color: theme.text }}>DS Copilot</div>
+          </div>
           <div style={{ ...styles.headerMeta, color: theme.mutedText }}>
             {model.locationLabel} · {model.providerLabel} · {model.statusLabel}
           </div>
@@ -678,6 +684,18 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "2px",
     minWidth: 0,
     flex: "1 1 130px",
+  },
+  headerBrand: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    minWidth: 0,
+  },
+  headerBrandIcon: {
+    width: "16px",
+    height: "16px",
+    flexShrink: 0,
+    display: "block",
   },
   headerTitle: {
     fontSize: typography.headingSm,
