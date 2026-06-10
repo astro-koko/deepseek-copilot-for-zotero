@@ -1,20 +1,23 @@
 # DeepSeek Copilot for Zotero
 
+[![Release](https://img.shields.io/github/v/release/astro-koko/deepseek-copilot-for-zotero?display_name=tag&style=flat-square)](https://github.com/astro-koko/deepseek-copilot-for-zotero/releases)
+[![Zotero](https://img.shields.io/badge/Zotero-9%20stable-CC2936?style=flat-square)](https://www.zotero.org/)
+[![Install XPI](https://img.shields.io/badge/Install-XPI-2ea44f?style=flat-square)](https://github.com/astro-koko/deepseek-copilot-for-zotero/releases)
+
 把 DeepSeek 对话能力直接放进 Zotero 的原生阅读工作流里。
 
 `DeepSeek Copilot for Zotero` 面向“边读边问”的论文场景：你可以在文库里选中一篇论文后直接提问，在 PDF Reader 里选中文本后发起解释或追问，并按需开启联网查证，而不用在 Zotero、浏览器聊天页和临时笔记之间来回切换。
 
-当前最新公开发布目标是 `v0.9.2`。这一版重点补齐了单篇 PDF / 单篇论文全文发送链路，并继续收紧 Zotero 宿主内的真实打包 smoke 验收。
+当前最新公开发布版本是 `v0.9.3`。这一版重点补齐稳定的 GitHub XPI release 资产、社区收录入口和对外发布素材，让插件更容易被 Zotero 用户发现、安装和转发。
 
 > 仓库对外名称使用 `DeepSeek Copilot for Zotero`。当前插件内部历史 ID 与部分界面文案仍保留 `DS Copilot`，在插件界面里看到这个名字是正常的，不影响安装和使用。
 
-## v0.9.2 重点更新
+## v0.9.3 重点更新
 
-- 单篇 `pdf` / 单篇 `paper` 的全文模式改为优先发送整篇 PDF 正文，而不是页窗截断
-- 当全文不可用时，插件会明确报错，而不再静默降级成摘要回答
-- 当前 `collection` 和 `manual-selection` 不支持全文模式，会明确提示用户切回单篇论文或当前 PDF
-- 对“最后一页 / 附录结尾”类问题增加了文档末尾重点辅助片段
-- `0.9.2` 已完成真实 Zotero 打包安装与冷重启 smoke，验证单篇 PDF 可以答到末页内容
+- GitHub tag 现在可以自动产出稳定的 `.xpi` release 资产和 `update*.json` 清单
+- 仓库首页改成更适合普通 Zotero 使用者的安装入口，而不只是开发说明
+- 已准备好提交到 scraper-powered Zotero 插件社区的数据和发布文案
+- 当前单篇 `pdf` / 单篇 `paper` 全文问答能力延续自 `0.9.2`，包括真实 Zotero 打包安装与冷重启 smoke 验证
 
 ## 你会在哪里用到它
 
@@ -41,7 +44,7 @@
 
 ## 安装
 
-如果你是普通使用者，最简单的安装方式是从 GitHub Releases 下载 `.xpi` 插件包。当前稳定版本为 `v0.9.2`。
+如果你是普通使用者，最简单的安装方式是从 GitHub Releases 下载 `.xpi` 插件包。当前稳定版本为 `v0.9.3`。
 
 1. 打开本仓库的 GitHub Releases 页面。
 2. 下载最新的 `DS.Copilot-<version>.xpi`。
