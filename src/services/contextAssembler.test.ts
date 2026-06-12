@@ -18,8 +18,11 @@ interface FakeItemShape {
   creators?: FakeCreator[];
   date?: string;
   displayTitle: string;
+  getAttachmentsThrowsChildItems?: boolean;
+  loadDataType?: ReturnType<typeof vi.fn>;
   parentItem?: FakeItemShape | null;
   attachmentIDs?: number[];
+  childItems?: Array<{ id: number; attachmentContentType?: string }>;
 }
 
 const itemRegistry = new Map<number, FakeItemShape>();
@@ -31,11 +34,20 @@ function registerItem(shape: FakeItemShape): FakeItemShape {
 
 function makeItem(shape: FakeItemShape): Zotero.Item {
   return {
+    _childItems: shape.childItems,
     id: shape.id,
     attachmentContentType: shape.attachmentContentType,
     attachmentText: shape.attachmentText,
+    loadDataType: shape.loadDataType,
     parentItem: shape.parentItem ? makeItem(shape.parentItem) : null,
-    getAttachments: () => shape.attachmentIDs || [],
+    getAttachments: () => {
+      if (shape.getAttachmentsThrowsChildItems) {
+        throw new Error(
+          `UnloadedDataException: 'childItems' not loaded for item (${shape.id})`,
+        );
+      }
+      return shape.attachmentIDs || [];
+    },
     getCreators: () => shape.creators || [],
     getDisplayTitle: () => shape.displayTitle,
     getField: (field: string) => {
@@ -271,6 +283,48 @@ describe("assembleContext", () => {
 
     expect(result.availability).toBe("fulltext-required-error");
     expect(result.blockingMessage).toContain("多个 PDF");
+  });
+
+  it("loads paper child items before resolving attachments in host runtimes", async () => {
+    const loadDataType = vi.fn(async () => {});
+    registerItem({
+      id: 1,
+      attachmentIDs: [2],
+      displayTitle: "Lazy Child Items Paper",
+      loadDataType,
+    });
+    registerItem({
+      id: 2,
+      attachmentContentType: "application/pdf",
+      attachmentText: "Loaded after childItems preload.",
+      displayTitle: "Lazy PDF",
+    });
+
+    const result = await assembleContext(makeScope({}));
+
+    expect(loadDataType).toHaveBeenCalledWith("childItems");
+    expect(result.availability).toBe("pdf-text-ready");
+    expect(result.fullText).toContain("Loaded after childItems preload.");
+  });
+
+  it("falls back to best-effort child item data when getAttachments throws unloaded childItems", async () => {
+    registerItem({
+      id: 1,
+      childItems: [{ id: 2, attachmentContentType: "application/pdf" }],
+      displayTitle: "Fallback Child Items Paper",
+      getAttachmentsThrowsChildItems: true,
+    });
+    registerItem({
+      id: 2,
+      attachmentContentType: "application/pdf",
+      attachmentText: "Recovered from child item fallback.",
+      displayTitle: "Fallback PDF",
+    });
+
+    const result = await assembleContext(makeScope({}));
+
+    expect(result.availability).toBe("pdf-text-ready");
+    expect(result.fullText).toContain("Recovered from child item fallback.");
   });
 
   it("blocks single-pdf mode when no extractable full text is available", async () => {

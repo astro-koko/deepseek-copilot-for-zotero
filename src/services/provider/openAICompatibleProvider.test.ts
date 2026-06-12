@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createOpenAICompatibleProvider } from "./openAICompatibleProvider";
 
 describe("openAICompatibleProvider", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("sends the selected model in the request body", async () => {
     const fetchMock = vi.fn(
       async () =>
@@ -153,6 +157,44 @@ describe("openAICompatibleProvider", () => {
     const diagnosticPayload = (Zotero.File.putContents as ReturnType<typeof vi.fn>).mock.calls[0]?.[1];
     expect(String(diagnosticPayload)).toContain('"model": "deepseek-v4-pro"');
     expect(String(diagnosticPayload)).toContain('"messageCount": 1');
+  });
+
+  it("prefers Zotero.HTTP.request in host environments and converts the reply into a stream", async () => {
+    const hostRequest = vi.fn(async () => ({
+      responseText: JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: "Host HTTP reply",
+            },
+          },
+        ],
+      }),
+      status: 200,
+    }));
+    vi.stubGlobal("Zotero", {
+      HTTP: {
+        request: hostRequest,
+      },
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createOpenAICompatibleProvider({
+      baseURL: "https://api.deepseek.com",
+      apiKey: "test-key",
+      model: "deepseek-v4-flash",
+    });
+
+    const response = await provider.sendChat([{ role: "user", content: "hello" }]);
+    let text = "";
+    for await (const chunk of response.stream) {
+      text += chunk;
+    }
+
+    expect(hostRequest).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(text).toBe("Host HTTP reply");
   });
 
   it("reassembles SSE frames that are split across chunks", async () => {

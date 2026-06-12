@@ -28,7 +28,9 @@ export interface SidebarViewModel {
   contextAvailabilityLabel: string | null;
   contextWarnings: string[];
   currentFileLabel: string;
+  showDockedComposer: boolean;
   showIntroSection: boolean;
+  showInlineComposer: boolean;
   heroBody: string;
   heroTitle: string;
   locationLabel: string;
@@ -146,7 +148,9 @@ export function buildSidebarViewModel({
       contextAvailabilityLabel,
       contextWarnings,
       currentFileLabel,
+      showDockedComposer: true,
       showIntroSection: true,
+      showInlineComposer: false,
       heroBody:
         zh
           ? location === "reader"
@@ -228,7 +232,9 @@ export function buildSidebarViewModel({
       contextAvailabilityLabel,
       contextWarnings,
       currentFileLabel,
+      showDockedComposer: true,
       showIntroSection: true,
+      showInlineComposer: false,
       heroBody: zh ? "请在设置中填写 DeepSeek API Key。" : "Add your DeepSeek API key in Settings.",
       heroTitle: zh ? "需要配置" : "Configuration required",
       locationLabel,
@@ -274,7 +280,9 @@ export function buildSidebarViewModel({
       contextAvailabilityLabel,
       contextWarnings,
       currentFileLabel,
+      showDockedComposer: true,
       showIntroSection: true,
+      showInlineComposer: false,
       heroBody:
         zh ? "当前仅支持单篇论文或活动 PDF。" : "Use one paper or the active PDF.",
       heroTitle: zh ? "选择一篇论文" : "Choose one paper",
@@ -325,7 +333,9 @@ export function buildSidebarViewModel({
       contextAvailabilityLabel,
       contextWarnings,
       currentFileLabel,
+      showDockedComposer: true,
       showIntroSection: false,
+      showInlineComposer: false,
       heroBody: zh ? "继续当前会话。" : "Continue the current thread.",
       heroTitle: zh ? "当前会话" : "Thread",
       locationLabel,
@@ -364,7 +374,9 @@ export function buildSidebarViewModel({
     contextAvailabilityLabel,
     contextWarnings,
     currentFileLabel,
+    showDockedComposer: false,
     showIntroSection: true,
+    showInlineComposer: true,
     heroBody: zh ? "选择一个操作，或直接针对当前论文提问。" : "Pick an action or ask about the current paper.",
     heroTitle: zh ? "准备就绪" : "Ready to chat",
     locationLabel,
@@ -379,7 +391,7 @@ export function buildSidebarViewModel({
     scopeSelectionLabel,
     scopeSectionLabel,
     scopeTypeLabel,
-    showRecentThreads: filteredRecentThreads.length > 0,
+    showRecentThreads: false,
     showShell: true,
     showSuggestedActions: suggestedActions.length > 0,
     showThreadView: false,

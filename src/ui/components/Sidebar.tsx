@@ -534,6 +534,41 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
             </section>
           )}
 
+          {model.showInlineComposer && (
+            <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
+              <div style={{ ...styles.sectionTitle, color: theme.text }}>{model.chatSectionLabel}</div>
+              <div
+                style={{
+                  ...styles.inlineComposerSection,
+                  background: theme.background,
+                }}
+              >
+                <Composer
+                  onSend={(message) => {
+                    void handleSend(message);
+                  }}
+                  onCancel={handleCancel}
+                  onModelModeChange={(mode) =>
+                    handleModelChange(mode === "deep" ? "deepseek-v4-pro" : "deepseek-v4-flash")
+                  }
+                  onToggleEvidence={handleToggleEvidence}
+                  isStreaming={session.isStreaming}
+                  currentScopeType={scope?.type || null}
+                  disabled={model.composerDisabled}
+                  disabledReason={model.composerDisabledReason}
+                  placeholder={model.composerPlaceholder}
+                  draftValue={composerDraft}
+                  focusNonce={composerFocusNonce}
+                  modelMode={settings.model === "deepseek-v4-pro" ? "deep" : "light"}
+                  evidenceDisabled={Boolean(evidenceIssue)}
+                  evidenceEnabled={evidenceEnabled}
+                  evidenceLabel={evidenceLabel}
+                  onDraftChange={setComposerDraft}
+                />
+              </div>
+            </section>
+          )}
+
           {session.isStreaming && session.streamingContent && (
             <div style={{ ...styles.streamingSection, background: theme.panelBackground, borderTopColor: theme.softBorder, borderBottomColor: theme.softBorder }}>
               <div style={{ ...styles.streamingLabel, color: theme.mutedText }}>{model.streamingLabel}</div>
@@ -563,86 +598,102 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
             </div>
           )}
 
-          {isRecentChatsVisible && (
-            <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
-              <div style={{ ...styles.sectionTitle, color: theme.text }}>{model.recentThreadsLabel}</div>
-              <div style={{ ...styles.list, borderTopColor: theme.border, borderBottomColor: theme.border, background: theme.border }}>
-                {model.recentThreads.map((thread) => (
-                  <div
-                    key={thread.id}
-                    style={{ ...styles.listButton, background: theme.surfaceBackground }}
-                  >
-                    <button
-                      style={styles.threadMainButton}
-                      onClick={() => handleOpenThread(thread)}
-                    >
-                      <span style={styles.listRow}>
-                        <span style={{ ...styles.listPrimary, color: theme.text }}>{thread.title}</span>
-                        <span style={{ ...styles.listSecondary, color: theme.mutedText }}>
-                          {getThreadPreview(thread)}
-                        </span>
-                      </span>
-                    </button>
-                    <div style={styles.threadMetaRow}>
-                      <span style={{ ...styles.listMeta, color: theme.mutedText }}>
-                        {formatThreadTimestamp(thread.updatedAt)}
-                      </span>
-                    </div>
-                    <div style={styles.threadActionRow}>
-                      <button
-                        style={{ ...styles.threadActionButton, color: theme.buttonText, borderColor: theme.buttonBorder }}
-                        onClick={() => {
-                          void handleExportThread(thread);
-                        }}
-                      >
-                        {zh ? "导出" : "Export"}
-                      </button>
-                      <button
-                        style={{ ...styles.threadActionButton, color: theme.errorText, borderColor: theme.errorBorder }}
-                        onClick={() => {
-                          void handleDeleteThread(thread);
-                        }}
-                      >
-                        {zh ? "删除" : "Delete"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
         </div>
 
-        <section
-          style={{
-            ...styles.composerDock,
-            background: theme.background,
-            borderTopColor: theme.softBorder,
-          }}
-        >
-          <Composer
-            onSend={(message) => {
-              void handleSend(message);
+        {model.showDockedComposer && (
+          <section
+            style={{
+              ...styles.composerDock,
+              background: theme.background,
+              borderTopColor: theme.softBorder,
             }}
-            onCancel={handleCancel}
-            onModelModeChange={(mode) =>
-              handleModelChange(mode === "deep" ? "deepseek-v4-pro" : "deepseek-v4-flash")
-            }
-            onToggleEvidence={handleToggleEvidence}
-            isStreaming={session.isStreaming}
-            currentScopeType={scope?.type || null}
-            disabled={model.composerDisabled}
-            disabledReason={model.composerDisabledReason}
-            placeholder={model.composerPlaceholder}
-            draftValue={composerDraft}
-            focusNonce={composerFocusNonce}
-            modelMode={settings.model === "deepseek-v4-pro" ? "deep" : "light"}
-            evidenceDisabled={Boolean(evidenceIssue)}
-            evidenceEnabled={evidenceEnabled}
-            evidenceLabel={evidenceLabel}
-            onDraftChange={setComposerDraft}
-          />
-        </section>
+          >
+            <Composer
+              onSend={(message) => {
+                void handleSend(message);
+              }}
+              onCancel={handleCancel}
+              onModelModeChange={(mode) =>
+                handleModelChange(mode === "deep" ? "deepseek-v4-pro" : "deepseek-v4-flash")
+              }
+              onToggleEvidence={handleToggleEvidence}
+              isStreaming={session.isStreaming}
+              currentScopeType={scope?.type || null}
+              disabled={model.composerDisabled}
+              disabledReason={model.composerDisabledReason}
+              placeholder={model.composerPlaceholder}
+              draftValue={composerDraft}
+              focusNonce={composerFocusNonce}
+              modelMode={settings.model === "deepseek-v4-pro" ? "deep" : "light"}
+              evidenceDisabled={Boolean(evidenceIssue)}
+              evidenceEnabled={evidenceEnabled}
+              evidenceLabel={evidenceLabel}
+              onDraftChange={setComposerDraft}
+            />
+          </section>
+        )}
+
+        {isRecentChatsVisible && (
+          <section
+            style={{
+              ...styles.recentChatsDock,
+              background: theme.background,
+              borderTopColor: theme.softBorder,
+            }}
+          >
+            <div style={{ ...styles.sectionTitle, color: theme.text }}>{model.recentThreadsLabel}</div>
+            <div
+              style={{
+                ...styles.recentChatsList,
+                borderTopColor: theme.border,
+                borderBottomColor: theme.border,
+                background: theme.border,
+              }}
+            >
+              {model.recentThreads.map((thread) => (
+                <div
+                  key={thread.id}
+                  style={{ ...styles.listButton, background: theme.surfaceBackground }}
+                >
+                  <button
+                    style={styles.threadMainButton}
+                    onClick={() => handleOpenThread(thread)}
+                  >
+                    <span style={styles.listRow}>
+                      <span style={{ ...styles.listPrimary, color: theme.text }}>{thread.title}</span>
+                      <span style={{ ...styles.listSecondary, color: theme.mutedText }}>
+                        {getThreadPreview(thread)}
+                      </span>
+                    </span>
+                  </button>
+                  <div style={styles.threadMetaRow}>
+                    <span style={{ ...styles.listMeta, color: theme.mutedText }}>
+                      {formatThreadTimestamp(thread.updatedAt)}
+                    </span>
+                  </div>
+                  <div style={styles.threadActionRow}>
+                    <button
+                      style={{ ...styles.threadActionButton, color: theme.buttonText, borderColor: theme.buttonBorder }}
+                      onClick={() => {
+                        void handleExportThread(thread);
+                      }}
+                    >
+                      {zh ? "导出" : "Export"}
+                    </button>
+                    <button
+                      style={{ ...styles.threadActionButton, color: theme.errorText, borderColor: theme.errorBorder }}
+                      onClick={() => {
+                        void handleDeleteThread(thread);
+                      }}
+                    >
+                      {zh ? "删除" : "Delete"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
@@ -926,6 +977,26 @@ const styles: Record<string, React.CSSProperties> = {
     borderTop: "1px solid #e2e2e2",
     padding: "8px 10px 10px",
     flex: "none",
+  },
+  recentChatsDock: {
+    borderTop: "1px solid #e2e2e2",
+    padding: "8px 10px 10px",
+    flex: "none",
+    minHeight: 0,
+  },
+  recentChatsList: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: "1px",
+    borderTop: "1px solid #dddddd",
+    borderBottom: "1px solid #dddddd",
+    overflowX: "hidden",
+    overflowY: "auto",
+    maxHeight: "220px",
+    background: "#dddddd",
+  },
+  inlineComposerSection: {
+    paddingTop: "2px",
   },
   sectionTitle: {
     fontSize: typography.body,

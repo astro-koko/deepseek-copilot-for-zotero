@@ -2,9 +2,9 @@
 
 ## v0.9.4
 
-- Fixed the sidebar chat composer so it stays docked at the bottom while the message area scrolls independently.
-- Hid the welcome copy and suggested actions once a thread already has visible messages.
-- Added light layout polish to keep active conversations centered on the transcript instead of the empty-state shell.
+- Fixed the sidebar chat layout so the composer stays usable while recent chats now render below it instead of above it.
+- Hid the empty-state welcome copy and suggested actions once a thread already has visible messages.
+- Fixed Zotero host send reliability by preloading `paper` attachments more safely and adding a host-compatible provider request path.
 
 ## v0.9.3
 

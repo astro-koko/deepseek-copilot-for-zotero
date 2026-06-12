@@ -105,7 +105,7 @@ async function assemblePaperContext(scope: ScopeContext): Promise<AssembledConte
     return createBlockingContext("fulltext-required-error", FULLTEXT_REQUIRED_MESSAGE);
   }
 
-  const pdfAttachments = resolvePDFAttachments(item);
+  const pdfAttachments = await resolvePDFAttachments(item);
   if (pdfAttachments.length === 0) {
     return createBlockingContext(
       "fulltext-required-error",
@@ -277,9 +277,32 @@ async function readLocalTextFile(source: string | nsIFile): Promise<string> {
   return "";
 }
 
-function resolvePDFAttachments(item: Zotero.Item): Zotero.Item[] {
-  return item
-    .getAttachments()
+async function resolvePDFAttachments(item: Zotero.Item): Promise<Zotero.Item[]> {
+  try {
+    await (item as any).loadDataType?.("childItems");
+  } catch {
+    // Fall back to direct attachment access below when the host cannot preload child items.
+  }
+
+  let attachmentIds: number[] = [];
+  try {
+    attachmentIds = item.getAttachments();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/childItems/i.test(message)) {
+      throw error;
+    }
+
+    const bestEffortChildren =
+      ((item as any)._childItems as Array<{ id?: number; attachmentContentType?: string }> | undefined) ||
+      [];
+    attachmentIds = bestEffortChildren
+      .filter((child) => child?.attachmentContentType === "application/pdf")
+      .map((child) => Number(child.id))
+      .filter((id) => Number.isFinite(id));
+  }
+
+  return attachmentIds
     .map((id: number) => Zotero.Items.get(id))
     .filter((attachment): attachment is Zotero.Item => Boolean(attachment))
     .filter(

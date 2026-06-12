@@ -71,6 +71,8 @@ describe("buildSidebarViewModel", () => {
     expect(model.heroBody).toContain("Choose one paper");
     expect(model.composerDisabled).toBe(true);
     expect(model.showIntroSection).toBe(true);
+    expect(model.showInlineComposer).toBe(false);
+    expect(model.showDockedComposer).toBe(true);
     expect(model.showShell).toBe(true);
     expect(model.showSuggestedActions).toBe(false);
     expect(model.composerDisabledReason).toBe(
@@ -90,6 +92,8 @@ describe("buildSidebarViewModel", () => {
 
     expect(model.mode).toBe("config-error");
     expect(model.showShell).toBe(true);
+    expect(model.showInlineComposer).toBe(false);
+    expect(model.showDockedComposer).toBe(true);
     expect(model.composerDisabled).toBe(true);
     expect(model.noticeText).toContain("API key");
     expect(model.noticeTitle).toBe("Configuration required");
@@ -114,7 +118,9 @@ describe("buildSidebarViewModel", () => {
     expect(model.mode).toBe("home");
     expect(model.showIntroSection).toBe(true);
     expect(model.showSuggestedActions).toBe(true);
-    expect(model.showRecentThreads).toBe(true);
+    expect(model.showRecentThreads).toBe(false);
+    expect(model.showInlineComposer).toBe(true);
+    expect(model.showDockedComposer).toBe(false);
     expect(model.composerDisabled).toBe(false);
     expect(model.heroTitle).toBe("Ready to chat");
     expect(model.heroBody).toBe(
@@ -172,6 +178,8 @@ describe("buildSidebarViewModel", () => {
     expect(model.mode).toBe("thread");
     expect(model.showIntroSection).toBe(false);
     expect(model.showThreadView).toBe(true);
+    expect(model.showInlineComposer).toBe(false);
+    expect(model.showDockedComposer).toBe(true);
     expect(model.composerDisabled).toBe(false);
     expect(model.heroTitle).toBe("Thread");
   });
@@ -217,6 +225,8 @@ describe("buildSidebarViewModel", () => {
 
     expect(model.showShell).toBe(true);
     expect(model.composerDisabled).toBe(true);
+    expect(model.showInlineComposer).toBe(false);
+    expect(model.showDockedComposer).toBe(true);
     expect(model.mode).toBe("empty");
     expect(model.heroTitle).toBe("Choose one paper");
     expect(model.heroBody).toBe(
