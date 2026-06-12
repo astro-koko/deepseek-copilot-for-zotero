@@ -70,6 +70,7 @@ describe("buildSidebarViewModel", () => {
     expect(model.heroTitle).toBe("Select an item");
     expect(model.heroBody).toContain("Choose one paper");
     expect(model.composerDisabled).toBe(true);
+    expect(model.showIntroSection).toBe(true);
     expect(model.showShell).toBe(true);
     expect(model.showSuggestedActions).toBe(false);
     expect(model.composerDisabledReason).toBe(
@@ -111,6 +112,7 @@ describe("buildSidebarViewModel", () => {
     });
 
     expect(model.mode).toBe("home");
+    expect(model.showIntroSection).toBe(true);
     expect(model.showSuggestedActions).toBe(true);
     expect(model.showRecentThreads).toBe(true);
     expect(model.composerDisabled).toBe(false);
@@ -168,6 +170,7 @@ describe("buildSidebarViewModel", () => {
     });
 
     expect(model.mode).toBe("thread");
+    expect(model.showIntroSection).toBe(false);
     expect(model.showThreadView).toBe(true);
     expect(model.composerDisabled).toBe(false);
     expect(model.heroTitle).toBe("Thread");

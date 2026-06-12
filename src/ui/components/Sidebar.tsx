@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useState, useSyncExternalStore } from "react";
+import React, { Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Composer } from "./Composer";
 import { buildSidebarViewModel } from "./sidebarViewModel";
 import {
@@ -55,6 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
   const [composerDraft, setComposerDraft] = useState("");
   const [composerFocusNonce, setComposerFocusNonce] = useState(0);
   const [themeRefreshKey, setThemeRefreshKey] = useState(0);
+  const scrollViewportRef = useRef<HTMLDivElement>(null);
   const zh = isChineseLocale();
 
   const syncResolvedScope = () => {
@@ -317,6 +318,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
         ? "联网查证"
         : "Web Verification";
 
+  useEffect(() => {
+    const content = scrollViewportRef.current;
+    if (!content) {
+      return;
+    }
+
+    const hasVisibleThread = Boolean(session.activeThread?.messages.length);
+    const hasStreamingOutput = Boolean(session.isStreaming && session.streamingContent);
+    if (!hasVisibleThread && !hasStreamingOutput) {
+      return;
+    }
+
+    content.scrollTop = content.scrollHeight;
+  }, [
+    session.activeThread?.id,
+    session.activeThread?.messages.length,
+    session.isStreaming,
+    session.streamingContent,
+  ]);
+
   return (
     <div
       key={themeRefreshKey}
@@ -446,171 +467,183 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
         </div>
       )}
 
-      <div style={styles.content}>
-        <section style={styles.introSection}>
-          <div style={{ ...styles.sectionLabel, color: theme.mutedText }}>{model.chatSectionLabel}</div>
-          <div style={{ ...styles.heroTitle, color: theme.text }}>{model.heroTitle}</div>
-          <div style={{ ...styles.heroBody, color: theme.mutedText }}>{model.heroBody}</div>
-        </section>
+      <div style={styles.mainPane}>
+        <div ref={scrollViewportRef} style={styles.scrollViewport}>
+          {model.showIntroSection && (
+            <section style={styles.introSection}>
+              <div style={{ ...styles.sectionLabel, color: theme.mutedText }}>{model.chatSectionLabel}</div>
+              <div style={{ ...styles.heroTitle, color: theme.text }}>{model.heroTitle}</div>
+              <div style={{ ...styles.heroBody, color: theme.mutedText }}>{model.heroBody}</div>
+            </section>
+          )}
 
-        {session.activeThread && (
-          <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
-            <div style={{ ...styles.sectionTitle, color: theme.text }}>
-              {zh ? "会话操作" : "Conversation actions"}
-            </div>
-            <div style={styles.threadActionRow}>
-              <button
-                style={{ ...styles.threadActionButton, color: theme.buttonText, borderColor: theme.buttonBorder }}
-                onClick={() => {
-                  void handleExportThread(session.activeThread!);
-                }}
-              >
-                {zh ? "导出当前会话" : "Export current thread"}
-              </button>
-              <button
-                style={{ ...styles.threadActionButton, color: theme.errorText, borderColor: theme.errorBorder }}
-                onClick={() => {
-                  void handleDeleteThread(session.activeThread!);
-                }}
-              >
-                {zh ? "删除当前会话" : "Delete current thread"}
-              </button>
-            </div>
-          </section>
-        )}
-
-        {model.showSuggestedActions && (
-          <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
-            <div style={{ ...styles.sectionTitle, color: theme.text }}>{model.suggestedActionsLabel}</div>
-            <div
-              style={{
-                ...styles.suggestedActionsGrid,
-                borderTopColor: theme.border,
-                borderBottomColor: theme.border,
-                background: theme.border,
-              }}
-            >
-              {model.suggestedActions.map((action) => (
+          {session.activeThread && (
+            <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
+              <div style={{ ...styles.sectionTitle, color: theme.text }}>
+                {zh ? "会话操作" : "Conversation actions"}
+              </div>
+              <div style={styles.threadActionRow}>
                 <button
-                  key={action.id}
-                  style={{ ...styles.suggestedActionButton, background: theme.surfaceBackground }}
+                  style={{ ...styles.threadActionButton, color: theme.buttonText, borderColor: theme.buttonBorder }}
                   onClick={() => {
-                    void handlePresetSend(action.prompt);
+                    void handleExportThread(session.activeThread!);
                   }}
                 >
-                  <span style={styles.listRow}>
-                    <span style={{ ...styles.listPrimary, color: theme.text }}>{action.label}</span>
-                    <span style={{ ...styles.listSecondary, color: theme.mutedText }}>
-                      {action.description}
-                    </span>
-                  </span>
+                  {zh ? "导出当前会话" : "Export current thread"}
                 </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {model.showThreadView && (
-          <div style={{ ...styles.threadSection, borderTopColor: theme.softBorder }}>
-            <Suspense fallback={null}>
-              <LazyThreadView hasScope={scope != null} thread={session.activeThread} />
-            </Suspense>
-          </div>
-        )}
-
-        {isRecentChatsVisible && (
-          <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
-            <div style={{ ...styles.sectionTitle, color: theme.text }}>{model.recentThreadsLabel}</div>
-            <div style={{ ...styles.list, borderTopColor: theme.border, borderBottomColor: theme.border, background: theme.border }}>
-              {model.recentThreads.map((thread) => (
-                <div
-                  key={thread.id}
-                  style={{ ...styles.listButton, background: theme.surfaceBackground }}
+                <button
+                  style={{ ...styles.threadActionButton, color: theme.errorText, borderColor: theme.errorBorder }}
+                  onClick={() => {
+                    void handleDeleteThread(session.activeThread!);
+                  }}
                 >
+                  {zh ? "删除当前会话" : "Delete current thread"}
+                </button>
+              </div>
+            </section>
+          )}
+
+          {model.showSuggestedActions && (
+            <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
+              <div style={{ ...styles.sectionTitle, color: theme.text }}>{model.suggestedActionsLabel}</div>
+              <div
+                style={{
+                  ...styles.suggestedActionsGrid,
+                  borderTopColor: theme.border,
+                  borderBottomColor: theme.border,
+                  background: theme.border,
+                }}
+              >
+                {model.suggestedActions.map((action) => (
                   <button
-                    style={styles.threadMainButton}
-                    onClick={() => handleOpenThread(thread)}
+                    key={action.id}
+                    style={{ ...styles.suggestedActionButton, background: theme.surfaceBackground }}
+                    onClick={() => {
+                      void handlePresetSend(action.prompt);
+                    }}
                   >
                     <span style={styles.listRow}>
-                      <span style={{ ...styles.listPrimary, color: theme.text }}>{thread.title}</span>
+                      <span style={{ ...styles.listPrimary, color: theme.text }}>{action.label}</span>
                       <span style={{ ...styles.listSecondary, color: theme.mutedText }}>
-                        {getThreadPreview(thread)}
+                        {action.description}
                       </span>
                     </span>
                   </button>
-                  <div style={styles.threadMetaRow}>
-                    <span style={{ ...styles.listMeta, color: theme.mutedText }}>
-                      {formatThreadTimestamp(thread.updatedAt)}
-                    </span>
-                  </div>
-                  <div style={styles.threadActionRow}>
-                    <button
-                      style={{ ...styles.threadActionButton, color: theme.buttonText, borderColor: theme.buttonBorder }}
-                      onClick={() => {
-                        void handleExportThread(thread);
-                      }}
-                    >
-                      {zh ? "导出" : "Export"}
-                    </button>
-                    <button
-                      style={{ ...styles.threadActionButton, color: theme.errorText, borderColor: theme.errorBorder }}
-                      onClick={() => {
-                        void handleDeleteThread(thread);
-                      }}
-                    >
-                      {zh ? "删除" : "Delete"}
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </section>
+          )}
+
+          {session.isStreaming && session.streamingContent && (
+            <div style={{ ...styles.streamingSection, background: theme.panelBackground, borderTopColor: theme.softBorder, borderBottomColor: theme.softBorder }}>
+              <div style={{ ...styles.streamingLabel, color: theme.mutedText }}>{model.streamingLabel}</div>
+              <div style={{ ...styles.streamingContent, color: theme.text }}>{session.streamingContent}</div>
             </div>
-          </section>
-        )}
+          )}
 
-        {session.isStreaming && session.streamingContent && (
-          <div style={{ ...styles.streamingSection, background: theme.panelBackground, borderTopColor: theme.softBorder, borderBottomColor: theme.softBorder }}>
-            <div style={{ ...styles.streamingLabel, color: theme.mutedText }}>{model.streamingLabel}</div>
-            <div style={{ ...styles.streamingContent, color: theme.text }}>{session.streamingContent}</div>
-          </div>
-        )}
+          {session.error && (
+            <div
+              style={{
+                ...styles.errorSection,
+                background: theme.errorBackground,
+                borderTopColor: theme.errorBorder,
+                borderBottomColor: theme.errorBorder,
+                color: theme.errorText,
+              }}
+            >
+              {session.error}
+            </div>
+          )}
 
-        {session.error && (
-          <div
-            style={{
-              ...styles.errorSection,
-              background: theme.errorBackground,
-              borderTopColor: theme.errorBorder,
-              borderBottomColor: theme.errorBorder,
-              color: theme.errorText,
+          {model.showThreadView && (
+            <div style={{ ...styles.threadSection, borderTopColor: theme.softBorder }}>
+              <Suspense fallback={null}>
+                <LazyThreadView hasScope={scope != null} thread={session.activeThread} />
+              </Suspense>
+            </div>
+          )}
+
+          {isRecentChatsVisible && (
+            <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
+              <div style={{ ...styles.sectionTitle, color: theme.text }}>{model.recentThreadsLabel}</div>
+              <div style={{ ...styles.list, borderTopColor: theme.border, borderBottomColor: theme.border, background: theme.border }}>
+                {model.recentThreads.map((thread) => (
+                  <div
+                    key={thread.id}
+                    style={{ ...styles.listButton, background: theme.surfaceBackground }}
+                  >
+                    <button
+                      style={styles.threadMainButton}
+                      onClick={() => handleOpenThread(thread)}
+                    >
+                      <span style={styles.listRow}>
+                        <span style={{ ...styles.listPrimary, color: theme.text }}>{thread.title}</span>
+                        <span style={{ ...styles.listSecondary, color: theme.mutedText }}>
+                          {getThreadPreview(thread)}
+                        </span>
+                      </span>
+                    </button>
+                    <div style={styles.threadMetaRow}>
+                      <span style={{ ...styles.listMeta, color: theme.mutedText }}>
+                        {formatThreadTimestamp(thread.updatedAt)}
+                      </span>
+                    </div>
+                    <div style={styles.threadActionRow}>
+                      <button
+                        style={{ ...styles.threadActionButton, color: theme.buttonText, borderColor: theme.buttonBorder }}
+                        onClick={() => {
+                          void handleExportThread(thread);
+                        }}
+                      >
+                        {zh ? "导出" : "Export"}
+                      </button>
+                      <button
+                        style={{ ...styles.threadActionButton, color: theme.errorText, borderColor: theme.errorBorder }}
+                        onClick={() => {
+                          void handleDeleteThread(thread);
+                        }}
+                      >
+                        {zh ? "删除" : "Delete"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        <section
+          style={{
+            ...styles.composerDock,
+            background: theme.background,
+            borderTopColor: theme.softBorder,
+          }}
+        >
+          <Composer
+            onSend={(message) => {
+              void handleSend(message);
             }}
-          >
-            {session.error}
-          </div>
-        )}
+            onCancel={handleCancel}
+            onModelModeChange={(mode) =>
+              handleModelChange(mode === "deep" ? "deepseek-v4-pro" : "deepseek-v4-flash")
+            }
+            onToggleEvidence={handleToggleEvidence}
+            isStreaming={session.isStreaming}
+            currentScopeType={scope?.type || null}
+            disabled={model.composerDisabled}
+            disabledReason={model.composerDisabledReason}
+            placeholder={model.composerPlaceholder}
+            draftValue={composerDraft}
+            focusNonce={composerFocusNonce}
+            modelMode={settings.model === "deepseek-v4-pro" ? "deep" : "light"}
+            evidenceDisabled={Boolean(evidenceIssue)}
+            evidenceEnabled={evidenceEnabled}
+            evidenceLabel={evidenceLabel}
+            onDraftChange={setComposerDraft}
+          />
+        </section>
       </div>
-
-      <Composer
-        onSend={(message) => {
-          void handleSend(message);
-        }}
-        onCancel={handleCancel}
-        onModelModeChange={(mode) =>
-          handleModelChange(mode === "deep" ? "deepseek-v4-pro" : "deepseek-v4-flash")
-        }
-        onToggleEvidence={handleToggleEvidence}
-        isStreaming={session.isStreaming}
-        currentScopeType={scope?.type || null}
-        disabled={model.composerDisabled}
-        disabledReason={model.composerDisabledReason}
-        placeholder={model.composerPlaceholder}
-        draftValue={composerDraft}
-        focusNonce={composerFocusNonce}
-        modelMode={settings.model === "deepseek-v4-pro" ? "deep" : "light"}
-        evidenceDisabled={Boolean(evidenceIssue)}
-        evidenceEnabled={evidenceEnabled}
-        evidenceLabel={evidenceLabel}
-        onDraftChange={setComposerDraft}
-      />
     </div>
   );
 };
@@ -657,7 +690,7 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     display: "flex",
     flexDirection: "column",
-    height: "auto",
+    height: "100%",
     background: "#f7f7f7",
     color: "#222",
     minHeight: "0",
@@ -850,11 +883,20 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: typography.label,
     fontWeight: 500,
   },
-  content: {
-    flex: "none",
-    minHeight: "auto",
-    overflow: "visible",
-    padding: "8px 10px 0",
+  mainPane: {
+    display: "flex",
+    flexDirection: "column",
+    flex: "1 1 auto",
+    minHeight: 0,
+    overflow: "hidden",
+    minWidth: 0,
+  },
+  scrollViewport: {
+    flex: "1 1 auto",
+    minHeight: 0,
+    overflowX: "hidden",
+    overflowY: "auto",
+    padding: "8px 10px 12px",
     display: "flex",
     flexDirection: "column",
     gap: "8px",
@@ -879,6 +921,11 @@ const styles: Record<string, React.CSSProperties> = {
   section: {
     borderTop: "1px solid #e2e2e2",
     paddingTop: "8px",
+  },
+  composerDock: {
+    borderTop: "1px solid #e2e2e2",
+    padding: "8px 10px 10px",
+    flex: "none",
   },
   sectionTitle: {
     fontSize: typography.body,

@@ -24,6 +24,36 @@ describe("Sidebar recent thread layout", () => {
     expect(sidebarSource).toContain('width: "100%"');
   });
 
+  it("renders the composer in a dedicated dock after the scrollable message viewport", () => {
+    const scrollViewportIndex = sidebarSource.indexOf("ref={scrollViewportRef}");
+    const composerDockIndex = sidebarSource.indexOf("composerDock");
+    const threadSectionIndex = sidebarSource.indexOf("{model.showThreadView && (");
+
+    expect(scrollViewportIndex).toBeGreaterThan(-1);
+    expect(threadSectionIndex).toBeGreaterThan(-1);
+    expect(composerDockIndex).toBeGreaterThan(-1);
+    expect(scrollViewportIndex).toBeLessThan(composerDockIndex);
+    expect(threadSectionIndex).toBeLessThan(composerDockIndex);
+  });
+
+  it("uses a full-height scrollable viewport with a bottom-docked composer", () => {
+    expect(sidebarSource).toContain('const scrollViewportRef = useRef<HTMLDivElement>(null);');
+    expect(sidebarSource).toContain('ref={scrollViewportRef}');
+    expect(sidebarSource).toContain('mainPane: {');
+    expect(sidebarSource).toContain('scrollViewport: {');
+    expect(sidebarSource).toContain('composerDock: {');
+    expect(sidebarSource).toContain('height: "100%"');
+    expect(sidebarSource).toContain('overflowY: "auto"');
+    expect(sidebarSource).toContain("content.scrollTop = content.scrollHeight;");
+    expect(sidebarSource).not.toContain('position: "sticky"');
+    expect(sidebarSource).not.toContain("composerSection:");
+  });
+
+  it("gates the intro copy behind the empty-conversation state flag", () => {
+    expect(sidebarSource).toContain("{model.showIntroSection && (");
+    expect(sidebarSource).toContain("{model.showSuggestedActions && (");
+  });
+
   it("renders the thread timestamp in a dedicated footer row instead of inside the clickable summary button", () => {
     expect(sidebarSource).toContain('<div style={styles.threadMetaRow}>');
     expect(sidebarSource).toMatch(/threadMetaRow:\s*\{[^}]*marginBottom: "4px"/);

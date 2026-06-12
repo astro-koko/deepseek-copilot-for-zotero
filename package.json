@@ -1,7 +1,7 @@
 {
   "name": "ds-copilot",
   "type": "module",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "description": "Reading copilot for Zotero powered by the DeepSeek API and scoped to your local papers, PDFs, and collections.",
   "author": "AgentPaper",
   "homepage": "https://github.com/astro-koko/deepseek-copilot-for-zotero#readme",
@@ -19,7 +19,8 @@
   "scripts": {
     "start": "zotero-plugin serve",
     "build": "zotero-plugin build && tsc --noEmit",
-    "check": "npm test && npm run build && npm run verify:xpi",
+    "check": "npm run privacy:check && npm test && npm run build && npm run verify:xpi",
+    "privacy:check": "node scripts/privacy-check.mjs",
     "smoke:xpi": "npm run build && npm run verify:xpi",
     "verify:xpi": "node scripts/verify-build-artifact.mjs",
     "lint:check": "prettier --check . && eslint .",

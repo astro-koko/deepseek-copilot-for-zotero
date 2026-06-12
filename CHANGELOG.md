@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.9.4
+
+- Fixed the sidebar chat composer so it stays docked at the bottom while the message area scrolls independently.
+- Hid the welcome copy and suggested actions once a thread already has visible messages.
+- Added light layout polish to keep active conversations centered on the transcript instead of the empty-state shell.
+
 ## v0.9.3
 
 - Added GitHub Actions release automation so future Zotero XPI releases publish consistently from version tags.
