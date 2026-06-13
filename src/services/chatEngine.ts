@@ -17,7 +17,7 @@ const DOCUMENT_TAIL_HIGHLIGHT_CHARS = 2500;
 const DOCUMENT_TAIL_HIGHLIGHT_MIN_FULLTEXT_CHARS = 4000;
 
 export function buildSystemPrompt(scope: ScopeContext | undefined): string {
-  const basePrompt = `你是 DS Copilot，是运行在 Zotero 内的 AI 阅读助手。你的任务是帮助研究者理解论文、比较研究发现，并梳理他们的文献库。
+  const basePrompt = `你是 Deepseek Copliot，是运行在 Zotero 内的 AI 阅读助手。你的任务是帮助研究者理解论文、比较研究发现，并梳理他们的文献库。
 
 关键规则：
 - 你只能使用当前明确提供的上下文范围。

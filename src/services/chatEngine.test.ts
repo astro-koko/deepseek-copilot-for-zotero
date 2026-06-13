@@ -110,7 +110,7 @@ describe("chatEngine", () => {
       [
         expect.objectContaining({
           role: "system",
-          content: expect.stringContaining("你是 DS Copilot"),
+          content: expect.stringContaining("你是 Deepseek Copliot"),
         }),
         {
           role: "user",

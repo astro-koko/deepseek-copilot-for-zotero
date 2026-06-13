@@ -6,7 +6,7 @@ import type {
   ProviderRequestDiagnostics,
 } from "./types";
 
-const PROVIDER_DIAGNOSTIC_PATH = "/tmp/ds-copilot-provider-request.json";
+const PROVIDER_DIAGNOSTIC_PATH = "/tmp/deepseek-copliot-provider-request.json";
 
 export function createOpenAICompatibleProvider(
   config: ProviderConfig,

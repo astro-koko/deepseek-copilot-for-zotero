@@ -1,12 +1,12 @@
 /**
- * Bootstrap script for the DS Copilot plugin.
+ * Bootstrap script for the Deepseek Copliot plugin.
  * Based on Zotero team's Make It Red example and zotero-plugin-toolkit patterns.
  */
 
 var chromeHandle;
 
 function logBootstrapError(stage, error) {
-  const message = `[DS Copilot bootstrap] ${stage}: ${error?.message || error}`;
+  const message = `[Deepseek Copliot bootstrap] ${stage}: ${error?.message || error}`;
   try {
     Zotero.logError(message);
     if (error?.stack) {

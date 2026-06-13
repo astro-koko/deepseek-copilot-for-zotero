@@ -3,7 +3,7 @@ import sidebarSource from "./Sidebar.tsx?raw";
 import { describe, expect, it } from "vitest";
 
 describe("Sidebar recent thread layout", () => {
-  it("renders a branded header icon next to the DS Copilot title", () => {
+  it("renders a branded header icon next to the Deepseek Copliot title", () => {
     expect(sidebarSource).toContain("headerBrand");
     expect(sidebarSource).toContain("headerBrandIcon");
     expect(sidebarSource).toContain("deepseek-favicon.png");

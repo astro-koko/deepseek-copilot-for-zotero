@@ -69,7 +69,7 @@ function onRenderTextSelectionPopup(event: any): void {
   const zh = isChineseLocale();
 
   const label = doc.createElement("span");
-  label.textContent = "DS Copilot";
+  label.textContent = "Deepseek Copliot";
   label.style.cssText = "font-size: 0.92em; color: #888; user-select: none; padding-left: 4px;";
   container.appendChild(label);
 
@@ -133,7 +133,7 @@ function onCreateViewContextMenu(event: any): void {
 
   append(
     {
-      label: zh ? "用 DS Copilot 解释" : "Explain with DS Copilot",
+      label: zh ? "用 Deepseek Copliot 解释" : "Explain with Deepseek Copliot",
       disabled: !hasSelection,
       persistent: true,
       onCommand: () => {
@@ -143,7 +143,7 @@ function onCreateViewContextMenu(event: any): void {
       },
     },
     {
-      label: zh ? "向 DS Copilot 提问..." : "Ask DS Copilot...",
+      label: zh ? "向 Deepseek Copliot 提问..." : "Ask Deepseek Copliot...",
       disabled: !hasSelection,
       persistent: true,
       onCommand: () => {

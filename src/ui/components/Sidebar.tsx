@@ -278,7 +278,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
   const handleExportThread = async (thread: Thread) => {
     try {
       const safeTitle = thread.title.replace(/[\\/:*?"<>|]/g, "-").slice(0, 60) || "thread";
-      const outputPath = `/tmp/ds-copilot-${safeTitle}-${thread.id}.md`;
+      const outputPath = `/tmp/deepseek-copliot-${safeTitle}-${thread.id}.md`;
       await exportThreadAsMarkdown(thread, outputPath);
     } catch (error) {
       ztoolkit.log("Failed to export thread:", error);
@@ -347,7 +347,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
         <div style={styles.headerMain}>
           <div style={styles.headerBrand}>
             <img alt="" src={BRAND_ICON_SRC} style={styles.headerBrandIcon} />
-            <div style={{ ...styles.headerTitle, color: theme.text }}>DS Copilot</div>
+            <div style={{ ...styles.headerTitle, color: theme.text }}>Deepseek Copliot</div>
           </div>
           <div style={{ ...styles.headerMeta, color: theme.mutedText }}>
             {model.locationLabel} · {model.providerLabel} · {model.statusLabel}

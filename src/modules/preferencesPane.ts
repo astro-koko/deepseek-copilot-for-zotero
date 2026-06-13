@@ -122,7 +122,7 @@ export function registerPreferencesPane(
       );
       showValidationDialog(
         win,
-        zh ? "DS Copilot" : "DS Copilot",
+        zh ? "Deepseek Copliot" : "Deepseek Copliot",
         zh ? "DeepSeek 连接正常" : "DeepSeek connection looks good",
       );
       return;
@@ -135,7 +135,7 @@ export function registerPreferencesPane(
     );
     showValidationDialog(
       win,
-      zh ? "DS Copilot 验证失败" : "DS Copilot Validation Failed",
+      zh ? "Deepseek Copliot 验证失败" : "Deepseek Copliot Validation Failed",
       result.error || (zh ? "验证失败" : "Validation failed"),
     );
   };

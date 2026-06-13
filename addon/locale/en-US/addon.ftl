@@ -1,1 +1,1 @@
-ai-assistant-toggle-shortcut = Toggle DS Copilot
+ai-assistant-toggle-shortcut = Toggle Deepseek Copliot

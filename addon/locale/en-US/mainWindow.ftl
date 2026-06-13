@@ -1,7 +1,7 @@
 ai-assistant-sidebar-title =
-    .label = DS Copilot
+    .label = Deepseek Copliot
 ai-assistant-sidebar-sidenav =
-    .tooltiptext = DS Copilot
+    .tooltiptext = Deepseek Copliot
 ai-assistant-empty-state = Select a paper or collection to start chatting
 ai-assistant-scope-pdf = Current PDF
 ai-assistant-scope-paper = Paper

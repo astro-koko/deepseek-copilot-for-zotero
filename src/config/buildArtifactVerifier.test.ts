@@ -9,7 +9,7 @@ import {
 const pkg = {
   version: "0.8.0",
   config: {
-    addonName: "DS Copilot",
+    addonName: "Deepseek Copliot",
     addonRef: "zotero-ai-assistant",
   },
 };
@@ -17,28 +17,28 @@ const pkg = {
 describe("build artifact verifier", () => {
   it("uses a release-safe xpi file name", () => {
     const context = buildVerificationContext({
-      buildRoot: "/tmp/ds-copilot-build",
+      buildRoot: "/tmp/deepseek-copliot-build",
       pkg,
     });
 
-    expect(context.xpiPath).toBe("/tmp/ds-copilot-build/DS.Copilot-0.8.0.xpi");
+    expect(context.xpiPath).toBe("/tmp/deepseek-copliot-build/Deepseek.Copliot-0.8.0.xpi");
   });
 
   it("requires update.json for stable releases", () => {
     const context = buildVerificationContext({
-      buildRoot: "/tmp/ds-copilot-build",
+      buildRoot: "/tmp/deepseek-copliot-build",
       pkg,
     });
 
-    expect(context.requiredFiles).toContain("/tmp/ds-copilot-build/update.json");
+    expect(context.requiredFiles).toContain("/tmp/deepseek-copliot-build/update.json");
     expect(context.requiredFiles).not.toContain(
-      "/tmp/ds-copilot-build/update-beta.json",
+      "/tmp/deepseek-copliot-build/update-beta.json",
     );
   });
 
   it("requires update-beta.json for prereleases", () => {
     const context = buildVerificationContext({
-      buildRoot: "/tmp/ds-copilot-build",
+      buildRoot: "/tmp/deepseek-copliot-build",
       pkg: {
         ...pkg,
         version: "0.8.0-beta.1",
@@ -46,9 +46,9 @@ describe("build artifact verifier", () => {
     });
 
     expect(context.requiredFiles).toContain(
-      "/tmp/ds-copilot-build/update-beta.json",
+      "/tmp/deepseek-copliot-build/update-beta.json",
     );
-    expect(context.requiredFiles).not.toContain("/tmp/ds-copilot-build/update.json");
+    expect(context.requiredFiles).not.toContain("/tmp/deepseek-copliot-build/update.json");
   });
 
   it("flags forbidden profile and secret files inside the packaged archive", () => {

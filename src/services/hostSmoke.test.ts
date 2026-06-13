@@ -170,7 +170,7 @@ describe("hostSmoke", () => {
     expect(prefState.get("hostSmokeHandledRunId")).toBe("pdf-live-1");
     expect(prefState.get("hostSmokeLastStatus")).toBe("success");
     expect(prefState.get("hostSmokeLastOutputPath")).toBe(
-      "/tmp/ds-copilot-live-smoke-pdf-live-1.json",
+      "/tmp/deepseek-copliot-live-smoke-pdf-live-1.json",
     );
     expect(writes).toHaveLength(1);
 

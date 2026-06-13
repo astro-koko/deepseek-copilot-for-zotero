@@ -4,7 +4,7 @@ import uiSource from "./ui.ts?raw";
 
 import { describe, expect, it } from "vitest";
 
-describe("DS Copilot icon surface contract", () => {
+describe("Deepseek Copliot icon surface contract", () => {
   it("keeps plugin-owned host entry points on DeepSeek branded icons", () => {
     expect(uiSource).toContain("content/icons/icon-20.png");
     expect(uiSource).not.toContain("chrome://zotero/skin/20/universal/note.svg");

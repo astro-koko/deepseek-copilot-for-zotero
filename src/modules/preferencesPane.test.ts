@@ -246,7 +246,7 @@ describe("registerPreferencesPane", () => {
     expect(status.dataset.variant).toBe("error");
     expect(Zotero.alert as any).toHaveBeenCalledWith(
       expect.anything(),
-      "DS Copilot Validation Failed",
+      "Deepseek Copliot Validation Failed",
       "Invalid API key",
     );
   });
@@ -286,7 +286,7 @@ describe("registerPreferencesPane", () => {
     expect(status.dataset.variant).toBe("success");
     expect(Zotero.alert as any).toHaveBeenCalledWith(
       expect.anything(),
-      "DS Copilot",
+      "Deepseek Copliot",
       "DeepSeek connection looks good",
     );
   });
@@ -304,7 +304,7 @@ describe("registerPreferencesPane", () => {
     expect(status.textContent).toBe("DeepSeek 连接正常");
     expect(Zotero.alert as any).toHaveBeenCalledWith(
       expect.anything(),
-      "DS Copilot",
+      "Deepseek Copliot",
       "DeepSeek 连接正常",
     );
   });

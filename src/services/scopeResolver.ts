@@ -308,7 +308,7 @@ export function unregisterScopeNotifier(): void {
 
 function getScopeObserverID(): string {
   const addonID = (globalThis as any)?.addon?.data?.config?.addonID;
-  return addonID || "ds-copilot-scope-resolver";
+  return addonID || "deepseek-copliot-scope-resolver";
 }
 
 function scheduleScopeRetryIfNeeded(

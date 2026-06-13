@@ -1,12 +1,12 @@
-ai-assistant-pref-description = Configure DS Copilot with your DeepSeek API key. Model selection and long-context handling stay internal to keep the sidebar reliable.
+ai-assistant-pref-description = Configure Deepseek Copliot with your DeepSeek API key. Model selection and long-context handling stay internal to keep the sidebar reliable.
 ai-assistant-pref-api-key-label = DeepSeek API Key
-ai-assistant-pref-api-key-help = DS Copilot uses the built-in DeepSeek defaults and automatically compresses overlong context when needed.
+ai-assistant-pref-api-key-help = Deepseek Copliot uses the built-in DeepSeek defaults and automatically compresses overlong context when needed.
 ai-assistant-pref-api-key-link = Get a DeepSeek API key
 ai-assistant-pref-save = Save
 ai-assistant-pref-validate = Validate Connection
 ai-assistant-pref-status-saved = Settings saved
 ai-assistant-pref-status-valid = DeepSeek connection looks good
-ai-assistant-pref-evidence-description = Choose how DS Copilot performs web verification when you turn it on in the composer.
+ai-assistant-pref-evidence-description = Choose how Deepseek Copliot performs web verification when you turn it on in the composer.
 ai-assistant-pref-evidence-provider-label = Evidence provider
 ai-assistant-pref-evidence-provider-builtin = Default web verification (recommended, no API key)
 ai-assistant-pref-evidence-provider-tavily = Tavily web verification (requires API key)

@@ -201,7 +201,7 @@ export class UIFactory {
         host,
         location,
         new Error(
-          "DS Copilot could not access the Zotero window while rendering.",
+          "Deepseek Copliot could not access the Zotero window while rendering.",
         ),
       );
       return;
@@ -230,7 +230,7 @@ export class UIFactory {
 
     void this.ensureHostBootstrapped(win, host, location).catch((error) => {
       ztoolkit.log(
-        `Failed to bootstrap DS Copilot ${location} section host:`,
+        `Failed to bootstrap Deepseek Copliot ${location} section host:`,
         error,
       );
       this.renderBootstrapFailure(host, location, error);
@@ -273,7 +273,7 @@ export class UIFactory {
       );
     } catch (error) {
       ztoolkit.log(
-        "Failed to register DS Copilot tab refresh observer:",
+        "Failed to register Deepseek Copliot tab refresh observer:",
         error,
       );
       win.__aiAssistantTabObserverId = null;
@@ -376,7 +376,7 @@ export class UIFactory {
     try {
       await windowSectionRefresh.get(win)?.();
     } catch (error) {
-      ztoolkit.log("Failed to refresh DS Copilot section state:", error);
+      ztoolkit.log("Failed to refresh Deepseek Copliot section state:", error);
     }
   }
 
@@ -432,7 +432,7 @@ export class UIFactory {
 
     void this.ensureHostBootstrapped(win, host, "library").catch((error) => {
       ztoolkit.log(
-        "Failed to bootstrap DS Copilot library empty-state host:",
+        "Failed to bootstrap Deepseek Copliot library empty-state host:",
         error,
       );
       this.renderBootstrapFailure(host, "library", error);

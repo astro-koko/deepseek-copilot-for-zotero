@@ -1,8 +1,8 @@
-# DeepSeek Copilot for Zotero v0.9.3 Launch Pack
+# Deepseek Copliot v0.9.3 Launch Pack
 
 ## GitHub Release Notes
 
-DeepSeek Copilot puts paper Q&A directly into Zotero's native Library and PDF Reader workflow.
+Deepseek Copliot puts paper Q&A directly into Zotero's native Library and PDF Reader workflow.
 
 ### Highlights
 
@@ -13,7 +13,7 @@ DeepSeek Copilot puts paper Q&A directly into Zotero's native Library and PDF Re
 
 ### Install
 
-1. Download `DS.Copilot-0.9.3.xpi` from this release.
+1. Download `Deepseek.Copliot-0.9.3.xpi` from this release.
 2. Open `Tools -> Plugins` in Zotero.
 3. Use the gear menu and choose `Install Add-on From File...`.
 4. Restart Zotero.
@@ -25,11 +25,11 @@ DeepSeek Copilot puts paper Q&A directly into Zotero's native Library and PDF Re
 
 ## Scraper PR Body
 
-Adds DeepSeek Copilot for Zotero to the scraper source.
+Adds Deepseek Copliot to the scraper source.
 
 - Repo: https://github.com/astro-koko/deepseek-copilot-for-zotero
 - Latest stable release: v0.9.3
-- Install asset: DS.Copilot-0.9.3.xpi
+- Install asset: Deepseek.Copliot-0.9.3.xpi
 - Tags: ai, reader
 
 Why these tags:
@@ -38,11 +38,11 @@ Why these tags:
 
 ## Zotero Forums Post
 
-Title: DeepSeek Copilot for Zotero: native paper Q&A in the Library and PDF Reader
+Title: Deepseek Copliot: native paper Q&A in the Library and PDF Reader
 
 Body:
 
-I just published `DeepSeek Copilot for Zotero`, a Zotero plugin that keeps paper Q&A inside Zotero's native reading workflow instead of sending you out to a separate web chat.
+I just published `Deepseek Copliot`, a Zotero plugin that keeps paper Q&A inside Zotero's native reading workflow instead of sending you out to a separate web chat.
 
 What it does:
 

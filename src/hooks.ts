@@ -62,7 +62,7 @@ async function onStartup() {
       pluginID: addon.data.config.addonID,
       src: `chrome://${addon.data.config.addonRef}/content/preferences.xhtml`,
       id: `${addon.data.config.addonRef}-prefpane`,
-      label: "DS Copilot",
+      label: "Deepseek Copliot",
       image: BRANDED_PREFERENCES_ICON,
     });
     ztoolkit.log("Preferences pane registered");
