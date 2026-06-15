@@ -1,5 +1,10 @@
 import type { ScopeType } from "../types/scope";
 import { isChineseLocale } from "../utils/locale";
+import {
+  getSettings,
+  parseCustomPresets,
+  type ParsedCustomCommandPreset,
+} from "./settingsManager";
 
 export interface CommandPreset {
   id: string;
@@ -123,7 +128,9 @@ const COMMAND_PRESETS: CommandPreset[] = [
 
 const zhMap: Record<
   string,
-  Pick<CommandPreset, "label" | "description" | "promptPrefix"> & { aliases: string[] }
+  Pick<CommandPreset, "label" | "description" | "promptPrefix"> & {
+    aliases: string[];
+  }
 > = {
   summarize: {
     label: "总结论文",
@@ -183,8 +190,11 @@ const zhMap: Record<
   },
 };
 
-function localizePreset(preset: CommandPreset, zh = isChineseLocale()): CommandPreset {
-  if (!zh) {
+function localizePreset(
+  preset: CommandPreset,
+  zh = isChineseLocale(),
+): CommandPreset {
+  if (!zh || (preset as { customOverride?: boolean }).customOverride) {
     return preset;
   }
 
@@ -196,8 +206,95 @@ function localizePreset(preset: CommandPreset, zh = isChineseLocale()): CommandP
 
 export const PRESETS: CommandPreset[] = COMMAND_PRESETS;
 
-export function getPresetById(id: string): CommandPreset | undefined {
-  return PRESETS.find((preset) => preset.id === id);
+function hasRequiredPresetFields(
+  preset: ParsedCustomCommandPreset,
+): preset is ParsedCustomCommandPreset &
+  Pick<CommandPreset, "label" | "promptPrefix"> {
+  return Boolean(preset.label?.trim() && preset.promptPrefix?.trim());
+}
+
+function normalizeCustomPreset(
+  preset: ParsedCustomCommandPreset,
+  existingPreset?: CommandPreset,
+): CommandPreset | null {
+  if (existingPreset) {
+    return {
+      ...existingPreset,
+      aliases: preset.aliases?.length ? preset.aliases : existingPreset.aliases,
+      description: preset.description || existingPreset.description,
+      evidenceHint:
+        preset.evidenceHint === undefined
+          ? existingPreset.evidenceHint
+          : preset.evidenceHint,
+      group: preset.group || existingPreset.group,
+      id: existingPreset.id,
+      label: preset.label?.trim() || existingPreset.label,
+      promptPrefix: preset.promptPrefix?.trim() || existingPreset.promptPrefix,
+      scopeHint: preset.scopeHint || existingPreset.scopeHint,
+      customOverride: true,
+    } as CommandPreset & { customOverride: boolean };
+  }
+
+  if (!hasRequiredPresetFields(preset)) {
+    return null;
+  }
+
+  return {
+    aliases: preset.aliases || [],
+    description: preset.description || preset.label,
+    evidenceHint: preset.evidenceHint,
+    group: preset.group || "reading",
+    id: preset.id,
+    label: preset.label.trim(),
+    promptPrefix: preset.promptPrefix.trim(),
+    scopeHint: preset.scopeHint,
+    customOverride: true,
+  } as CommandPreset & { customOverride: boolean };
+}
+
+function readConfiguredCustomPresets(): string {
+  try {
+    return getSettings().customPresets;
+  } catch {
+    return "";
+  }
+}
+
+function getMergedPresets(customPresetsValue?: string): CommandPreset[] {
+  const merged = [...COMMAND_PRESETS];
+  const customPresets = parseCustomPresets(
+    customPresetsValue ?? readConfiguredCustomPresets(),
+  ).presets;
+
+  for (const customPreset of customPresets) {
+    const existingIndex = merged.findIndex(
+      (preset) => preset.id === customPreset.id,
+    );
+    const normalized = normalizeCustomPreset(
+      customPreset,
+      existingIndex >= 0 ? merged[existingIndex] : undefined,
+    );
+    if (!normalized) {
+      continue;
+    }
+
+    if (existingIndex >= 0) {
+      merged[existingIndex] = normalized;
+    } else {
+      merged.push(normalized);
+    }
+  }
+
+  return merged;
+}
+
+export function getPresetById(
+  id: string,
+  customPresetsValue?: string,
+): CommandPreset | undefined {
+  return getMergedPresets(customPresetsValue).find(
+    (preset) => preset.id === id,
+  );
 }
 
 export function getPresetGroupLabel(
@@ -212,8 +309,11 @@ export function getPresetGroupLabel(
   return zh ? labels.zh : labels.en;
 }
 
-export function getPresetsForScope(scopeType: ScopeType): CommandPreset[] {
-  const presets = PRESETS.filter(
+export function getPresetsForScope(
+  scopeType: ScopeType,
+  customPresetsValue?: string,
+): CommandPreset[] {
+  const presets = getMergedPresets(customPresetsValue).filter(
     (preset) => !preset.scopeHint || preset.scopeHint.includes(scopeType),
   );
 
@@ -224,9 +324,10 @@ export function filterPresets(
   query: string,
   scopeType: ScopeType,
   zh = isChineseLocale(),
+  customPresetsValue?: string,
 ): CommandPreset[] {
   const normalized = query.trim().toLowerCase();
-  const scopedPresets = PRESETS.filter(
+  const scopedPresets = getMergedPresets(customPresetsValue).filter(
     (preset) => !preset.scopeHint || preset.scopeHint.includes(scopeType),
   );
   const presets = zh
@@ -238,19 +339,19 @@ export function filterPresets(
   }
 
   return presets.filter((preset) => {
-    const haystack = [
-      preset.label,
-      preset.description,
-      ...preset.aliases,
-    ]
+    const haystack = [preset.label, preset.description, ...preset.aliases]
       .join(" ")
       .toLowerCase();
     return haystack.includes(normalized);
   });
 }
 
-export function applyPreset(presetId: string, userInput: string): string {
-  const preset = getPresetById(presetId);
+export function applyPreset(
+  presetId: string,
+  userInput: string,
+  customPresetsValue?: string,
+): string {
+  const preset = getPresetById(presetId, customPresetsValue);
   if (!preset) return userInput;
   const localizedPreset = localizePreset(preset);
   return `${localizedPreset.promptPrefix}\n\n${userInput}`.trim();

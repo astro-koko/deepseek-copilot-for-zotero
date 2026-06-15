@@ -41,12 +41,29 @@ function formatThreadMarkdown(thread: Thread): string {
 export async function exportThreadAsMarkdown(
   thread: Thread,
   outputPath: string,
-): Promise<void> {
+): Promise<string> {
   const markdown = formatThreadMarkdown(thread);
   const target =
     typeof Zotero.File.pathToFile === "function"
       ? Zotero.File.pathToFile(outputPath)
       : outputPath;
-  Zotero.File.putContents(target as unknown as nsIFile, markdown);
-}
+  const fileApi = Zotero.File as typeof Zotero.File & {
+    putContentsAsync?: (
+      path: string | nsIFile,
+      data: string,
+      charset?: string,
+    ) => Promise<void>;
+  };
 
+  if (typeof fileApi.putContentsAsync === "function") {
+    await fileApi.putContentsAsync(
+      target as unknown as nsIFile,
+      markdown,
+      "utf-8",
+    );
+  } else {
+    Zotero.File.putContents(target as unknown as nsIFile, markdown);
+  }
+
+  return outputPath;
+}

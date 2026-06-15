@@ -4,9 +4,7 @@ import type { ScopeContext } from "../types/scope";
 import type { Thread } from "../types/thread";
 import { createChatSessionStore } from "./chatSession";
 
-function makeThread(
-  overrides: Partial<Thread> = {},
-): Thread {
+function makeThread(overrides: Partial<Thread> = {}): Thread {
   return {
     id: "thread-1",
     title: "New Conversation",
@@ -31,6 +29,11 @@ async function* streamChunks(...chunks: string[]) {
   for (const chunk of chunks) {
     yield chunk;
   }
+}
+
+async function* streamReasoningThenContent() {
+  yield { type: "reasoning_delta" as const, content: "Checking context. " };
+  yield "Final answer.";
 }
 
 describe("chatSession", () => {
@@ -97,6 +100,77 @@ describe("chatSession", () => {
     } finally {
       (globalThis as any).AbortController = originalAbortController;
     }
+  });
+
+  it("surfaces streaming status and provider reasoning before persisting the final answer", async () => {
+    const scope = makeScope();
+    const emptyThread = makeThread({ scopeSnapshot: scope });
+    const threadWithUser = makeThread({
+      scopeSnapshot: scope,
+      messages: [
+        {
+          id: "msg-user-1",
+          role: "user",
+          content: "Explain",
+          timestamp: 2,
+        },
+      ],
+      updatedAt: 2,
+    });
+    const finalThread = makeThread({
+      scopeSnapshot: scope,
+      messages: [
+        ...threadWithUser.messages,
+        {
+          id: "msg-assistant-1",
+          role: "assistant",
+          content: "Final answer.",
+          timestamp: 3,
+        },
+      ],
+      updatedAt: 3,
+    });
+    const createThread = vi.fn().mockResolvedValue(emptyThread);
+    const appendMessage = vi
+      .fn()
+      .mockResolvedValueOnce(threadWithUser)
+      .mockResolvedValueOnce(finalThread);
+    const sendChatMessage = vi.fn().mockResolvedValue({
+      abort: vi.fn(),
+      stream: streamReasoningThenContent(),
+    });
+    const store = createChatSessionStore({
+      appendMessage,
+      createThread,
+      recordScopeTransition: vi.fn(),
+      sendChatMessage,
+    });
+    const snapshots: ReturnType<typeof store.getSnapshot>[] = [];
+    store.subscribe(() => {
+      snapshots.push(store.getSnapshot());
+    });
+
+    await store.send("Explain", scope);
+
+    expect(snapshots.map((snapshot) => snapshot.streamingStatus)).toContain(
+      "preparing",
+    );
+    expect(snapshots.map((snapshot) => snapshot.streamingStatus)).toContain(
+      "reasoning",
+    );
+    expect(
+      snapshots.map((snapshot) => snapshot.streamingReasoningContent),
+    ).toContain("Checking context. ");
+    expect(snapshots.map((snapshot) => snapshot.streamingContent)).toContain(
+      "Final answer.",
+    );
+    expect(store.getSnapshot()).toMatchObject({
+      activeThread: finalThread,
+      isStreaming: false,
+      streamingContent: "",
+      streamingReasoningContent: "",
+      streamingStatus: "idle",
+    });
   });
 
   it("keeps one active thread while the scope changes between surfaces", async () => {
@@ -338,7 +412,9 @@ describe("chatSession", () => {
       ) =>
         new Promise<{ abort: () => void; stream: AsyncIterable<string> }>(
           (_resolve, reject) => {
-            signal?.addEventListener("abort", () => reject(new Error("aborted")));
+            signal?.addEventListener("abort", () =>
+              reject(new Error("aborted")),
+            );
           },
         ),
     );
@@ -389,7 +465,9 @@ describe("chatSession", () => {
       ) =>
         new Promise<{ abort: () => void; stream: AsyncIterable<string> }>(
           (_resolve, reject) => {
-            signal?.addEventListener("abort", () => reject(new Error("aborted")));
+            signal?.addEventListener("abort", () =>
+              reject(new Error("aborted")),
+            );
           },
         ),
     );
@@ -508,7 +586,9 @@ describe("chatSession", () => {
       sendChatMessage,
     });
 
-    await expect(store.send("Explain this excerpt", scope)).resolves.toBeUndefined();
+    await expect(
+      store.send("Explain this excerpt", scope),
+    ).resolves.toBeUndefined();
 
     expect(sendChatMessage).not.toHaveBeenCalled();
     expect(store.getSnapshot()).toMatchObject({

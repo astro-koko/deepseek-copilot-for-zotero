@@ -7,7 +7,7 @@ The repository is currently executing against a narrower, more urgent target tha
 Current priority:
 
 - stabilize the Zotero frontend host surfaces first
-- make `DS Copilot` reliably usable in Add-ons, Settings, Library, Reader, and Reader handoff flows
+- make `Deepseek Copliot` reliably usable in Add-ons, Settings, Library, Reader, and Reader handoff flows
 - treat packaged `.xpi` plus full Zotero restart as the meaningful acceptance gate
 
 Current execution documents:

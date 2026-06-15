@@ -2,6 +2,7 @@ import {
   DEFAULT_EVIDENCE_PROVIDER_MODE,
   type PersistedSettings,
   getSettings,
+  parseCustomPresets,
   saveSettings,
   validateEvidenceSettings,
   validateSettings,
@@ -56,6 +57,9 @@ const TAVILY_LINK_ID = "zotero-ai-assistant-pref-tavily-link";
 const TAVILY_VALIDATE_BUTTON_ID = "zotero-ai-assistant-pref-tavily-validate";
 const TAVILY_STATUS_ID = "zotero-ai-assistant-pref-tavily-status";
 const TAVILY_SETTINGS_ID = "zotero-ai-assistant-pref-tavily-settings";
+const CUSTOM_PRESETS_ID = "zotero-ai-assistant-pref-custom-presets";
+const CUSTOM_PRESETS_STATUS_ID =
+  "zotero-ai-assistant-pref-custom-presets-status";
 
 export const DEEPSEEK_PLATFORM_URL = "https://platform.deepseek.com/";
 export const TAVILY_APP_URL = "https://app.tavily.com/";
@@ -81,6 +85,7 @@ export function registerPreferencesPane(
     const values = readFormValues(doc);
     deps.saveSettings(values);
     applyEvidenceProviderVisibility(doc, values.evidenceProviderMode);
+    updateCustomPresetsStatus(doc, values.customPresets || "");
     EventBus.getInstance().dispatchEvent(new Event("settingsChange"));
     const formatter = doc.l10n?.formatValue;
     const status = getStatusElement(doc);
@@ -166,6 +171,7 @@ export function registerPreferencesPane(
   };
 
   bindFieldEvent(doc, API_KEY_ID, "change", persist);
+  bindFieldEvent(doc, CUSTOM_PRESETS_ID, "change", persist);
   bindTriggeredFieldEvents(
     doc,
     EVIDENCE_PROVIDER_ID,
@@ -189,11 +195,16 @@ function hydrateForm(
   settings: ReturnType<typeof getSettings>,
 ): void {
   const apiKeyField = getField(doc, API_KEY_ID);
+  const customPresetsField = getField(doc, CUSTOM_PRESETS_ID);
   const evidenceProviderField = getField(doc, EVIDENCE_PROVIDER_ID);
   const tavilyApiKeyField = getField(doc, TAVILY_API_KEY_ID);
 
   if (apiKeyField) {
     apiKeyField.value = settings.apiKey;
+  }
+  if (customPresetsField) {
+    customPresetsField.value = settings.customPresets;
+    updateCustomPresetsStatus(doc, settings.customPresets);
   }
   if (evidenceProviderField) {
     evidenceProviderField.value = settings.evidenceProviderMode;
@@ -206,17 +217,55 @@ function hydrateForm(
 
 function readFormValues(doc: PreferencesDocument): Partial<PersistedSettings> {
   const apiKeyField = getField(doc, API_KEY_ID);
+  const customPresetsField = getField(doc, CUSTOM_PRESETS_ID);
   const evidenceProviderField = getField(doc, EVIDENCE_PROVIDER_ID);
   const tavilyApiKeyField = getField(doc, TAVILY_API_KEY_ID);
 
   return {
     apiKey: apiKeyField?.value?.trim?.() ?? "",
+    customPresets: customPresetsField?.value ?? "",
     evidenceProviderMode:
       evidenceProviderField?.value === "tavily"
         ? "tavily"
         : DEFAULT_EVIDENCE_PROVIDER_MODE,
     tavilyApiKey: tavilyApiKeyField?.value?.trim?.() ?? "",
   };
+}
+
+function updateCustomPresetsStatus(
+  doc: PreferencesDocument,
+  customPresetsValue: string,
+): void {
+  const status = doc.getElementById(
+    CUSTOM_PRESETS_STATUS_ID,
+  ) as PreferencesStatusElement | null;
+  if (!status) {
+    return;
+  }
+
+  const zh = isChineseLocale();
+  const parsed = parseCustomPresets(customPresetsValue);
+  if (parsed.error) {
+    setStatusText(status, parsed.error, "error");
+    return;
+  }
+
+  if (!customPresetsValue.trim()) {
+    setStatusText(
+      status,
+      zh ? "未添加自定义建议操作" : "No custom suggested actions",
+      "success",
+    );
+    return;
+  }
+
+  setStatusText(
+    status,
+    zh
+      ? `已读取 ${parsed.presets.length} 个自定义建议操作`
+      : `Loaded ${parsed.presets.length} custom suggested actions`,
+    "success",
+  );
 }
 
 function applyEvidenceProviderVisibility(

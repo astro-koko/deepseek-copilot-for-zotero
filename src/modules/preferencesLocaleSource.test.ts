@@ -4,6 +4,15 @@ import zhPreferences from "../../addon/locale/zh-CN/preferences.ftl?raw";
 import { describe, expect, it } from "vitest";
 
 describe("preferences locale copy", () => {
+  it("documents the custom suggested action JSON editor", () => {
+    expect(enPreferences).toContain(
+      "ai-assistant-pref-custom-presets-title = Custom suggested actions",
+    );
+    expect(zhPreferences).toContain(
+      "ai-assistant-pref-custom-presets-title = 自定义建议操作",
+    );
+  });
+
   it("makes the default web verification path explicitly keyless", () => {
     expect(enPreferences).toContain(
       "ai-assistant-pref-evidence-provider-builtin = Default web verification (recommended, no API key)",

@@ -1,3 +1,4 @@
+import type { CommandPreset } from "./presets";
 import { getPref, setPref } from "../utils/prefs";
 import { config } from "../../package.json";
 
@@ -9,6 +10,7 @@ type LegacyEvidenceProviderMode = "builtin-search";
 
 export interface PersistedSettings {
   apiKey: string;
+  customPresets: string;
   model: string;
   maxContextBudget: number;
   keyboardShortcut: string;
@@ -22,12 +24,16 @@ export interface Settings extends PersistedSettings {
 }
 
 export const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
-export const DEEPSEEK_MODELS = ["deepseek-v4-flash", "deepseek-v4-pro"] as const;
+export const DEEPSEEK_MODELS = [
+  "deepseek-v4-flash",
+  "deepseek-v4-pro",
+] as const;
 export const TAVILY_BASE_URL = "https://api.tavily.com";
 
 export const DEFAULT_SETTINGS: Settings = {
   apiKey: "",
   baseURL: DEEPSEEK_BASE_URL,
+  customPresets: "",
   model: DEEPSEEK_MODELS[0],
   maxContextBudget: 4000,
   keyboardShortcut: "I",
@@ -40,7 +46,10 @@ export const PREFERENCES_PANE_ID = `${config.addonRef}-prefpane`;
 
 function normalizeModel(model: string | undefined): string {
   const value = model?.trim();
-  if (value && DEEPSEEK_MODELS.includes(value as (typeof DEEPSEEK_MODELS)[number])) {
+  if (
+    value &&
+    DEEPSEEK_MODELS.includes(value as (typeof DEEPSEEK_MODELS)[number])
+  ) {
     return value;
   }
 
@@ -57,15 +66,160 @@ function normalizeBoolean(value: unknown): boolean {
   return value === true || value === "true" || value === 1 || value === "1";
 }
 
+export type CustomCommandPreset = Partial<CommandPreset> & {
+  id?: string;
+  mode?: "append" | "replace";
+};
+
+export type ParsedCustomCommandPreset = CustomCommandPreset & {
+  id: string;
+};
+
+export interface CustomPresetsParseResult {
+  presets: ParsedCustomCommandPreset[];
+  error: string | null;
+}
+
+function normalizeCustomPresetsValue(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim();
+}
+
+function slugifyPresetId(value: string, index: number): string {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+
+  return slug || `custom-${index + 1}`;
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(/[,，\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function normalizeScopeHints(value: unknown): CommandPreset["scopeHint"] {
+  const validScopeTypes = new Set([
+    "paper",
+    "pdf",
+    "collection",
+    "manual-selection",
+  ]);
+  const scopes = normalizeStringArray(value).filter((scope) =>
+    validScopeTypes.has(scope),
+  ) as NonNullable<CommandPreset["scopeHint"]>;
+
+  return scopes.length > 0 ? scopes : undefined;
+}
+
+function normalizePresetGroup(value: unknown): CommandPreset["group"] {
+  return value === "analysis" || value === "evidence" || value === "reading"
+    ? value
+    : "reading";
+}
+
+export function parseCustomPresets(value: string): CustomPresetsParseResult {
+  const normalized = normalizeCustomPresetsValue(value);
+  if (!normalized) {
+    return { presets: [], error: null };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(normalized);
+  } catch (error) {
+    return {
+      presets: [],
+      error:
+        error instanceof Error && error.message
+          ? `Invalid custom suggestions JSON: ${error.message}`
+          : "Invalid custom suggestions JSON",
+    };
+  }
+
+  const rawPresets = Array.isArray(parsed) ? parsed : [parsed];
+  const presets: ParsedCustomCommandPreset[] = [];
+  const usedIds = new Set<string>();
+  for (const [index, rawPreset] of rawPresets.entries()) {
+    if (!rawPreset || typeof rawPreset !== "object") {
+      continue;
+    }
+
+    const source = rawPreset as Record<string, unknown>;
+    const label = String(source.label || "").trim();
+    const promptPrefix = String(
+      source.promptPrefix || source.prompt || "",
+    ).trim();
+    const rawId = String(source.id || "").trim();
+    if (!rawId && !label) {
+      continue;
+    }
+
+    let id = slugifyPresetId(rawId || label, index);
+    while (usedIds.has(id)) {
+      id = `${id}-${index + 1}`;
+    }
+    usedIds.add(id);
+
+    const preset: ParsedCustomCommandPreset = {
+      id,
+      mode: source.mode === "replace" ? "replace" : "append",
+    };
+    if (source.aliases !== undefined) {
+      preset.aliases = normalizeStringArray(source.aliases);
+    }
+    if (source.description !== undefined) {
+      preset.description = String(source.description || "").trim();
+    }
+    if (source.evidenceHint !== undefined) {
+      preset.evidenceHint = normalizeBoolean(source.evidenceHint);
+    }
+    if (source.group !== undefined) {
+      preset.group = normalizePresetGroup(source.group);
+    }
+    if (label) {
+      preset.label = label;
+    }
+    if (promptPrefix) {
+      preset.promptPrefix = promptPrefix;
+    }
+    if (source.scopeHint !== undefined || source.scopes !== undefined) {
+      preset.scopeHint = normalizeScopeHints(source.scopeHint ?? source.scopes);
+    }
+
+    presets.push(preset);
+  }
+
+  return { presets, error: null };
+}
+
 export function getSettings(): Settings {
   return {
     apiKey: (getPref("apiKey") || "") as string,
     baseURL: DEEPSEEK_BASE_URL,
+    customPresets: normalizeCustomPresetsValue(getPref("customPresets")),
     model: normalizeModel(getPref("model") as string | undefined),
     maxContextBudget: Number(
       getPref("maxContextBudget") || DEFAULT_SETTINGS.maxContextBudget,
     ),
-    keyboardShortcut: (getPref("keyboardShortcut") || DEFAULT_SETTINGS.keyboardShortcut) as string,
+    keyboardShortcut: (getPref("keyboardShortcut") ||
+      DEFAULT_SETTINGS.keyboardShortcut) as string,
     evidenceEnabled: normalizeBoolean(getPref("evidenceEnabled")),
     evidenceProviderMode: normalizeEvidenceProviderMode(
       getPref("evidenceProviderMode") as string | undefined,
@@ -76,7 +230,13 @@ export function getSettings(): Settings {
 
 export function saveSettings(settings: Partial<PersistedSettings>): void {
   if (settings.apiKey !== undefined) setPref("apiKey", settings.apiKey);
-  if (settings.model !== undefined) setPref("model", normalizeModel(settings.model));
+  if (settings.customPresets !== undefined)
+    setPref(
+      "customPresets",
+      normalizeCustomPresetsValue(settings.customPresets),
+    );
+  if (settings.model !== undefined)
+    setPref("model", normalizeModel(settings.model));
   if (settings.maxContextBudget !== undefined)
     setPref("maxContextBudget", settings.maxContextBudget);
   if (settings.keyboardShortcut !== undefined)
@@ -92,7 +252,9 @@ export function saveSettings(settings: Partial<PersistedSettings>): void {
     setPref("tavilyApiKey", settings.tavilyApiKey);
 }
 
-export function getSettingsIssue(settings: Settings = getSettings()): string | null {
+export function getSettingsIssue(
+  settings: Settings = getSettings(),
+): string | null {
   if (!settings.apiKey.trim()) {
     return "DeepSeek API key not configured. Open plugin Settings to continue.";
   }
@@ -136,9 +298,7 @@ export function getEvidenceAuditLabel(
   return providerMode === "tavily" ? "Tavily" : "默认查证";
 }
 
-export async function validateSettings(
-  overrides?: Partial<Settings>,
-): Promise<{
+export async function validateSettings(overrides?: Partial<Settings>): Promise<{
   valid: boolean;
   error?: string;
 }> {
@@ -247,14 +407,14 @@ async function sendValidationRequest(
         request?: (
           method: string,
           url: string,
-        options: {
-          body: string;
-          headers: Record<string, string>;
-          responseType: string;
-          successCodes?: boolean;
-          timeout?: number;
-        },
-      ) => Promise<{ responseText?: string; status?: number }>;
+          options: {
+            body: string;
+            headers: Record<string, string>;
+            responseType: string;
+            successCodes?: boolean;
+            timeout?: number;
+          },
+        ) => Promise<{ responseText?: string; status?: number }>;
       }
     | undefined;
 
@@ -424,7 +584,9 @@ async function fetchWithTimeout(
       }),
     timeoutMs,
   ).catch((error) => {
-    if (String(error?.message || "").includes(`Timed out after ${timeoutMs}ms`)) {
+    if (
+      String(error?.message || "").includes(`Timed out after ${timeoutMs}ms`)
+    ) {
       controller?.abort?.();
     }
     throw error;
@@ -443,7 +605,8 @@ function resolveTimerHost(): {
     typeof globalClearTimeout === "function"
   ) {
     return {
-      setTimeout: (callback, timeoutMs) => globalSetTimeout(callback, timeoutMs),
+      setTimeout: (callback, timeoutMs) =>
+        globalSetTimeout(callback, timeoutMs),
       clearTimeout: (timerId) => globalClearTimeout(timerId),
     };
   }
@@ -460,7 +623,8 @@ function resolveTimerHost(): {
     typeof mainWindow?.clearTimeout === "function"
   ) {
     return {
-      setTimeout: (callback, timeoutMs) => mainWindow.setTimeout?.(callback, timeoutMs),
+      setTimeout: (callback, timeoutMs) =>
+        mainWindow.setTimeout?.(callback, timeoutMs),
       clearTimeout: (timerId) => mainWindow.clearTimeout?.(timerId),
     };
   }

@@ -1,6 +1,6 @@
 # Zotero Development Doc Index
 
-Use this file to decide what to read before changing DS Copilot.
+Use this file to decide what to read before changing Deepseek Copliot.
 
 ## Current execution docs
 

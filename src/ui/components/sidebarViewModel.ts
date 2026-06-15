@@ -28,9 +28,7 @@ export interface SidebarViewModel {
   contextAvailabilityLabel: string | null;
   contextWarnings: string[];
   currentFileLabel: string;
-  showDockedComposer: boolean;
   showIntroSection: boolean;
-  showInlineComposer: boolean;
   heroBody: string;
   heroTitle: string;
   locationLabel: string;
@@ -133,40 +131,34 @@ export function buildSidebarViewModel({
       addSourceLabel,
       chatSectionLabel,
       composerDisabled: true,
-      composerDisabledReason:
-        zh
-          ? "在文献库中选择一篇论文，或在阅读器中打开一个 PDF 以启用对话。"
-          : "Choose one paper in Library or open one PDF in Reader to enable chat.",
-      composerPlaceholder:
-        zh
-          ? location === "reader"
-            ? "打开 PDF 后开始提问。"
-            : "选择一篇论文后开始提问。"
-          : location === "reader"
-            ? "Open a PDF to start asking questions."
-            : "Select one paper to start asking questions.",
+      composerDisabledReason: zh
+        ? "在文献库中选择一篇论文，或在阅读器中打开一个 PDF 以启用对话。"
+        : "Choose one paper in Library or open one PDF in Reader to enable chat.",
+      composerPlaceholder: zh
+        ? location === "reader"
+          ? "打开 PDF 后开始提问。"
+          : "选择一篇论文后开始提问。"
+        : location === "reader"
+          ? "Open a PDF to start asking questions."
+          : "Select one paper to start asking questions.",
       contextAvailabilityLabel,
       contextWarnings,
       currentFileLabel,
-      showDockedComposer: true,
       showIntroSection: true,
-      showInlineComposer: false,
-      heroBody:
-        zh
-          ? location === "reader"
-            ? "在阅读器中打开一个 PDF 以启用对话。"
-            : "在文献库中选择一篇论文，或在阅读器中打开一个 PDF 以开始使用。"
-          : location === "reader"
-            ? "Open one PDF in Reader to enable chat."
-            : "Choose one paper in Library or open one PDF in Reader to begin.",
-      heroTitle:
-        zh
-          ? location === "reader"
-            ? "打开 PDF"
-            : "选择条目"
-          : location === "reader"
-            ? "Open a PDF"
-            : "Select an item",
+      heroBody: zh
+        ? location === "reader"
+          ? "在阅读器中打开一个 PDF 以启用对话。"
+          : "在文献库中选择一篇论文，或在阅读器中打开一个 PDF 以开始使用。"
+        : location === "reader"
+          ? "Open one PDF in Reader to enable chat."
+          : "Choose one paper in Library or open one PDF in Reader to begin.",
+      heroTitle: zh
+        ? location === "reader"
+          ? "打开 PDF"
+          : "选择条目"
+        : location === "reader"
+          ? "Open a PDF"
+          : "Select an item",
       locationLabel,
       mode: "empty",
       noticeText: null,
@@ -174,14 +166,13 @@ export function buildSidebarViewModel({
       providerLabel,
       recentThreads: [],
       recentThreadsLabel,
-      scopeLabel:
-        zh
-          ? location === "reader"
-            ? "当前没有 PDF 阅读器上下文"
-            : "当前没有选中文献库上下文"
-          : location === "reader"
-            ? "No PDF reader context"
-            : "No library context selected",
+      scopeLabel: zh
+        ? location === "reader"
+          ? "当前没有 PDF 阅读器上下文"
+          : "当前没有选中文献库上下文"
+        : location === "reader"
+          ? "No PDF reader context"
+          : "No library context selected",
       scopeMeta: null,
       scopeSelectionLabel: null,
       scopeSectionLabel,
@@ -222,20 +213,19 @@ export function buildSidebarViewModel({
       addSourceLabel,
       chatSectionLabel,
       composerDisabled: true,
-      composerDisabledReason:
-        zh
-          ? "打开发插件设置并填写 DeepSeek API Key 后即可发送消息。"
-          : "Open plugin Settings and add your DeepSeek API key before sending messages.",
+      composerDisabledReason: zh
+        ? "打开发插件设置并填写 DeepSeek API Key 后即可发送消息。"
+        : "Open plugin Settings and add your DeepSeek API key before sending messages.",
       composerPlaceholder: zh
         ? "在设置中填写 API Key 以启用对话。"
         : "Add your API key in Settings to enable chat.",
       contextAvailabilityLabel,
       contextWarnings,
       currentFileLabel,
-      showDockedComposer: true,
       showIntroSection: true,
-      showInlineComposer: false,
-      heroBody: zh ? "请在设置中填写 DeepSeek API Key。" : "Add your DeepSeek API key in Settings.",
+      heroBody: zh
+        ? "请在设置中填写 DeepSeek API Key。"
+        : "Add your DeepSeek API key in Settings.",
       heroTitle: zh ? "需要配置" : "Configuration required",
       locationLabel,
       mode: "config-error",
@@ -269,22 +259,19 @@ export function buildSidebarViewModel({
       addSourceLabel,
       chatSectionLabel,
       composerDisabled: true,
-      composerDisabledReason:
-        zh
-          ? "在文献库中选择一篇论文，或在阅读器中打开一个 PDF 以启用对话。"
-          : "Choose one paper in Library or open one PDF in Reader to enable chat.",
-      composerPlaceholder:
-        zh
-          ? "选择一篇论文或当前 PDF 以启用对话。"
-          : "Choose one paper or the active PDF to enable chat.",
+      composerDisabledReason: zh
+        ? "在文献库中选择一篇论文，或在阅读器中打开一个 PDF 以启用对话。"
+        : "Choose one paper in Library or open one PDF in Reader to enable chat.",
+      composerPlaceholder: zh
+        ? "选择一篇论文或当前 PDF 以启用对话。"
+        : "Choose one paper or the active PDF to enable chat.",
       contextAvailabilityLabel,
       contextWarnings,
       currentFileLabel,
-      showDockedComposer: true,
       showIntroSection: true,
-      showInlineComposer: false,
-      heroBody:
-        zh ? "当前仅支持单篇论文或活动 PDF。" : "Use one paper or the active PDF.",
+      heroBody: zh
+        ? "当前仅支持单篇论文或活动 PDF。"
+        : "Use one paper or the active PDF.",
       heroTitle: zh ? "选择一篇论文" : "Choose one paper",
       locationLabel,
       mode: "empty",
@@ -314,14 +301,16 @@ export function buildSidebarViewModel({
   }
 
   const hasThreadMessages = Boolean(session.activeThread?.messages.length);
-  const suggestedActions = getPresetsForScope(scope.type)
-    .map((preset) => ({
-      description: preset.description,
-      group: preset.group,
-      id: preset.id,
-      label: preset.label,
-      prompt: preset.promptPrefix,
-    }));
+  const suggestedActions = getPresetsForScope(
+    scope.type,
+    _settings.customPresets,
+  ).map((preset) => ({
+    description: preset.description,
+    group: preset.group,
+    id: preset.id,
+    label: preset.label,
+    prompt: preset.promptPrefix,
+  }));
 
   if (hasThreadMessages) {
     return {
@@ -333,9 +322,7 @@ export function buildSidebarViewModel({
       contextAvailabilityLabel,
       contextWarnings,
       currentFileLabel,
-      showDockedComposer: true,
       showIntroSection: false,
-      showInlineComposer: false,
       heroBody: zh ? "继续当前会话。" : "Continue the current thread.",
       heroTitle: zh ? "当前会话" : "Thread",
       locationLabel,
@@ -374,10 +361,10 @@ export function buildSidebarViewModel({
     contextAvailabilityLabel,
     contextWarnings,
     currentFileLabel,
-    showDockedComposer: false,
     showIntroSection: true,
-    showInlineComposer: true,
-    heroBody: zh ? "选择一个操作，或直接针对当前论文提问。" : "Pick an action or ask about the current paper.",
+    heroBody: zh
+      ? "选择一个操作，或直接针对当前论文提问。"
+      : "Pick an action or ask about the current paper.",
     heroTitle: zh ? "准备就绪" : "Ready to chat",
     locationLabel,
     mode: "home",
@@ -391,7 +378,7 @@ export function buildSidebarViewModel({
     scopeSelectionLabel,
     scopeSectionLabel,
     scopeTypeLabel,
-    showRecentThreads: false,
+    showRecentThreads: filteredRecentThreads.length > 0,
     showShell: true,
     showSuggestedActions: suggestedActions.length > 0,
     showThreadView: false,

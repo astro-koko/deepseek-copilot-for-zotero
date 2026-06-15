@@ -19,10 +19,13 @@ describe("preferences.xhtml", () => {
     );
   });
 
-  it("keeps only the API key as a user-facing editable setting", () => {
+  it("keeps model tuning internal while exposing custom suggested actions", () => {
     expect(preferencesSource).not.toContain("zotero-ai-assistant-pref-model");
     expect(preferencesSource).not.toContain(
       "zotero-ai-assistant-pref-max-context",
+    );
+    expect(preferencesSource).toContain(
+      'id="zotero-ai-assistant-pref-custom-presets"',
     );
   });
 
@@ -30,9 +33,7 @@ describe("preferences.xhtml", () => {
     expect(preferencesSource).toMatch(
       /<html:select[\s\S]*id="zotero-ai-assistant-pref-evidence-provider"/,
     );
-    expect(preferencesSource).toContain(
-      'value="mcp-web-search"',
-    );
+    expect(preferencesSource).toContain('value="mcp-web-search"');
     expect(preferencesSource).toContain('value="tavily"');
     expect(preferencesSource).not.toContain("<radiogroup");
   });

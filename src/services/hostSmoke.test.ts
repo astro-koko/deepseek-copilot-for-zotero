@@ -70,6 +70,8 @@ function createDeps(options?: {
     error: null,
     isStreaming: false,
     streamingContent: "",
+    streamingReasoningContent: "",
+    streamingStatus: "idle",
   };
 
   const writes: Array<{ path: string; content: string }> = [];
@@ -110,6 +112,8 @@ function createDeps(options?: {
         error: null,
         isStreaming: false,
         streamingContent: "",
+        streamingReasoningContent: "",
+        streamingStatus: "idle",
       };
     }),
     send: vi.fn(

@@ -1,16 +1,10 @@
 # Changelog
 
-## v0.9.5
-
-- Unified the public plugin name to `Deepseek Copliot` across Zotero surfaces, release assets, and generated update feeds.
-- Switched the packaged XPI artifact name to `Deepseek.Copliot-<version>.xpi`.
-- Removed remaining public-facing `DS Copilot` branding from settings, reader actions, validation dialogs, and release documentation.
-
 ## v0.9.4
 
-- Fixed the sidebar chat layout so the composer stays usable while recent chats now render below it instead of above it.
-- Hid the empty-state welcome copy and suggested actions once a thread already has visible messages.
-- Fixed Zotero host send reliability by preloading `paper` attachments more safely and adding a host-compatible provider request path.
+- Fixed the sidebar chat composer so it stays docked at the bottom while the message area scrolls independently.
+- Hid the welcome copy and suggested actions once a thread already has visible messages.
+- Added light layout polish to keep active conversations centered on the transcript instead of the empty-state shell.
 
 ## v0.9.3
 

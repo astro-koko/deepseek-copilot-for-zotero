@@ -1,8 +1,8 @@
-# DS Copilot Native Sidebar Repair Implementation Plan
+# Deepseek Copliot Native Sidebar Repair Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make DS Copilot appear as a proper Zotero right-side sidebar entry instead of a top toolbar fallback, and prove the native host is stable in Library and Reader.
+**Goal:** Make Deepseek Copliot appear as a proper Zotero right-side sidebar entry instead of a top toolbar fallback, and prove the native host is stable in Library and Reader.
 
 **Architecture:** Keep the existing React sidebar host and native pane mount points, but change surface ownership so `Zotero.ItemPaneManager` right-side navigation is the primary entry. Remove the temporary top-toolbar toggle path, preserve native host mounting in `#zotero-item-pane` and `#zotero-context-pane-inner`, and validate the result with packaged-Zotero smoke evidence.
 
@@ -13,7 +13,7 @@
 ## File Map
 
 - Modify: [src/ui/ui.ts](/Users/Liang/project/agentpaper_zotero/src/ui/ui.ts)
-  - Owns DS Copilot surface registration, native pane mounting, visibility control, and diagnostic output.
+  - Owns Deepseek Copliot surface registration, native pane mounting, visibility control, and diagnostic output.
 - Modify: [src/ui/ui.test.ts](/Users/Liang/project/agentpaper_zotero/src/ui/ui.test.ts)
   - Covers surface registration contracts, stale mount cleanup, and visibility behavior.
 - Modify: [docs/zotero-dev-smoke-checklist.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-dev-smoke-checklist.md)
@@ -285,7 +285,7 @@ Manual smoke in Zotero:
 2. Install the built `.xpi`
 3. Restart Zotero
 4. Select one regular library item
-5. Confirm DS Copilot appears in the right-side pane entry, not as a top `D...` toolbar fragment
+5. Confirm Deepseek Copliot appears in the right-side pane entry, not as a top `D...` toolbar fragment
 6. Open one PDF reader tab
 7. Confirm the same right-side pane entry exists and opens the Reader host
 
@@ -298,7 +298,7 @@ Expected:
 Manual smoke:
 1. Select text in a PDF
 2. Click `Explain`
-3. Confirm the right-side DS Copilot pane becomes the active surface
+3. Confirm the right-side Deepseek Copliot pane becomes the active surface
 4. Trigger `Ask...`
 5. Confirm draft prefill lands in the same native pane host
 

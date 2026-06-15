@@ -1,4 +1,4 @@
-# DeepSeek Copilot for Zotero v0.9 Release Prep Design
+# Deepseek Copliot v0.9 Release Prep Design
 
 ## Status
 
@@ -13,7 +13,7 @@ Prepare the current project for a clean `0.9.0` GitHub-facing release candidate 
 This pass covers:
 
 - bumping the public project version from `0.8.0` to `0.9.0`
-- aligning public-facing copy around the name `DeepSeek Copilot for Zotero`
+- aligning public-facing copy around the name `Deepseek Copliot`
 - rewriting the root `README.md` so the project reads like a coherent public repository
 - adding a `CHANGELOG.md` for the `0.9.0` release candidate
 - adding contribution and GitHub collaboration scaffolding
@@ -33,7 +33,7 @@ This pass does not cover:
 
 Use a split identity model for this release candidate:
 
-- public-facing name: `DeepSeek Copilot for Zotero`
+- public-facing name: `Deepseek Copliot`
 - internal technical identity: keep the current historical add-on identifiers and config wiring unchanged
 
 Reason:
@@ -126,7 +126,7 @@ Likely additions:
 
 The release prep is successful when:
 
-1. the repository clearly presents itself as `DeepSeek Copilot for Zotero`
+1. the repository clearly presents itself as `Deepseek Copliot`
 2. the public version is `0.9.0`
 3. the README is polished enough for an outside GitHub visitor to understand install, scope, and status
 4. the repo includes baseline contribution and issue/PR templates

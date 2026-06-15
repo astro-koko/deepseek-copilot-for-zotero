@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   COMMAND_PRESET_GROUP_ORDER,
   applyPreset,
@@ -25,6 +31,7 @@ interface ComposerProps {
   disabled?: boolean;
   disabledReason?: string | null;
   placeholder?: string;
+  customPresets?: string;
   draftValue?: string;
   focusNonce?: number;
   onDraftChange?: (value: string) => void;
@@ -39,9 +46,11 @@ function recordComposerDiagnostic(
   disabled: boolean,
   isStreaming: boolean,
 ): void {
-  const diagnostics = ((globalThis as unknown as {
-    __aiAssistantDiagnostics?: Record<string, unknown>;
-  }).__aiAssistantDiagnostics ??= {});
+  const diagnostics = ((
+    globalThis as unknown as {
+      __aiAssistantDiagnostics?: Record<string, unknown>;
+    }
+  ).__aiAssistantDiagnostics ??= {});
 
   diagnostics.composer = {
     disabled,
@@ -61,9 +70,12 @@ function readSlashQuery(value: string): string | null {
 }
 
 function replaceActiveSlashToken(value: string, replacement: string): string {
-  return value.replace(/(^|\s)\/[^\n]*$/, (_match, leadingWhitespace: string) => {
-    return `${leadingWhitespace}${replacement}`;
-  });
+  return value.replace(
+    /(^|\s)\/[^\n]*$/,
+    (_match, leadingWhitespace: string) => {
+      return `${leadingWhitespace}${replacement}`;
+    },
+  );
 }
 
 export const Composer: React.FC<ComposerProps> = ({
@@ -76,6 +88,7 @@ export const Composer: React.FC<ComposerProps> = ({
   disabled = false,
   disabledReason = null,
   placeholder = "围绕这篇论文提问…（输入 / 可查看预设）",
+  customPresets = "",
   draftValue,
   focusNonce,
   onDraftChange,
@@ -88,15 +101,17 @@ export const Composer: React.FC<ComposerProps> = ({
   const [showPresets, setShowPresets] = useState(false);
   const [selectedPresetIndex, setSelectedPresetIndex] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const theme = getSidebarTheme((globalThis as unknown as { window?: Window }).window);
+  const theme = getSidebarTheme(
+    (globalThis as unknown as { window?: Window }).window,
+  );
   const zh = isChineseLocale();
   const slashQuery = useMemo(() => readSlashQuery(input), [input]);
   const visiblePresets = useMemo(() => {
     if (!currentScopeType) {
       return [];
     }
-    return filterPresets(slashQuery || "", currentScopeType, zh);
-  }, [currentScopeType, slashQuery, zh]);
+    return filterPresets(slashQuery || "", currentScopeType, zh, customPresets);
+  }, [currentScopeType, customPresets, slashQuery, zh]);
   const groupedVisiblePresets = useMemo(
     () =>
       COMMAND_PRESET_GROUP_ORDER.map((group) => ({
@@ -158,19 +173,19 @@ export const Composer: React.FC<ComposerProps> = ({
         console.warn(warning);
       }
 
-      const preset = getPresetById(presetId);
+      const preset = getPresetById(presetId, customPresets);
       if (!preset) {
         return;
       }
 
-      const replacement = applyPreset(preset.id, "");
+      const replacement = applyPreset(preset.id, "", customPresets);
       const nextValue = replaceActiveSlashToken(input, replacement);
       setInput(nextValue);
       onDraftChange?.(nextValue);
       inputRef.current?.focus();
       setShowPresets(false);
     },
-    [currentScopeType, input, onDraftChange],
+    [currentScopeType, customPresets, input, onDraftChange],
   );
 
   const handleKeyDown = useCallback(
@@ -209,7 +224,13 @@ export const Composer: React.FC<ComposerProps> = ({
         handleSubmit();
       }
     },
-    [applyPresetToInput, handleSubmit, selectedPresetIndex, showPresets, visiblePresets],
+    [
+      applyPresetToInput,
+      handleSubmit,
+      selectedPresetIndex,
+      showPresets,
+      visiblePresets,
+    ],
   );
 
   const handleInputChange = useCallback(
@@ -306,7 +327,9 @@ export const Composer: React.FC<ComposerProps> = ({
                 ...styles.modelToggleButton,
                 color: theme.buttonText,
                 background:
-                  modelMode === "light" ? theme.surfaceBackground : "transparent",
+                  modelMode === "light"
+                    ? theme.surfaceBackground
+                    : "transparent",
                 borderColor:
                   modelMode === "light" ? theme.buttonBorder : "transparent",
               }}
@@ -320,7 +343,9 @@ export const Composer: React.FC<ComposerProps> = ({
                 ...styles.modelToggleButton,
                 color: theme.buttonText,
                 background:
-                  modelMode === "deep" ? theme.surfaceBackground : "transparent",
+                  modelMode === "deep"
+                    ? theme.surfaceBackground
+                    : "transparent",
                 borderColor:
                   modelMode === "deep" ? theme.buttonBorder : "transparent",
               }}

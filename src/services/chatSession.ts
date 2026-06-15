@@ -1,13 +1,27 @@
 import type { ScopeContext } from "../types/scope";
 import type { Thread, Message } from "../types/thread";
-import { appendMessage, createThread, recordScopeTransition } from "./threadController";
+import type { ChatStreamChunk } from "./provider/types";
+import {
+  appendMessage,
+  createThread,
+  recordScopeTransition,
+} from "./threadController";
 import { type ChatRequestOptions, sendChatMessage } from "./chatEngine";
+
+export type ChatSessionStreamingStatus =
+  | "idle"
+  | "preparing"
+  | "waiting"
+  | "reasoning"
+  | "streaming";
 
 export interface ChatSessionState {
   activeThread: Thread | null;
   error: string | null;
   isStreaming: boolean;
   streamingContent: string;
+  streamingReasoningContent: string;
+  streamingStatus: ChatSessionStreamingStatus;
 }
 
 interface ChatSessionDeps {
@@ -37,6 +51,8 @@ const DEFAULT_STATE: ChatSessionState = {
   error: null,
   isStreaming: false,
   streamingContent: "",
+  streamingReasoningContent: "",
+  streamingStatus: "idle",
 };
 
 interface AbortControllerLike {
@@ -64,6 +80,40 @@ function buildErrorMessage(error: unknown): string {
   }
 
   return "Failed to get response";
+}
+
+function normalizeStreamChunk(chunk: ChatStreamChunk): {
+  contentDelta?: string;
+  reasoningDelta?: string;
+  status?: ChatSessionStreamingStatus;
+} {
+  if (typeof chunk === "string") {
+    return {
+      contentDelta: chunk,
+      status: "streaming",
+    };
+  }
+
+  if (chunk.type === "reasoning_delta") {
+    return {
+      reasoningDelta: chunk.content,
+      status: "reasoning",
+    };
+  }
+
+  if (chunk.type === "status") {
+    return {
+      status:
+        chunk.content === "preparing" ||
+        chunk.content === "waiting" ||
+        chunk.content === "reasoning" ||
+        chunk.content === "streaming"
+          ? chunk.content
+          : "waiting",
+    };
+  }
+
+  return {};
 }
 
 export function createChatSessionStore(
@@ -141,6 +191,8 @@ export function createChatSessionStore(
         error: null,
         isStreaming: false,
         streamingContent: "",
+        streamingReasoningContent: "",
+        streamingStatus: "idle",
       });
     },
 
@@ -158,6 +210,8 @@ export function createChatSessionStore(
         error: null,
         isStreaming: false,
         streamingContent: "",
+        streamingReasoningContent: "",
+        streamingStatus: "idle",
       });
       return thread;
     },
@@ -171,6 +225,8 @@ export function createChatSessionStore(
         error: null,
         isStreaming: false,
         streamingContent: "",
+        streamingReasoningContent: "",
+        streamingStatus: "idle",
       });
     },
 
@@ -225,6 +281,8 @@ export function createChatSessionStore(
           error: null,
           isStreaming: true,
           streamingContent: "",
+          streamingReasoningContent: "",
+          streamingStatus: "preparing",
         });
 
         const response = await deps.sendChatMessage(
@@ -233,6 +291,11 @@ export function createChatSessionStore(
           requestOptions,
           abortController?.signal,
         );
+        if (!isCurrentRequest(version)) {
+          return;
+        }
+
+        setState({ streamingStatus: "waiting" });
 
         if (response.evidenceAuditMessage) {
           const auditedThread = await deps.appendMessage(thread.id, {
@@ -246,13 +309,25 @@ export function createChatSessionStore(
         }
 
         let fullResponse = "";
+        let fullReasoning = "";
         for await (const chunk of response.stream) {
           if (!isCurrentRequest(version)) {
             return;
           }
 
-          fullResponse += chunk;
-          setState({ streamingContent: fullResponse });
+          const normalizedChunk = normalizeStreamChunk(chunk);
+          if (normalizedChunk.contentDelta) {
+            fullResponse += normalizedChunk.contentDelta;
+          }
+          if (normalizedChunk.reasoningDelta) {
+            fullReasoning += normalizedChunk.reasoningDelta;
+          }
+
+          setState({
+            streamingContent: fullResponse,
+            streamingReasoningContent: fullReasoning,
+            streamingStatus: normalizedChunk.status || "streaming",
+          });
         }
 
         assistantMessagePersistenceAttempted = true;
@@ -263,6 +338,8 @@ export function createChatSessionStore(
           setState({
             isStreaming: false,
             streamingContent: "",
+            streamingReasoningContent: "",
+            streamingStatus: "idle",
           });
         }
       } catch (error) {
@@ -273,6 +350,8 @@ export function createChatSessionStore(
             error: messageText,
             isStreaming: false,
             streamingContent: "",
+            streamingReasoningContent: "",
+            streamingStatus: "idle",
           });
           abortController = null;
           return;
@@ -290,9 +369,16 @@ export function createChatSessionStore(
           !assistantMessagePersistenceAttempted
         ) {
           try {
-            await persistAssistantMessage(thread, `Error: ${messageText}`, version);
+            await persistAssistantMessage(
+              thread,
+              `Error: ${messageText}`,
+              version,
+            );
           } catch (persistError) {
-            ztoolkit.log("Failed to persist assistant error message:", persistError);
+            ztoolkit.log(
+              "Failed to persist assistant error message:",
+              persistError,
+            );
           }
         }
 
@@ -300,6 +386,8 @@ export function createChatSessionStore(
         setState({
           isStreaming: false,
           streamingContent: "",
+          streamingReasoningContent: "",
+          streamingStatus: "idle",
         });
       }
     },

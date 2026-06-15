@@ -10,7 +10,9 @@ describe("presets", () => {
   it("returns an expanded Chinese reading command catalog for paper scopes", () => {
     vi.stubGlobal("Zotero", {
       Prefs: {
-        get: vi.fn((key: string) => (key === "intl.locale.requested" ? "zh-CN" : "")),
+        get: vi.fn((key: string) =>
+          key === "intl.locale.requested" ? "zh-CN" : "",
+        ),
       },
     });
 
@@ -28,10 +30,44 @@ describe("presets", () => {
     expect(filtered.map((preset) => preset.id)).toContain("verify-claim");
   });
 
+  it("merges custom suggested action replacements and additions", () => {
+    const customPresets = JSON.stringify([
+      {
+        id: "summarize",
+        aliases: ["实验总结"],
+        label: "总结实验",
+        promptPrefix: "请重点总结实验设计和结果。",
+      },
+      {
+        id: "future-work",
+        label: "未来工作",
+        description: "提出后续研究方向",
+        promptPrefix: "请提出 3 个可执行的后续研究方向。",
+        aliases: ["后续", "future"],
+        scopeHint: ["paper", "pdf"],
+      },
+    ]);
+
+    const presets = getPresetsForScope("paper", customPresets);
+
+    expect(presets.find((preset) => preset.id === "summarize")).toMatchObject({
+      label: "总结实验",
+      promptPrefix: "请重点总结实验设计和结果。",
+    });
+    expect(presets.map((preset) => preset.id)).toContain("future-work");
+    expect(
+      filterPresets("后续", "paper", true, customPresets).map(
+        (preset) => preset.id,
+      ),
+    ).toContain("future-work");
+  });
+
   it("applies the selected preset template without discarding existing freeform text", () => {
     vi.stubGlobal("Zotero", {
       Prefs: {
-        get: vi.fn((key: string) => (key === "intl.locale.requested" ? "zh-CN" : "")),
+        get: vi.fn((key: string) =>
+          key === "intl.locale.requested" ? "zh-CN" : "",
+        ),
       },
     });
 

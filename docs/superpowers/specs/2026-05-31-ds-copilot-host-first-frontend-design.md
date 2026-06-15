@@ -1,4 +1,4 @@
-# DS Copilot Host-First Frontend Stabilization Design
+# Deepseek Copliot Host-First Frontend Stabilization Design
 
 Date: 2026-05-31
 Status: Active execution spec
@@ -8,7 +8,7 @@ Scope: Zotero frontend host stabilization for a usable plugin baseline
 
 This document resets the project's immediate objective from "feature-complete AI assistant" to "usable Zotero plugin frontend."
 
-The next delivery target is not provider breadth, richer product flows, or GitHub release automation. The next delivery target is a DS Copilot build that:
+The next delivery target is not provider breadth, richer product flows, or GitHub release automation. The next delivery target is a Deepseek Copliot build that:
 
 - appears reliably in Zotero Add-ons
 - exposes a working Settings pane
@@ -59,7 +59,7 @@ Management interpretation of those gaps:
 
 Phase goal:
 
-Deliver a host-stable DS Copilot frontend that works in the user's real daily Zotero profile and can later become the base for a public GitHub release.
+Deliver a host-stable Deepseek Copliot frontend that works in the user's real daily Zotero profile and can later become the base for a public GitHub release.
 
 Success in this phase means:
 
@@ -75,7 +75,7 @@ Assumptions for this phase:
 
 - Zotero native settings are treated as baseline, not the primary suspect
 - root causes should be investigated first in three buckets only:
-  - DS Copilot host code
+  - Deepseek Copliot host code
   - hot reload / plugin reload lifecycle
   - installed-plugin surface conflicts
 - provider failures are not used to explain missing host surfaces
@@ -84,7 +84,7 @@ Assumptions for this phase:
 
 ### Add-ons Entry
 
-`DS Copilot` must appear in Add-ons after packaged installation. If it does not, stop and debug packaging/startup only.
+`Deepseek Copliot` must appear in Add-ons after packaged installation. If it does not, stop and debug packaging/startup only.
 
 ### Settings Pane
 
@@ -117,10 +117,10 @@ Current status:
 
 Contract:
 
-- the DS Copilot host mounts into the native Library pane
+- the Deepseek Copliot host mounts into the native Library pane
 - regular items and PDF attachment items both show the same shell
-- opening DS Copilot hides the conflicting native pane body content for the active layer
-- closing DS Copilot restores native content fully
+- opening Deepseek Copliot hides the conflicting native pane body content for the active layer
+- closing Deepseek Copliot restores native content fully
 - reload, tab switching, pane collapse, and restart never create duplicate mounts or fake-visible states
 - activation should feel local to the right-side surface; a top-toolbar toggle may remain temporarily as a debugging or fallback affordance, but it is not the final placement contract
 

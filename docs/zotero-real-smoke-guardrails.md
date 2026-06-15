@@ -84,7 +84,7 @@ Do not debug later layers while an earlier layer is still unproven in the curren
 - New rule:
   icon changes are never a casual unblock tactic
 
-Before changing any DS Copilot icon path or asset:
+Before changing any Deepseek Copliot icon path or asset:
 
 1. identify the exact surface that is wrong
 2. confirm the expected official asset

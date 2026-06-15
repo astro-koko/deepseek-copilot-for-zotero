@@ -64,6 +64,29 @@
 
       <separator class="thin" />
 
+      <description data-l10n-id="ai-assistant-pref-custom-presets-title" />
+      <description data-l10n-id="ai-assistant-pref-custom-presets-help" />
+      <html:textarea
+        id="zotero-ai-assistant-pref-custom-presets"
+        spellcheck="false"
+        style="
+          min-height: 160px;
+          width: 100%;
+          box-sizing: border-box;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 12px;
+          padding: 8px;
+          border-radius: 6px;
+        "
+        placeholder='[{"id":"summarize","mode":"replace","label":"总结实验","promptPrefix":"请重点总结实验设计、数据集、指标和关键结果。","aliases":["实验","结果"]},{"id":"future-work","label":"未来工作","description":"提出后续研究方向","promptPrefix":"请基于当前论文提出 3 个可执行的后续研究方向。","scopeHint":["paper","pdf"],"aliases":["future","后续"]}]'
+      ></html:textarea>
+      <description
+        id="zotero-ai-assistant-pref-custom-presets-status"
+        style="margin-top: -4px"
+      />
+
+      <separator class="thin" />
+
       <description data-l10n-id="ai-assistant-pref-evidence-description" />
 
       <vbox style="display: flex; flex-direction: column; gap: 6px">
@@ -95,9 +118,7 @@
             Tavily web verification (requires API key)
           </html:option>
         </html:select>
-        <description
-          data-l10n-id="ai-assistant-pref-evidence-provider-help"
-        />
+        <description data-l10n-id="ai-assistant-pref-evidence-provider-help" />
       </vbox>
 
       <vbox

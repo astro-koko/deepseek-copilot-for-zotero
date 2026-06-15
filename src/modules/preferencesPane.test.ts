@@ -77,6 +77,8 @@ describe("registerPreferencesPane", () => {
   let saveButton: FakeButton;
   let validateButton: FakeButton;
   let status: FakeStatusElement;
+  let customPresetsField: FakeField;
+  let customPresetsStatus: FakeStatusElement;
   let evidenceProviderField: FakeField;
   let tavilyApiKeyField: FakeField;
   let tavilyValidateButton: FakeButton;
@@ -99,6 +101,8 @@ describe("registerPreferencesPane", () => {
     saveButton = new FakeButton();
     validateButton = new FakeButton();
     status = new FakeStatusElement();
+    customPresetsField = new FakeField();
+    customPresetsStatus = new FakeStatusElement();
     evidenceProviderField = new FakeField();
     tavilyApiKeyField = new FakeField();
     tavilyValidateButton = new FakeButton();
@@ -111,6 +115,7 @@ describe("registerPreferencesPane", () => {
       getSettings: vi.fn(() => ({
         apiKey: "sk-test",
         baseURL: "https://api.deepseek.com",
+        customPresets: "",
         model: "deepseek-v4-pro",
         maxContextBudget: 8192,
         keyboardShortcut: "I",
@@ -131,6 +136,8 @@ describe("registerPreferencesPane", () => {
       "zotero-ai-assistant-pref-save": saveButton,
       "zotero-ai-assistant-pref-validate": validateButton,
       "zotero-ai-assistant-pref-status": status,
+      "zotero-ai-assistant-pref-custom-presets": customPresetsField,
+      "zotero-ai-assistant-pref-custom-presets-status": customPresetsStatus,
       "zotero-ai-assistant-pref-evidence-provider": evidenceProviderField,
       "zotero-ai-assistant-pref-tavily-api-key": tavilyApiKeyField,
       "zotero-ai-assistant-pref-tavily-validate": tavilyValidateButton,
@@ -150,6 +157,7 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.getSettings).toHaveBeenCalledTimes(1);
     expect(apiKeyField.value).toBe("sk-test");
+    expect(customPresetsField.value).toBe("");
     expect(evidenceProviderField.value).toBe("mcp-web-search");
   });
 
@@ -205,6 +213,7 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.saveSettings).toHaveBeenCalledWith({
       apiKey: "sk-next",
+      customPresets: "",
       evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
@@ -212,7 +221,7 @@ describe("registerPreferencesPane", () => {
     expect(status.dataset.variant).toBe("success");
   });
 
-  it("persists only the API key even if internal defaults remain elsewhere", () => {
+  it("persists user-facing settings while internal defaults remain elsewhere", () => {
     registerPreferencesPane(createWindow(), deps);
 
     apiKeyField.value = "sk-internal-defaults";
@@ -220,9 +229,32 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.saveSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-internal-defaults",
+      customPresets: "",
       evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
+  });
+
+  it("persists custom suggested action JSON and reports the parsed count", async () => {
+    registerPreferencesPane(createWindow(), deps);
+
+    const customPresets =
+      '[{"id":"future-work","label":"Future Work","promptPrefix":"Suggest next steps.","aliases":["future"]}]';
+    customPresetsField.value = customPresets;
+    customPresetsField.dispatch("change");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(deps.saveSettings).toHaveBeenLastCalledWith({
+      apiKey: "sk-test",
+      customPresets,
+      evidenceProviderMode: "mcp-web-search",
+      tavilyApiKey: "",
+    });
+    expect(customPresetsStatus.textContent).toBe(
+      "Loaded 1 custom suggested actions",
+    );
+    expect(customPresetsStatus.dataset.variant).toBe("success");
   });
 
   it("runs validation with unsaved values and reports errors inline", async () => {
@@ -239,6 +271,7 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.validateSettings).toHaveBeenCalledWith({
       apiKey: "sk-bad",
+      customPresets: "",
       evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
@@ -319,6 +352,7 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.saveSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-command",
+      customPresets: "",
       evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
@@ -336,11 +370,13 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.saveSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-click",
+      customPresets: "",
       evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
     expect(deps.validateSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-click",
+      customPresets: "",
       evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
@@ -354,6 +390,8 @@ describe("registerPreferencesPane", () => {
     const replacementSaveButton = new FakeButton();
     const replacementValidateButton = new FakeButton();
     const replacementStatus = new FakeStatusElement();
+    const replacementCustomPresetsField = new FakeField();
+    const replacementCustomPresetsStatus = new FakeStatusElement();
     const replacementEvidenceProviderField = new FakeField();
     const replacementTavilyApiKeyField = new FakeField();
     const replacementTavilyValidateButton = new FakeButton();
@@ -367,6 +405,9 @@ describe("registerPreferencesPane", () => {
       "zotero-ai-assistant-pref-save": replacementSaveButton,
       "zotero-ai-assistant-pref-validate": replacementValidateButton,
       "zotero-ai-assistant-pref-status": replacementStatus,
+      "zotero-ai-assistant-pref-custom-presets": replacementCustomPresetsField,
+      "zotero-ai-assistant-pref-custom-presets-status":
+        replacementCustomPresetsStatus,
       "zotero-ai-assistant-pref-evidence-provider":
         replacementEvidenceProviderField,
       "zotero-ai-assistant-pref-tavily-api-key": replacementTavilyApiKeyField,
@@ -390,6 +431,7 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.saveSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-recreated",
+      customPresets: "",
       evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
@@ -411,6 +453,7 @@ describe("registerPreferencesPane", () => {
     expect(tavilySettingsRow.style.display).toBe("");
     expect(deps.saveSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-test",
+      customPresets: "",
       evidenceProviderMode: "tavily",
       tavilyApiKey: "",
     });
@@ -428,6 +471,7 @@ describe("registerPreferencesPane", () => {
 
     expect(deps.validateEvidenceSettings).toHaveBeenCalledWith({
       apiKey: "sk-test",
+      customPresets: "",
       evidenceProviderMode: "tavily",
       tavilyApiKey: "tvly-next",
     });
@@ -445,6 +489,7 @@ describe("registerPreferencesPane", () => {
     expect(tavilySettingsRow.style.display).toBe("");
     expect(deps.saveSettings).toHaveBeenLastCalledWith({
       apiKey: "sk-test",
+      customPresets: "",
       evidenceProviderMode: "tavily",
       tavilyApiKey: "",
     });

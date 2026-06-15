@@ -1,4 +1,10 @@
-import React, { Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import React, {
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { Composer } from "./Composer";
 import { buildSidebarViewModel } from "./sidebarViewModel";
 import {
@@ -8,7 +14,10 @@ import {
 } from "../readerActionFlow";
 import type { ScopeContext } from "../../types/scope";
 import type { Thread } from "../../types/thread";
-import { assembleContext, type AssembledContext } from "../../services/contextAssembler";
+import {
+  assembleContext,
+  type AssembledContext,
+} from "../../services/contextAssembler";
 import { getCurrentScope } from "../../services/scopeResolver";
 import {
   PREFERENCES_PANE_ID,
@@ -17,7 +26,10 @@ import {
   getSettingsIssue,
   saveSettings,
 } from "../../services/settingsManager";
-import { chatSessionStore } from "../../services/chatSession";
+import {
+  chatSessionStore,
+  type ChatSessionStreamingStatus,
+} from "../../services/chatSession";
 import { deleteThread, listThreads } from "../../services/threadController";
 import { exportThreadAsMarkdown } from "../../services/threadExport";
 import { deleteThreadAndRefresh } from "../../services/threadActions";
@@ -38,21 +50,33 @@ const LazyThreadView = React.lazy(async () => ({
   default: (await import("./ThreadView")).ThreadView,
 }));
 
-function isSupportedChatScope(scope: ScopeContext | null): scope is ScopeContext {
+function isSupportedChatScope(
+  scope: ScopeContext | null,
+): scope is ScopeContext {
   return scope?.type === "paper" || scope?.type === "pdf";
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  eventBus,
+  hostWindow,
+  location,
+}) => {
   const session = useSyncExternalStore(
     chatSessionStore.subscribe,
     chatSessionStore.getSnapshot,
   );
   const [scope, setScope] = useState<ScopeContext | null>(null);
-  const [contextSummary, setContextSummary] = useState<AssembledContext | null>(null);
+  const [contextSummary, setContextSummary] = useState<AssembledContext | null>(
+    null,
+  );
   const [settings, setSettings] = useState(getSettings);
   const [recentThreads, setRecentThreads] = useState<Thread[]>([]);
   const [showRecentChats, setShowRecentChats] = useState(false);
   const [composerDraft, setComposerDraft] = useState("");
+  const [exportStatus, setExportStatus] = useState<{
+    text: string;
+    variant: "error" | "success";
+  } | null>(null);
   const [composerFocusNonce, setComposerFocusNonce] = useState(0);
   const [themeRefreshKey, setThemeRefreshKey] = useState(0);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
@@ -147,7 +171,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
 
   useEffect(() => {
     const handleReaderSelectionAction = (event: Event) => {
-      const selectedType = (Zotero.getMainWindow() as any)?.Zotero_Tabs?.selectedType;
+      const selectedType = (Zotero.getMainWindow() as any)?.Zotero_Tabs
+        ?.selectedType;
       if (selectedType !== location) {
         return;
       }
@@ -169,7 +194,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
         if (detail.action === "explain") {
           setComposerDraft("");
           await chatSessionStore.send(prompt, currentScope, {
-            evidenceEnabled: settings.evidenceEnabled && !getEvidenceSettingsIssue(settings),
+            evidenceEnabled:
+              settings.evidenceEnabled && !getEvidenceSettingsIssue(settings),
           });
           return;
         }
@@ -181,7 +207,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
       });
     };
 
-    eventBus.addEventListener("readerSelectionAction", handleReaderSelectionAction);
+    eventBus.addEventListener(
+      "readerSelectionAction",
+      handleReaderSelectionAction,
+    );
     return () =>
       eventBus.removeEventListener(
         "readerSelectionAction",
@@ -218,8 +247,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
   };
 
   const evidenceIssue = getEvidenceSettingsIssue(settings);
-  const evidenceEnabled =
-    settings.evidenceEnabled && !evidenceIssue;
+  const evidenceEnabled = settings.evidenceEnabled && !evidenceIssue;
 
   const handleSend = async (userInput: string) => {
     if (!isSupportedChatScope(scope)) {
@@ -277,15 +305,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
 
   const handleExportThread = async (thread: Thread) => {
     try {
-      const safeTitle = thread.title.replace(/[\\/:*?"<>|]/g, "-").slice(0, 60) || "thread";
-      const outputPath = `/tmp/deepseek-copliot-${safeTitle}-${thread.id}.md`;
-      await exportThreadAsMarkdown(thread, outputPath);
+      setExportStatus(null);
+      const outputPath = await pickThreadExportPath(thread, hostWindow, zh);
+      if (!outputPath) {
+        return;
+      }
+
+      const exportedPath = await exportThreadAsMarkdown(thread, outputPath);
+      setExportStatus({
+        text: zh ? `已导出到 ${exportedPath}` : `Exported to ${exportedPath}`,
+        variant: "success",
+      });
     } catch (error) {
       ztoolkit.log("Failed to export thread:", error);
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : zh
+            ? "导出失败"
+            : "Export failed";
+      setExportStatus({
+        text: zh ? `导出失败：${message}` : `Export failed: ${message}`,
+        variant: "error",
+      });
     }
   };
 
-  const handleModelChange = (model: "deepseek-v4-flash" | "deepseek-v4-pro") => {
+  const handleModelChange = (
+    model: "deepseek-v4-flash" | "deepseek-v4-pro",
+  ) => {
     saveSettings({ model });
     setSettings(getSettings());
     eventBus.dispatchEvent(new Event("settingsChange"));
@@ -307,16 +355,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
     settingsIssue: getSettingsIssue(settings),
   });
   const isRecentChatsVisible =
-    model.recentThreads.length > 0 && (showRecentChats || model.showRecentThreads);
+    model.recentThreads.length > 0 &&
+    (showRecentChats || model.showRecentThreads);
   const theme = getSidebarTheme(hostWindow);
-  const evidenceLabel =
-    evidenceIssue
-      ? zh
-        ? "联网查证（配置 Tavily）"
-        : "Web Verification (Configure Tavily)"
-      : zh
-        ? "联网查证"
-        : "Web Verification";
+  const evidenceLabel = evidenceIssue
+    ? zh
+      ? "联网查证（配置 Tavily）"
+      : "Web Verification (Configure Tavily)"
+    : zh
+      ? "联网查证"
+      : "Web Verification";
 
   useEffect(() => {
     const content = scrollViewportRef.current;
@@ -325,7 +373,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
     }
 
     const hasVisibleThread = Boolean(session.activeThread?.messages.length);
-    const hasStreamingOutput = Boolean(session.isStreaming && session.streamingContent);
+    const hasStreamingOutput = Boolean(session.isStreaming);
     if (!hasVisibleThread && !hasStreamingOutput) {
       return;
     }
@@ -336,18 +384,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
     session.activeThread?.messages.length,
     session.isStreaming,
     session.streamingContent,
+    session.streamingReasoningContent,
+    session.streamingStatus,
   ]);
+
+  const streamingMessage = session.isStreaming
+    ? {
+        content: session.streamingContent,
+        reasoningContent: session.streamingReasoningContent,
+        statusLabel: getStreamingStatusLabel(session.streamingStatus, zh),
+      }
+    : null;
 
   return (
     <div
       key={themeRefreshKey}
-      style={{ ...styles.container, background: theme.background, color: theme.text }}
+      style={{
+        ...styles.container,
+        background: theme.background,
+        color: theme.text,
+      }}
     >
-      <div style={{ ...styles.header, background: theme.background, borderBottomColor: theme.border }}>
+      <div
+        style={{
+          ...styles.header,
+          background: theme.background,
+          borderBottomColor: theme.border,
+        }}
+      >
         <div style={styles.headerMain}>
           <div style={styles.headerBrand}>
             <img alt="" src={BRAND_ICON_SRC} style={styles.headerBrandIcon} />
-            <div style={{ ...styles.headerTitle, color: theme.text }}>Deepseek Copliot</div>
+            <div style={{ ...styles.headerTitle, color: theme.text }}>
+              Deepseek Copliot
+            </div>
           </div>
           <div style={{ ...styles.headerMeta, color: theme.mutedText }}>
             {model.locationLabel} · {model.providerLabel} · {model.statusLabel}
@@ -359,7 +429,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
               ...styles.toolbarButton,
               color: theme.buttonText,
               borderColor: theme.buttonBorder,
-              ...(isSupportedChatScope(scope) ? null : styles.toolbarButtonDisabled),
+              ...(isSupportedChatScope(scope)
+                ? null
+                : styles.toolbarButtonDisabled),
             }}
             onClick={() => {
               void handleNewThread();
@@ -373,7 +445,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
               ...styles.toolbarButton,
               color: theme.buttonText,
               borderColor: theme.buttonBorder,
-              ...(model.recentThreads.length > 0 ? null : styles.toolbarButtonDisabled),
+              ...(model.recentThreads.length > 0
+                ? null
+                : styles.toolbarButtonDisabled),
             }}
             onClick={() => setShowRecentChats((current) => !current)}
             disabled={model.recentThreads.length === 0}
@@ -381,7 +455,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
             {model.recentThreadsLabel}
           </button>
           <button
-            style={{ ...styles.toolbarButton, color: theme.buttonText, borderColor: theme.buttonBorder }}
+            style={{
+              ...styles.toolbarButton,
+              color: theme.buttonText,
+              borderColor: theme.buttonBorder,
+            }}
             onClick={handleOpenSettings}
           >
             {model.settingsLabel}
@@ -389,17 +467,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
         </div>
       </div>
 
-      <div style={{ ...styles.scopeSection, background: theme.background, borderBottomColor: theme.softBorder }}>
-        <div style={{ ...styles.sectionLabel, color: theme.mutedText }}>{model.scopeSectionLabel}</div>
+      <div
+        style={{
+          ...styles.scopeSection,
+          background: theme.background,
+          borderBottomColor: theme.softBorder,
+        }}
+      >
+        <div style={{ ...styles.sectionLabel, color: theme.mutedText }}>
+          {model.scopeSectionLabel}
+        </div>
         <div style={styles.scopeHeaderRow}>
-          <span style={{ ...styles.scopeType, color: theme.mutedText }}>{model.scopeTypeLabel}</span>
-          <span style={{ ...styles.scopeLabel, color: theme.text }} title={model.scopeLabel}>
+          <span style={{ ...styles.scopeType, color: theme.mutedText }}>
+            {model.scopeTypeLabel}
+          </span>
+          <span
+            style={{ ...styles.scopeLabel, color: theme.text }}
+            title={model.scopeLabel}
+          >
             {model.scopeLabel}
           </span>
         </div>
         {(model.scopeMeta || model.scopeSelectionLabel) && (
           <div style={styles.scopeMetaRow}>
-            {model.scopeMeta && <span style={{ ...styles.scopeMeta, color: theme.mutedText }}>{model.scopeMeta}</span>}
+            {model.scopeMeta && (
+              <span style={{ ...styles.scopeMeta, color: theme.mutedText }}>
+                {model.scopeMeta}
+              </span>
+            )}
             {model.scopeSelectionLabel && (
               <span
                 style={{
@@ -414,7 +509,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
             )}
           </div>
         )}
-        {(model.contextAvailabilityLabel || model.contextWarnings.length > 0) && (
+        {(model.contextAvailabilityLabel ||
+          model.contextWarnings.length > 0) && (
           <div style={styles.scopeMetaRow}>
             {model.contextAvailabilityLabel && (
               <span
@@ -450,9 +546,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
       </div>
 
       {model.noticeText && (
-        <div style={{ ...styles.noticeSection, background: theme.noticeBackground, borderBottomColor: theme.noticeBorder }}>
-          <div style={{ ...styles.noticeTitle, color: theme.noticeTitle }}>{model.noticeTitle}</div>
-          <div style={{ ...styles.noticeText, color: theme.noticeText }}>{model.noticeText}</div>
+        <div
+          style={{
+            ...styles.noticeSection,
+            background: theme.noticeBackground,
+            borderBottomColor: theme.noticeBorder,
+          }}
+        >
+          <div style={{ ...styles.noticeTitle, color: theme.noticeTitle }}>
+            {model.noticeTitle}
+          </div>
+          <div style={{ ...styles.noticeText, color: theme.noticeText }}>
+            {model.noticeText}
+          </div>
           <button
             style={{
               ...styles.noticeButton,
@@ -471,20 +577,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
         <div ref={scrollViewportRef} style={styles.scrollViewport}>
           {model.showIntroSection && (
             <section style={styles.introSection}>
-              <div style={{ ...styles.sectionLabel, color: theme.mutedText }}>{model.chatSectionLabel}</div>
-              <div style={{ ...styles.heroTitle, color: theme.text }}>{model.heroTitle}</div>
-              <div style={{ ...styles.heroBody, color: theme.mutedText }}>{model.heroBody}</div>
+              <div style={{ ...styles.sectionLabel, color: theme.mutedText }}>
+                {model.chatSectionLabel}
+              </div>
+              <div style={{ ...styles.heroTitle, color: theme.text }}>
+                {model.heroTitle}
+              </div>
+              <div style={{ ...styles.heroBody, color: theme.mutedText }}>
+                {model.heroBody}
+              </div>
             </section>
           )}
 
           {session.activeThread && (
-            <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
+            <section
+              style={{ ...styles.section, borderTopColor: theme.softBorder }}
+            >
               <div style={{ ...styles.sectionTitle, color: theme.text }}>
                 {zh ? "会话操作" : "Conversation actions"}
               </div>
               <div style={styles.threadActionRow}>
                 <button
-                  style={{ ...styles.threadActionButton, color: theme.buttonText, borderColor: theme.buttonBorder }}
+                  style={{
+                    ...styles.threadActionButton,
+                    color: theme.buttonText,
+                    borderColor: theme.buttonBorder,
+                  }}
                   onClick={() => {
                     void handleExportThread(session.activeThread!);
                   }}
@@ -492,7 +610,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
                   {zh ? "导出当前会话" : "Export current thread"}
                 </button>
                 <button
-                  style={{ ...styles.threadActionButton, color: theme.errorText, borderColor: theme.errorBorder }}
+                  style={{
+                    ...styles.threadActionButton,
+                    color: theme.errorText,
+                    borderColor: theme.errorBorder,
+                  }}
                   onClick={() => {
                     void handleDeleteThread(session.activeThread!);
                   }}
@@ -500,12 +622,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
                   {zh ? "删除当前会话" : "Delete current thread"}
                 </button>
               </div>
+              {exportStatus && (
+                <div
+                  style={{
+                    ...styles.exportStatus,
+                    color:
+                      exportStatus.variant === "error"
+                        ? theme.errorText
+                        : theme.mutedText,
+                  }}
+                >
+                  {exportStatus.text}
+                </div>
+              )}
             </section>
           )}
 
           {model.showSuggestedActions && (
-            <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
-              <div style={{ ...styles.sectionTitle, color: theme.text }}>{model.suggestedActionsLabel}</div>
+            <section
+              style={{ ...styles.section, borderTopColor: theme.softBorder }}
+            >
+              <div style={{ ...styles.sectionTitle, color: theme.text }}>
+                {model.suggestedActionsLabel}
+              </div>
               <div
                 style={{
                   ...styles.suggestedActionsGrid,
@@ -517,14 +656,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
                 {model.suggestedActions.map((action) => (
                   <button
                     key={action.id}
-                    style={{ ...styles.suggestedActionButton, background: theme.surfaceBackground }}
+                    style={{
+                      ...styles.suggestedActionButton,
+                      background: theme.surfaceBackground,
+                    }}
                     onClick={() => {
                       void handlePresetSend(action.prompt);
                     }}
                   >
                     <span style={styles.listRow}>
-                      <span style={{ ...styles.listPrimary, color: theme.text }}>{action.label}</span>
-                      <span style={{ ...styles.listSecondary, color: theme.mutedText }}>
+                      <span
+                        style={{ ...styles.listPrimary, color: theme.text }}
+                      >
+                        {action.label}
+                      </span>
+                      <span
+                        style={{
+                          ...styles.listSecondary,
+                          color: theme.mutedText,
+                        }}
+                      >
                         {action.description}
                       </span>
                     </span>
@@ -532,48 +683,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
                 ))}
               </div>
             </section>
-          )}
-
-          {model.showInlineComposer && (
-            <section style={{ ...styles.section, borderTopColor: theme.softBorder }}>
-              <div style={{ ...styles.sectionTitle, color: theme.text }}>{model.chatSectionLabel}</div>
-              <div
-                style={{
-                  ...styles.inlineComposerSection,
-                  background: theme.background,
-                }}
-              >
-                <Composer
-                  onSend={(message) => {
-                    void handleSend(message);
-                  }}
-                  onCancel={handleCancel}
-                  onModelModeChange={(mode) =>
-                    handleModelChange(mode === "deep" ? "deepseek-v4-pro" : "deepseek-v4-flash")
-                  }
-                  onToggleEvidence={handleToggleEvidence}
-                  isStreaming={session.isStreaming}
-                  currentScopeType={scope?.type || null}
-                  disabled={model.composerDisabled}
-                  disabledReason={model.composerDisabledReason}
-                  placeholder={model.composerPlaceholder}
-                  draftValue={composerDraft}
-                  focusNonce={composerFocusNonce}
-                  modelMode={settings.model === "deepseek-v4-pro" ? "deep" : "light"}
-                  evidenceDisabled={Boolean(evidenceIssue)}
-                  evidenceEnabled={evidenceEnabled}
-                  evidenceLabel={evidenceLabel}
-                  onDraftChange={setComposerDraft}
-                />
-              </div>
-            </section>
-          )}
-
-          {session.isStreaming && session.streamingContent && (
-            <div style={{ ...styles.streamingSection, background: theme.panelBackground, borderTopColor: theme.softBorder, borderBottomColor: theme.softBorder }}>
-              <div style={{ ...styles.streamingLabel, color: theme.mutedText }}>{model.streamingLabel}</div>
-              <div style={{ ...styles.streamingContent, color: theme.text }}>{session.streamingContent}</div>
-            </div>
           )}
 
           {session.error && (
@@ -591,109 +700,138 @@ export const Sidebar: React.FC<SidebarProps> = ({ eventBus, hostWindow, location
           )}
 
           {model.showThreadView && (
-            <div style={{ ...styles.threadSection, borderTopColor: theme.softBorder }}>
+            <div
+              style={{
+                ...styles.threadSection,
+                borderTopColor: theme.softBorder,
+              }}
+            >
               <Suspense fallback={null}>
-                <LazyThreadView hasScope={scope != null} thread={session.activeThread} />
+                <LazyThreadView
+                  hasScope={scope != null}
+                  streamingMessage={streamingMessage}
+                  thread={session.activeThread}
+                />
               </Suspense>
             </div>
           )}
 
+          {isRecentChatsVisible && (
+            <section
+              style={{ ...styles.section, borderTopColor: theme.softBorder }}
+            >
+              <div style={{ ...styles.sectionTitle, color: theme.text }}>
+                {model.recentThreadsLabel}
+              </div>
+              <div
+                style={{
+                  ...styles.list,
+                  borderTopColor: theme.border,
+                  borderBottomColor: theme.border,
+                  background: theme.border,
+                }}
+              >
+                {model.recentThreads.map((thread) => (
+                  <div
+                    key={thread.id}
+                    style={{
+                      ...styles.listButton,
+                      background: theme.surfaceBackground,
+                    }}
+                  >
+                    <button
+                      style={styles.threadMainButton}
+                      onClick={() => handleOpenThread(thread)}
+                    >
+                      <span style={styles.listRow}>
+                        <span
+                          style={{ ...styles.listPrimary, color: theme.text }}
+                        >
+                          {thread.title}
+                        </span>
+                        <span
+                          style={{
+                            ...styles.listSecondary,
+                            color: theme.mutedText,
+                          }}
+                        >
+                          {getThreadPreview(thread)}
+                        </span>
+                      </span>
+                    </button>
+                    <div style={styles.threadMetaRow}>
+                      <span
+                        style={{ ...styles.listMeta, color: theme.mutedText }}
+                      >
+                        {formatThreadTimestamp(thread.updatedAt)}
+                      </span>
+                    </div>
+                    <div style={styles.threadActionRow}>
+                      <button
+                        style={{
+                          ...styles.threadActionButton,
+                          color: theme.buttonText,
+                          borderColor: theme.buttonBorder,
+                        }}
+                        onClick={() => {
+                          void handleExportThread(thread);
+                        }}
+                      >
+                        {zh ? "导出" : "Export"}
+                      </button>
+                      <button
+                        style={{
+                          ...styles.threadActionButton,
+                          color: theme.errorText,
+                          borderColor: theme.errorBorder,
+                        }}
+                        onClick={() => {
+                          void handleDeleteThread(thread);
+                        }}
+                      >
+                        {zh ? "删除" : "Delete"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
 
-        {model.showDockedComposer && (
-          <section
-            style={{
-              ...styles.composerDock,
-              background: theme.background,
-              borderTopColor: theme.softBorder,
+        <section
+          style={{
+            ...styles.composerDock,
+            background: theme.background,
+            borderTopColor: theme.softBorder,
+          }}
+        >
+          <Composer
+            onSend={(message) => {
+              void handleSend(message);
             }}
-          >
-            <Composer
-              onSend={(message) => {
-                void handleSend(message);
-              }}
-              onCancel={handleCancel}
-              onModelModeChange={(mode) =>
-                handleModelChange(mode === "deep" ? "deepseek-v4-pro" : "deepseek-v4-flash")
-              }
-              onToggleEvidence={handleToggleEvidence}
-              isStreaming={session.isStreaming}
-              currentScopeType={scope?.type || null}
-              disabled={model.composerDisabled}
-              disabledReason={model.composerDisabledReason}
-              placeholder={model.composerPlaceholder}
-              draftValue={composerDraft}
-              focusNonce={composerFocusNonce}
-              modelMode={settings.model === "deepseek-v4-pro" ? "deep" : "light"}
-              evidenceDisabled={Boolean(evidenceIssue)}
-              evidenceEnabled={evidenceEnabled}
-              evidenceLabel={evidenceLabel}
-              onDraftChange={setComposerDraft}
-            />
-          </section>
-        )}
-
-        {isRecentChatsVisible && (
-          <section
-            style={{
-              ...styles.recentChatsDock,
-              background: theme.background,
-              borderTopColor: theme.softBorder,
-            }}
-          >
-            <div style={{ ...styles.sectionTitle, color: theme.text }}>{model.recentThreadsLabel}</div>
-            <div
-              style={{
-                ...styles.recentChatsList,
-                borderTopColor: theme.border,
-                borderBottomColor: theme.border,
-                background: theme.border,
-              }}
-            >
-              {model.recentThreads.map((thread) => (
-                <div
-                  key={thread.id}
-                  style={{ ...styles.listButton, background: theme.surfaceBackground }}
-                >
-                  <button
-                    style={styles.threadMainButton}
-                    onClick={() => handleOpenThread(thread)}
-                  >
-                    <span style={styles.listRow}>
-                      <span style={{ ...styles.listPrimary, color: theme.text }}>{thread.title}</span>
-                      <span style={{ ...styles.listSecondary, color: theme.mutedText }}>
-                        {getThreadPreview(thread)}
-                      </span>
-                    </span>
-                  </button>
-                  <div style={styles.threadMetaRow}>
-                    <span style={{ ...styles.listMeta, color: theme.mutedText }}>
-                      {formatThreadTimestamp(thread.updatedAt)}
-                    </span>
-                  </div>
-                  <div style={styles.threadActionRow}>
-                    <button
-                      style={{ ...styles.threadActionButton, color: theme.buttonText, borderColor: theme.buttonBorder }}
-                      onClick={() => {
-                        void handleExportThread(thread);
-                      }}
-                    >
-                      {zh ? "导出" : "Export"}
-                    </button>
-                    <button
-                      style={{ ...styles.threadActionButton, color: theme.errorText, borderColor: theme.errorBorder }}
-                      onClick={() => {
-                        void handleDeleteThread(thread);
-                      }}
-                    >
-                      {zh ? "删除" : "Delete"}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+            onCancel={handleCancel}
+            onModelModeChange={(mode) =>
+              handleModelChange(
+                mode === "deep" ? "deepseek-v4-pro" : "deepseek-v4-flash",
+              )
+            }
+            onToggleEvidence={handleToggleEvidence}
+            isStreaming={session.isStreaming}
+            currentScopeType={scope?.type || null}
+            customPresets={settings.customPresets}
+            disabled={model.composerDisabled}
+            disabledReason={model.composerDisabledReason}
+            placeholder={model.composerPlaceholder}
+            draftValue={composerDraft}
+            focusNonce={composerFocusNonce}
+            modelMode={settings.model === "deepseek-v4-pro" ? "deep" : "light"}
+            evidenceDisabled={Boolean(evidenceIssue)}
+            evidenceEnabled={evidenceEnabled}
+            evidenceLabel={evidenceLabel}
+            onDraftChange={setComposerDraft}
+          />
+        </section>
       </div>
     </div>
   );
@@ -711,6 +849,45 @@ function getThreadPreview(thread: Thread): string {
   return thread.scopeSnapshot?.label || "暂无消息";
 }
 
+function buildThreadExportFileName(thread: Thread): string {
+  const safeTitle =
+    thread.title.replace(/[\\/:*?"<>|]/g, "-").slice(0, 60) || "thread";
+  return `deepseek-copliot-${safeTitle}-${thread.id}.md`;
+}
+
+async function pickThreadExportPath(
+  thread: Thread,
+  hostWindow: Window,
+  zh: boolean,
+): Promise<string | null> {
+  const fileName = buildThreadExportFileName(thread);
+  const fallbackPath = `/tmp/${fileName}`;
+  const toolkit =
+    (globalThis as { ztoolkit?: { FilePicker?: unknown } }).ztoolkit ||
+    (typeof ztoolkit !== "undefined" ? ztoolkit : null);
+  const FilePicker = (toolkit as { FilePicker?: unknown } | null)?.FilePicker;
+
+  if (typeof FilePicker !== "function") {
+    return fallbackPath;
+  }
+
+  const selected = await new (FilePicker as new (
+    title: string,
+    mode: "save",
+    filters: [string, string][],
+    suggestion: string,
+    window: Window,
+  ) => { open: () => Promise<string | false> })(
+    zh ? "导出当前会话" : "Export current thread",
+    "save",
+    [["Markdown (*.md)", "*.md"]],
+    fileName,
+    hostWindow,
+  ).open();
+
+  return selected || null;
+}
+
 function formatThreadTimestamp(timestamp: number): string {
   const date = new Date(timestamp);
   const now = new Date();
@@ -724,7 +901,27 @@ function formatThreadTimestamp(timestamp: number): string {
     : date.toLocaleDateString();
 }
 
-async function summarizeScope(scope: ScopeContext | null): Promise<AssembledContext | null> {
+function getStreamingStatusLabel(
+  status: ChatSessionStreamingStatus,
+  zh: boolean,
+): string {
+  switch (status) {
+    case "preparing":
+      return zh ? "正在整理上下文" : "Preparing context";
+    case "waiting":
+      return zh ? "正在等待模型输出" : "Waiting for model output";
+    case "reasoning":
+      return zh ? "正在生成思考过程" : "Streaming reasoning";
+    case "streaming":
+      return zh ? "正在回复" : "Responding";
+    default:
+      return zh ? "正在回复" : "Responding";
+  }
+}
+
+async function summarizeScope(
+  scope: ScopeContext | null,
+): Promise<AssembledContext | null> {
   if (!scope) {
     return null;
   }
@@ -978,26 +1175,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "8px 10px 10px",
     flex: "none",
   },
-  recentChatsDock: {
-    borderTop: "1px solid #e2e2e2",
-    padding: "8px 10px 10px",
-    flex: "none",
-    minHeight: 0,
-  },
-  recentChatsList: {
-    display: "grid",
-    gridTemplateColumns: "1fr",
-    gap: "1px",
-    borderTop: "1px solid #dddddd",
-    borderBottom: "1px solid #dddddd",
-    overflowX: "hidden",
-    overflowY: "auto",
-    maxHeight: "220px",
-    background: "#dddddd",
-  },
-  inlineComposerSection: {
-    paddingTop: "2px",
-  },
   sectionTitle: {
     fontSize: typography.body,
     fontWeight: 600,
@@ -1065,6 +1242,12 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "6px",
     width: "100%",
     minWidth: 0,
+  },
+  exportStatus: {
+    fontSize: typography.meta,
+    lineHeight: 1.35,
+    marginTop: "6px",
+    overflowWrap: "anywhere",
   },
   threadActionButton: {
     appearance: "none",

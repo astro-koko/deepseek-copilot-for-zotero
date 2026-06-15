@@ -6,26 +6,42 @@ import type { Thread, Message } from "../../types/thread";
 import { EmptyState } from "./EmptyState";
 import { getSidebarTheme } from "../theme";
 import { typography } from "../typography";
+import { isChineseLocale } from "../../utils/locale";
 
 interface ThreadViewProps {
   hasScope?: boolean;
+  streamingMessage?: {
+    content: string;
+    reasoningContent?: string;
+    statusLabel: string;
+  } | null;
   thread: Thread | null;
 }
 
 export const ThreadView: React.FC<ThreadViewProps> = ({
   hasScope = false,
+  streamingMessage = null,
   thread,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const theme = getSidebarTheme((globalThis as unknown as { window?: Window }).window);
+  const theme = getSidebarTheme(
+    (globalThis as unknown as { window?: Window }).window,
+  );
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [thread?.messages.length]);
+  }, [
+    streamingMessage?.content,
+    streamingMessage?.reasoningContent,
+    streamingMessage?.statusLabel,
+    thread?.messages.length,
+  ]);
 
-  if (!thread || thread.messages.length === 0) {
+  const messages = thread?.messages || [];
+
+  if (messages.length === 0 && !streamingMessage) {
     return (
       <div ref={scrollRef} style={styles.container}>
         <EmptyState hasScope={hasScope} />
@@ -35,17 +51,20 @@ export const ThreadView: React.FC<ThreadViewProps> = ({
 
   return (
     <div ref={scrollRef} style={styles.container}>
-      {thread.messages.map((msg) => (
+      {messages.map((msg) => (
         <MessageBubble key={msg.id} message={msg} theme={theme} />
       ))}
+      {streamingMessage && (
+        <StreamingMessageBubble message={streamingMessage} theme={theme} />
+      )}
     </div>
   );
 };
 
 function canUseZoteroLaunchURL(): boolean {
   return (
-    typeof (globalThis as { Zotero?: { launchURL?: unknown } }).Zotero?.launchURL ===
-    "function"
+    typeof (globalThis as { Zotero?: { launchURL?: unknown } }).Zotero
+      ?.launchURL === "function"
   );
 }
 
@@ -54,8 +73,9 @@ export function openMarkdownLink(
   event: { preventDefault: () => void },
 ): void {
   event.preventDefault();
-  const launchURL = (globalThis as { Zotero?: { launchURL?: (url: string) => void } }).Zotero
-    ?.launchURL;
+  const launchURL = (
+    globalThis as { Zotero?: { launchURL?: (url: string) => void } }
+  ).Zotero?.launchURL;
   launchURL?.(href);
 }
 
@@ -100,7 +120,11 @@ function buildMarkdownComponents(
     h1: ({ node: _node, children, ...props }) => (
       <h1
         {...props}
-        style={{ margin: "0 0 8px", fontSize: typography.headingLg, lineHeight: 1.3 }}
+        style={{
+          margin: "0 0 8px",
+          fontSize: typography.headingLg,
+          lineHeight: 1.3,
+        }}
       >
         {children}
       </h1>
@@ -108,7 +132,11 @@ function buildMarkdownComponents(
     h2: ({ node: _node, children, ...props }) => (
       <h2
         {...props}
-        style={{ margin: "0 0 7px", fontSize: typography.headingMd, lineHeight: 1.35 }}
+        style={{
+          margin: "0 0 7px",
+          fontSize: typography.headingMd,
+          lineHeight: 1.35,
+        }}
       >
         {children}
       </h2>
@@ -116,7 +144,11 @@ function buildMarkdownComponents(
     h3: ({ node: _node, children, ...props }) => (
       <h3
         {...props}
-        style={{ margin: "0 0 6px", fontSize: typography.headingSm, lineHeight: 1.35 }}
+        style={{
+          margin: "0 0 6px",
+          fontSize: typography.headingSm,
+          lineHeight: 1.35,
+        }}
       >
         {children}
       </h3>
@@ -124,7 +156,11 @@ function buildMarkdownComponents(
     h4: ({ node: _node, children, ...props }) => (
       <h4
         {...props}
-        style={{ margin: "0 0 6px", fontSize: typography.headingSm, lineHeight: 1.35 }}
+        style={{
+          margin: "0 0 6px",
+          fontSize: typography.headingSm,
+          lineHeight: 1.35,
+        }}
       >
         {children}
       </h4>
@@ -132,7 +168,11 @@ function buildMarkdownComponents(
     h5: ({ node: _node, children, ...props }) => (
       <h5
         {...props}
-        style={{ margin: "0 0 5px", fontSize: typography.body, lineHeight: 1.35 }}
+        style={{
+          margin: "0 0 5px",
+          fontSize: typography.body,
+          lineHeight: 1.35,
+        }}
       >
         {children}
       </h5>
@@ -140,7 +180,11 @@ function buildMarkdownComponents(
     h6: ({ node: _node, children, ...props }) => (
       <h6
         {...props}
-        style={{ margin: "0 0 5px", fontSize: typography.body, lineHeight: 1.35 }}
+        style={{
+          margin: "0 0 5px",
+          fontSize: typography.body,
+          lineHeight: 1.35,
+        }}
       >
         {children}
       </h6>
@@ -264,6 +308,40 @@ const MessageBubble: React.FC<{
   );
 };
 
+const StreamingMessageBubble: React.FC<{
+  message: NonNullable<ThreadViewProps["streamingMessage"]>;
+  theme: ReturnType<typeof getSidebarTheme>;
+}> = ({ message, theme }) => (
+  <div
+    style={{
+      ...styles.message,
+      alignSelf: "flex-start",
+      background: theme.assistantMessageBackground,
+      color: theme.text,
+      borderColor: theme.assistantMessageBorder,
+    }}
+  >
+    <div style={{ ...styles.streamingStatus, color: theme.mutedText }}>
+      {message.statusLabel}
+    </div>
+    {message.reasoningContent && (
+      <details open style={styles.reasoningDetails}>
+        <summary style={{ ...styles.reasoningSummary, color: theme.mutedText }}>
+          {isChineseLocale() ? "思考过程" : "Reasoning"}
+        </summary>
+        <MarkdownMessage content={message.reasoningContent} theme={theme} />
+      </details>
+    )}
+    {message.content ? (
+      <MarkdownMessage content={message.content} theme={theme} />
+    ) : (
+      <div style={{ ...styles.streamingPlaceholder, color: theme.mutedText }}>
+        ...
+      </div>
+    )}
+  </div>
+);
+
 const styles: Record<string, React.CSSProperties> = {
   container: {
     flex: "none",
@@ -301,5 +379,22 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#666",
     border: "1px solid #e1e1e1",
     fontSize: typography.meta,
+  },
+  reasoningDetails: {
+    margin: "3px 0 6px",
+  },
+  reasoningSummary: {
+    cursor: "default",
+    fontSize: typography.meta,
+    fontWeight: 600,
+  },
+  streamingPlaceholder: {
+    fontSize: typography.body,
+    lineHeight: 1.4,
+  },
+  streamingStatus: {
+    fontSize: typography.meta,
+    fontWeight: 600,
+    marginBottom: "4px",
   },
 };

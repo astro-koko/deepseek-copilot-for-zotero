@@ -1,14 +1,44 @@
-node_modules
-.scaffold
+.DS_Store
+node_modules/
+.scaffold/
+
+# Local secrets and machine-specific config
 .env
 .env.*
 !.env.example
-tsconfig.tsbuildinfo
+.npmrc
+
+# Local Zotero profiles and databases
+profile/
+dev-profile/
+release-profile/
+dev-data/
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+cookies.sqlite
+addonStartup.json.lz4
+
+# Build and temp output
+dist/
+coverage/
 *.xpi
 *.log
-.DS_Store
+*.tmp
+tmp/
+
+# Editor and TypeScript cache
+tsconfig.tsbuildinfo
+.idea/
+.vscode/
+
+# Local agent/worktree/runtime folders
 .claude/
 .playwright-mcp/
 .superpowers/
 .worktrees/
+
+# Local upstream mirrors and reference artifacts
 reference/
+/Icon?

@@ -17,6 +17,7 @@ const providerMocks = vi.hoisted(() => {
   const getSettings = vi.fn(() => ({
     apiKey: "sk-test",
     baseURL: "https://api.deepseek.com",
+    customPresets: "",
     keyboardShortcut: "I",
     maxContextBudget: 4000,
     model: "deepseek-v4-flash",
@@ -150,6 +151,7 @@ describe("chatEngine", () => {
     providerMocks.getSettings.mockReturnValue({
       apiKey: "sk-test",
       baseURL: "https://api.deepseek.com",
+      customPresets: "",
       keyboardShortcut: "I",
       maxContextBudget: 4000,
       model: "deepseek-v4-pro",
@@ -193,7 +195,8 @@ describe("chatEngine", () => {
   });
 
   it("adds a document-tail helper section while still sending the full paper text", async () => {
-    const bodyPrefix = "Introduction text.\n" + "Background paragraph.\n".repeat(220);
+    const bodyPrefix =
+      "Introduction text.\n" + "Background paragraph.\n".repeat(220);
     const tailSection =
       "Figure A7. Diffusion guidance with self-recurrence.\n" +
       "Figure A8. General guidance for the Two Moons task.\n";
@@ -286,7 +289,8 @@ describe("chatEngine", () => {
           year: "2024",
           source: "Academic search",
           url: "https://example.com/rag",
-          snippet: "RAG improves factual grounding when paired with citation-aware retrieval.",
+          snippet:
+            "RAG improves factual grounding when paired with citation-aware retrieval.",
         },
       ],
     });
@@ -310,7 +314,9 @@ describe("chatEngine", () => {
   });
 
   it("continues without external evidence when evidence search fails", async () => {
-    providerMocks.searchEvidence.mockRejectedValue(new Error("Tavily unavailable"));
+    providerMocks.searchEvidence.mockRejectedValue(
+      new Error("Tavily unavailable"),
+    );
 
     const result = await sendChatMessage(
       makeThread([]),

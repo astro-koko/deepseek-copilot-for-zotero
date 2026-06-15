@@ -47,6 +47,7 @@ describe("settingsManager", () => {
     ]);
     expect(getSettings()).toMatchObject({
       baseURL: "https://api.deepseek.com",
+      customPresets: "",
       model: "deepseek-v4-flash",
       maxContextBudget: 4000,
       keyboardShortcut: "I",

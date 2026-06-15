@@ -1,4 +1,4 @@
-# DS Copilot Minimal Closed-Loop Implementation Plan
+# Deepseek Copliot Minimal Closed-Loop Implementation Plan
 
 ## Status: superseded as the immediate execution baseline
 
@@ -350,7 +350,7 @@ Tests       ... passed
 In Zotero after importing the built `.xpi`:
 
 1. open the main library view with no selected item
-2. verify the DS Copilot section still shows a stable shell instead of disappearing
+2. verify the Deepseek Copliot section still shows a stable shell instead of disappearing
 3. select a real item and verify the same section remains usable
 4. open a PDF Reader tab and verify a second surface appears there without duplicating the Library host
 
@@ -641,7 +641,7 @@ After importing the built `.xpi` into Zotero:
 1. open Zotero Settings
 2. enter a real DeepSeek API key
 3. select `deepseek-v4-flash`
-4. open the DS Copilot sidebar on a real item
+4. open the Deepseek Copliot sidebar on a real item
 5. send `Summarize the current paper in 5 bullets.`
 6. verify `AI is responding` appears and completes with a persisted assistant message
 
@@ -683,7 +683,7 @@ Packaged addon artifacts verified.
 Use this exact artifact:
 
 ```text
-.scaffold/build/DS Copilot-0.1.0.xpi
+.scaffold/build/Deepseek Copliot-0.1.0.xpi
 ```
 
 Do not validate by copying files into `extensions/` and do not rely on `npm start` for the final pass.
@@ -692,8 +692,8 @@ Do not validate by copying files into `extensions/` and do not rely on `npm star
 
 All six must pass in the same Zotero profile:
 
-1. `DS Copilot` appears in Zotero Add-ons.
-2. `DS Copilot` Preferences pane opens and saves a real API key.
+1. `Deepseek Copliot` appears in Zotero Add-ons.
+2. `Deepseek Copliot` Preferences pane opens and saves a real API key.
 3. Library sidebar section appears with no selected item and with a selected item.
 4. PDF Reader popup and context-menu entries appear for selected text.
 5. `Explain` triggers a real DeepSeek streaming response.
@@ -706,7 +706,7 @@ Append a short section like this to both smoke docs:
 ```md
 ## Known-Good Baseline
 
-- Verified artifact: `.scaffold/build/DS Copilot-0.1.0.xpi`
+- Verified artifact: `.scaffold/build/Deepseek Copliot-0.1.0.xpi`
 - Verified on: Zotero plugin manager import
 - Verified features:
   - Add-ons listing

@@ -21,7 +21,9 @@ describe("build artifact verifier", () => {
       pkg,
     });
 
-    expect(context.xpiPath).toBe("/tmp/deepseek-copliot-build/Deepseek.Copliot-0.8.0.xpi");
+    expect(context.xpiPath).toBe(
+      "/tmp/deepseek-copliot-build/Deepseek.Copliot-0.8.0.xpi",
+    );
   });
 
   it("requires update.json for stable releases", () => {
@@ -30,7 +32,9 @@ describe("build artifact verifier", () => {
       pkg,
     });
 
-    expect(context.requiredFiles).toContain("/tmp/deepseek-copliot-build/update.json");
+    expect(context.requiredFiles).toContain(
+      "/tmp/deepseek-copliot-build/update.json",
+    );
     expect(context.requiredFiles).not.toContain(
       "/tmp/deepseek-copliot-build/update-beta.json",
     );
@@ -48,7 +52,9 @@ describe("build artifact verifier", () => {
     expect(context.requiredFiles).toContain(
       "/tmp/deepseek-copliot-build/update-beta.json",
     );
-    expect(context.requiredFiles).not.toContain("/tmp/deepseek-copliot-build/update.json");
+    expect(context.requiredFiles).not.toContain(
+      "/tmp/deepseek-copliot-build/update.json",
+    );
   });
 
   it("flags forbidden profile and secret files inside the packaged archive", () => {
