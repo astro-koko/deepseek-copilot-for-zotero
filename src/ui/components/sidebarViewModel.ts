@@ -1,6 +1,7 @@
 import type { ChatSessionState } from "../../services/chatSession";
 import type { AssembledContext } from "../../services/contextAssembler";
 import {
+  getPresetSlashCommand,
   getPresetsForScope,
   type CommandPresetGroup,
 } from "../../services/presets";
@@ -12,6 +13,7 @@ import { isChineseLocale } from "../../utils/locale";
 export type SidebarMode = "empty" | "config-error" | "home" | "thread";
 
 export interface SidebarSuggestedAction {
+  command: string;
   description: string;
   group: CommandPresetGroup;
   id: string;
@@ -300,11 +302,13 @@ export function buildSidebarViewModel({
     };
   }
 
-  const hasThreadMessages = Boolean(session.activeThread?.messages.length);
+  const hasThreadMessages =
+    Boolean(session.activeThread?.messages.length) || session.isStreaming;
   const suggestedActions = getPresetsForScope(
     scope.type,
     _settings.customPresets,
   ).map((preset) => ({
+    command: getPresetSlashCommand(preset),
     description: preset.description,
     group: preset.group,
     id: preset.id,

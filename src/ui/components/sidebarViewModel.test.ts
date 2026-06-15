@@ -180,6 +180,25 @@ describe("buildSidebarViewModel", () => {
     expect(model.heroTitle).toBe("Thread");
   });
 
+  it("keeps the thread view visible while a first response is streaming", () => {
+    const model = buildSidebarViewModel({
+      location: "reader",
+      recentThreads: [],
+      scope: makeScope({ type: "pdf", id: "pdf-1", readerAttachmentId: 1 }),
+      session: makeSession({
+        activeThread: makeThread({ scopeSnapshot: makeScope() }),
+        isStreaming: true,
+        streamingStatus: "waiting",
+      }),
+      settings: makeSettings(),
+      settingsIssue: null,
+    });
+
+    expect(model.mode).toBe("thread");
+    expect(model.showThreadView).toBe(true);
+    expect(model.showIntroSection).toBe(false);
+  });
+
   it("surfaces context fallback warnings when only abstract content is available", () => {
     const model = buildSidebarViewModel({
       location: "library",

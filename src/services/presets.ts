@@ -206,6 +206,24 @@ function localizePreset(
 
 export const PRESETS: CommandPreset[] = COMMAND_PRESETS;
 
+export function getPresetSlashCommand(preset: Pick<CommandPreset, "id">): string {
+  return preset.id.trim();
+}
+
+function matchesSlashCommandToken(
+  preset: CommandPreset,
+  token: string,
+): boolean {
+  const normalized = token.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return [preset.id, getPresetSlashCommand(preset), ...preset.aliases]
+    .map((value) => value.trim().toLowerCase())
+    .some((value) => value === normalized);
+}
+
 function hasRequiredPresetFields(
   preset: ParsedCustomCommandPreset,
 ): preset is ParsedCustomCommandPreset &
@@ -320,6 +338,12 @@ export function getPresetsForScope(
   return presets.map((preset) => localizePreset(preset));
 }
 
+export function getAllPresets(customPresetsValue?: string): CommandPreset[] {
+  return getMergedPresets(customPresetsValue).map((preset) =>
+    localizePreset(preset),
+  );
+}
+
 export function filterPresets(
   query: string,
   scopeType: ScopeType,
@@ -339,7 +363,13 @@ export function filterPresets(
   }
 
   return presets.filter((preset) => {
-    const haystack = [preset.label, preset.description, ...preset.aliases]
+    const haystack = [
+      preset.id,
+      getPresetSlashCommand(preset),
+      preset.label,
+      preset.description,
+      ...preset.aliases,
+    ]
       .join(" ")
       .toLowerCase();
     return haystack.includes(normalized);
@@ -355,6 +385,32 @@ export function applyPreset(
   if (!preset) return userInput;
   const localizedPreset = localizePreset(preset);
   return `${localizedPreset.promptPrefix}\n\n${userInput}`.trim();
+}
+
+export function expandSlashCommandInput(
+  userInput: string,
+  scopeType: ScopeType,
+  customPresetsValue?: string,
+): string {
+  const trimmed = userInput.trim();
+  const match = trimmed.match(/^\/([^\s\n]+)(?:\s+([\s\S]*))?$/);
+  if (!match) {
+    return userInput;
+  }
+
+  const commandToken = match[1] || "";
+  const remainder = match[2] || "";
+  const preset = getMergedPresets(customPresetsValue)
+    .filter((candidate) =>
+      !candidate.scopeHint || candidate.scopeHint.includes(scopeType),
+    )
+    .find((candidate) => matchesSlashCommandToken(candidate, commandToken));
+
+  if (!preset) {
+    return userInput;
+  }
+
+  return applyPreset(preset.id, remainder, customPresetsValue);
 }
 
 export function getPresetWarning(

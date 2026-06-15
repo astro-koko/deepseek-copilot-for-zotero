@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { applyPreset, filterPresets, getPresetsForScope } from "./presets";
+import {
+  applyPreset,
+  expandSlashCommandInput,
+  filterPresets,
+  getPresetsForScope,
+} from "./presets";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -76,5 +81,15 @@ describe("presets", () => {
     expect(prompt).toContain("请用简洁的方式总结这篇论文");
     expect(prompt).not.toContain("Please provide a concise summary");
     expect(prompt).toContain("请重点看实验部分");
+  });
+
+  it("expands exact slash commands typed into the composer input", () => {
+    const prompt = expandSlashCommandInput(
+      "/summarize 重点关注实验结果",
+      "paper",
+    );
+
+    expect(prompt).toContain("请用简洁的方式总结这篇论文");
+    expect(prompt).toContain("重点关注实验结果");
   });
 });

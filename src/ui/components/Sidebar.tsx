@@ -668,6 +668,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   >
                     <span style={styles.listRow}>
                       <span
+                        style={{
+                          ...styles.listMeta,
+                          color: theme.mutedText,
+                          marginBottom: "2px",
+                        }}
+                      >
+                        /{action.command}
+                      </span>
+                      <span
                         style={{ ...styles.listPrimary, color: theme.text }}
                       >
                         {action.label}
@@ -863,7 +872,7 @@ async function pickThreadExportPath(
   zh: boolean,
 ): Promise<string | null> {
   const fileName = buildThreadExportFileName(thread);
-  const fallbackPath = `/tmp/${fileName}`;
+  const fallbackPath = buildExportFallbackPath(fileName);
   const title = zh ? "导出当前会话" : "Export current thread";
   const filters: [string, string][] = [["Markdown (*.md)", "*.md"]];
 
@@ -875,7 +884,10 @@ async function pickThreadExportPath(
       fileName,
       hostWindow,
     ).open();
-    return selected || null;
+    const normalized = normalizeExportSelection(selected);
+    if (normalized) {
+      return normalized;
+    }
   } catch (error) {
     ztoolkit.log("Native export file picker failed:", error);
   }
@@ -900,14 +912,54 @@ async function pickThreadExportPath(
       hostWindow,
     ).open();
 
-    return selected || null;
+    const normalized = normalizeExportSelection(selected);
+    if (normalized) {
+      return normalized;
+    }
   }
 
-  ztoolkit.log(
-    "No export file picker available; using fallback path",
-    fallbackPath,
+  if (fallbackPath) {
+    ztoolkit.log(
+      "No export file picker available; using fallback path",
+      fallbackPath,
+    );
+    return fallbackPath;
+  }
+
+  throw new Error(
+    zh ? "无法打开保存对话框，请检查 Zotero 文件权限。" : "Save dialog is unavailable in this Zotero runtime.",
   );
-  return fallbackPath;
+}
+
+function normalizeExportSelection(selection: unknown): string | null {
+  if (typeof selection === "string") {
+    return selection || null;
+  }
+
+  if (
+    selection &&
+    typeof selection === "object" &&
+    "path" in selection &&
+    typeof (selection as { path?: unknown }).path === "string"
+  ) {
+    return (selection as { path: string }).path || null;
+  }
+
+  return null;
+}
+
+function buildExportFallbackPath(fileName: string): string | null {
+  const tmpDir =
+    (globalThis as { PathUtils?: { tempDir?: string } }).PathUtils?.tempDir ||
+    (globalThis as { OS?: { Constants?: { Path?: { tmpDir?: string } } } }).OS
+      ?.Constants?.Path?.tmpDir ||
+    null;
+  if (!tmpDir) {
+    return null;
+  }
+
+  const separator = tmpDir.includes("\\") ? "\\" : "/";
+  return `${tmpDir}${separator}${fileName}`;
 }
 
 function formatThreadTimestamp(timestamp: number): string {

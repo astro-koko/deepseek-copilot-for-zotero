@@ -66,20 +66,76 @@
 
       <description data-l10n-id="ai-assistant-pref-custom-presets-title" />
       <description data-l10n-id="ai-assistant-pref-custom-presets-help" />
+      <html:div
+        style="
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          flex-wrap: wrap;
+          margin-top: 2px;
+        "
+      >
+        <button
+          id="zotero-ai-assistant-pref-custom-presets-add"
+          label="Add custom action"
+          data-l10n-id="ai-assistant-pref-custom-presets-add"
+        />
+        <button
+          id="zotero-ai-assistant-pref-custom-presets-reset"
+          label="Restore defaults"
+          data-l10n-id="ai-assistant-pref-custom-presets-reset"
+        />
+      </html:div>
+      <html:div
+        id="zotero-ai-assistant-pref-custom-presets-editor"
+        style="
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          width: 100%;
+        "
+      ></html:div>
       <html:textarea
         id="zotero-ai-assistant-pref-custom-presets"
         spellcheck="false"
         style="
-          min-height: 160px;
+          min-height: 120px;
           width: 100%;
           box-sizing: border-box;
           font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
           font-size: 12px;
           padding: 8px;
           border-radius: 6px;
+          display: none;
         "
-        placeholder='[{"id":"summarize","mode":"replace","label":"总结实验","promptPrefix":"请重点总结实验设计、数据集、指标和关键结果。","aliases":["实验","结果"]},{"id":"future-work","label":"未来工作","description":"提出后续研究方向","promptPrefix":"请基于当前论文提出 3 个可执行的后续研究方向。","scopeHint":["paper","pdf"],"aliases":["future","后续"]}]'
+        readonly="readonly"
       ></html:textarea>
+      <html:details>
+        <html:summary
+          data-l10n-id="ai-assistant-pref-custom-presets-advanced"
+          style="cursor: pointer; user-select: none"
+        >
+          Advanced JSON
+        </html:summary>
+        <description
+          data-l10n-id="ai-assistant-pref-custom-presets-advanced-help"
+        />
+        <html:textarea
+          id="zotero-ai-assistant-pref-custom-presets-preview"
+          spellcheck="false"
+          readonly="readonly"
+          style="
+            min-height: 140px;
+            width: 100%;
+            box-sizing: border-box;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 12px;
+            padding: 8px;
+            border-radius: 6px;
+            margin-top: 6px;
+          "
+        ></html:textarea>
+      </html:details>
       <description
         id="zotero-ai-assistant-pref-custom-presets-status"
         style="margin-top: -4px"

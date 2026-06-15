@@ -1,6 +1,7 @@
 import type { CommandPreset } from "./presets";
 import { getPref, setPref } from "../utils/prefs";
 import { config } from "../../package.json";
+import type { ScopeType } from "../types/scope";
 
 export const DEFAULT_EVIDENCE_PROVIDER_MODE = "mcp-web-search";
 export type EvidenceProviderMode =
@@ -75,6 +76,18 @@ export type ParsedCustomCommandPreset = CustomCommandPreset & {
   id: string;
 };
 
+export interface EditableCustomCommandPreset {
+  aliasesText: string;
+  description: string;
+  enabled: boolean;
+  evidenceHint: boolean;
+  group: NonNullable<CommandPreset["group"]>;
+  id: string;
+  label: string;
+  promptPrefix: string;
+  scopeHint: ScopeType[];
+}
+
 export interface CustomPresetsParseResult {
   presets: ParsedCustomCommandPreset[];
   error: string | null;
@@ -112,6 +125,10 @@ function normalizeStringArray(value: unknown): string[] {
   }
 
   return [];
+}
+
+function serializeStringArray(value: string[]): string {
+  return value.map((item) => item.trim()).filter(Boolean).join(", ");
 }
 
 function normalizeScopeHints(value: unknown): CommandPreset["scopeHint"] {
@@ -207,6 +224,75 @@ export function parseCustomPresets(value: string): CustomPresetsParseResult {
   }
 
   return { presets, error: null };
+}
+
+export function toEditableCustomPreset(
+  preset: ParsedCustomCommandPreset,
+): EditableCustomCommandPreset {
+  return {
+    aliasesText: serializeStringArray(preset.aliases || []),
+    description: String(preset.description || "").trim(),
+    enabled: true,
+    evidenceHint: Boolean(preset.evidenceHint),
+    group: normalizePresetGroup(preset.group),
+    id: preset.id,
+    label: String(preset.label || "").trim(),
+    promptPrefix: String(preset.promptPrefix || "").trim(),
+    scopeHint: (preset.scopeHint || ["paper", "pdf"]) as ScopeType[],
+  };
+}
+
+export function createEmptyEditableCustomPreset(
+  index = 0,
+): EditableCustomCommandPreset {
+  return {
+    aliasesText: "",
+    description: "",
+    enabled: true,
+    evidenceHint: false,
+    group: "reading",
+    id: `custom-action-${index + 1}`,
+    label: "",
+    promptPrefix: "",
+    scopeHint: ["paper", "pdf"],
+  };
+}
+
+export function parseEditableCustomPresets(
+  value: string,
+): EditableCustomCommandPreset[] {
+  return parseCustomPresets(value).presets.map((preset) =>
+    toEditableCustomPreset(preset),
+  );
+}
+
+export function stringifyEditableCustomPresets(
+  presets: EditableCustomCommandPreset[],
+): string {
+  const normalized = presets
+    .filter((preset) => preset.enabled !== false)
+    .map((preset, index) => {
+      const id = slugifyPresetId(preset.id || preset.label, index);
+      return {
+        aliases: normalizeStringArray(preset.aliasesText),
+        description: String(preset.description || "").trim(),
+        evidenceHint: Boolean(preset.evidenceHint),
+        group: normalizePresetGroup(preset.group),
+        id,
+        label: String(preset.label || "").trim(),
+        promptPrefix: String(preset.promptPrefix || "").trim(),
+        scopeHint: preset.scopeHint?.length
+          ? preset.scopeHint
+          : ["paper", "pdf"],
+      };
+    })
+    .filter((preset) => preset.label || preset.promptPrefix);
+
+  if (normalized.length === 0) {
+    return "";
+  }
+
+  return JSON.stringify(normalized, null, 2);
 }
 
 export function getSettings(): Settings {

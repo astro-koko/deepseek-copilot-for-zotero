@@ -70,4 +70,15 @@ describe("threadExport", () => {
 
     expect(Zotero.File.putContents).toHaveBeenCalledTimes(1);
   });
+
+  it("falls back to the sync writer when the async writer rejects", async () => {
+    (Zotero.File.putContentsAsync as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("Async write failed"),
+    );
+
+    await exportThreadAsMarkdown(makeThread(), "/tmp/example-thread.md");
+
+    expect(Zotero.File.putContentsAsync).toHaveBeenCalledTimes(1);
+    expect(Zotero.File.putContents).toHaveBeenCalledTimes(1);
+  });
 });

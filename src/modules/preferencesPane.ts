@@ -1,15 +1,20 @@
 import {
+  createEmptyEditableCustomPreset,
   DEFAULT_EVIDENCE_PROVIDER_MODE,
+  parseEditableCustomPresets,
   type PersistedSettings,
+  stringifyEditableCustomPresets,
   getSettings,
   parseCustomPresets,
   saveSettings,
+  type EditableCustomCommandPreset,
   validateEvidenceSettings,
   validateSettings,
 } from "../services/settingsManager";
 import { createHostEvent } from "../utils/domEvents";
 import { EventBus } from "../utils/eventBus";
 import { isChineseLocale } from "../utils/locale";
+import { getAllPresets, getPresetSlashCommand } from "../services/presets";
 
 type PreferencesWindow = Window & {
   document: PreferencesDocument;
@@ -26,6 +31,7 @@ type PreferencesRootElement = HTMLElement;
 interface PreferencesFieldElement extends HTMLElement {
   value: string;
   disabled?: boolean;
+  checked?: boolean;
   __aiAssistantListeners?: Map<string, EventListener>;
 }
 
@@ -59,6 +65,13 @@ const TAVILY_VALIDATE_BUTTON_ID = "zotero-ai-assistant-pref-tavily-validate";
 const TAVILY_STATUS_ID = "zotero-ai-assistant-pref-tavily-status";
 const TAVILY_SETTINGS_ID = "zotero-ai-assistant-pref-tavily-settings";
 const CUSTOM_PRESETS_ID = "zotero-ai-assistant-pref-custom-presets";
+const CUSTOM_PRESETS_ADD_ID = "zotero-ai-assistant-pref-custom-presets-add";
+const CUSTOM_PRESETS_EDITOR_ID =
+  "zotero-ai-assistant-pref-custom-presets-editor";
+const CUSTOM_PRESETS_PREVIEW_ID =
+  "zotero-ai-assistant-pref-custom-presets-preview";
+const CUSTOM_PRESETS_RESET_ID =
+  "zotero-ai-assistant-pref-custom-presets-reset";
 const CUSTOM_PRESETS_STATUS_ID =
   "zotero-ai-assistant-pref-custom-presets-status";
 
@@ -83,6 +96,7 @@ export function registerPreferencesPane(
   hydrateForm(doc, deps.getSettings());
 
   const persist = () => {
+    syncCustomPresetStorageField(doc);
     const values = readFormValues(doc);
     const customPresetsResult = parseCustomPresets(values.customPresets || "");
     if (customPresetsResult.error) {
@@ -189,6 +203,14 @@ export function registerPreferencesPane(
 
   bindFieldEvent(doc, API_KEY_ID, "change", persist);
   bindFieldEvent(doc, CUSTOM_PRESETS_ID, "change", persist);
+  bindButtonActivation(doc, CUSTOM_PRESETS_ADD_ID, () => {
+    addCustomPresetCard(doc);
+    persist();
+  });
+  bindButtonActivation(doc, CUSTOM_PRESETS_RESET_ID, () => {
+    renderCustomPresetEditor(doc, []);
+    persist();
+  });
   bindTriggeredFieldEvents(
     doc,
     EVIDENCE_PROVIDER_ID,
@@ -221,6 +243,11 @@ function hydrateForm(
   }
   if (customPresetsField) {
     customPresetsField.value = settings.customPresets;
+    renderCustomPresetEditor(
+      doc,
+      parseEditableCustomPresets(settings.customPresets),
+    );
+    updateCustomPresetsPreview(doc, settings.customPresets);
     updateCustomPresetsStatus(doc, settings.customPresets);
   }
   if (evidenceProviderField) {
@@ -283,6 +310,258 @@ function updateCustomPresetsStatus(
       : `Loaded ${parsed.presets.length} custom suggested actions`,
     "success",
   );
+}
+
+function renderCustomPresetEditor(
+  doc: PreferencesDocument,
+  presets: EditableCustomCommandPreset[],
+): void {
+  const container = doc.getElementById(CUSTOM_PRESETS_EDITOR_ID) as
+    | HTMLElement
+    | null;
+  if (!container) {
+    return;
+  }
+
+  const zh = isChineseLocale();
+  const rows = presets.length > 0 ? presets : [];
+  const customizedIds = new Set(
+    rows.filter((preset) => preset.enabled).map((preset) => preset.id),
+  );
+  const fallbackCards: EditableCustomCommandPreset[] = getAllPresets()
+    .filter((preset) => !customizedIds.has(preset.id))
+    .map((preset) => ({
+          aliasesText: preset.aliases.join(", "),
+          description: preset.description,
+          enabled: false,
+          evidenceHint: Boolean(preset.evidenceHint),
+          group: preset.group,
+          id: preset.id,
+          label: preset.label,
+          promptPrefix: preset.promptPrefix,
+          scopeHint: preset.scopeHint || ["paper", "pdf"],
+        }));
+  const visibleCards = [...fallbackCards, ...rows.filter((preset) => preset.enabled)];
+
+  container.innerHTML = visibleCards
+    .map((preset, index) =>
+      renderCustomPresetCardMarkup(preset, index, zh),
+    )
+    .join("");
+
+  bindCustomPresetEditorEvents(doc);
+}
+
+function renderCustomPresetCardMarkup(
+  preset: EditableCustomCommandPreset,
+  index: number,
+  zh: boolean,
+): string {
+  const editable = preset.enabled;
+  const scopes = new Set(preset.scopeHint);
+  const slash = getPresetSlashCommand({ id: preset.id });
+  const escapedPrompt = escapeHtml(preset.promptPrefix);
+  const escapedAliases = escapeHtml(preset.aliasesText);
+  const escapedDescription = escapeHtml(preset.description);
+  const escapedId = escapeHtml(preset.id);
+  const escapedLabel = escapeHtml(preset.label);
+  return `
+    <div data-custom-preset-card="${index}" style="border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <strong>${zh ? "建议操作" : "Suggested action"} ${index + 1}</strong>
+        <span style="opacity: 0.72;">/${escapeHtml(slash)}</span>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <label style="display: flex; flex-direction: column; gap: 4px; flex: 1 1 160px;">
+          <span>${zh ? "命令 ID" : "Command ID"}</span>
+          <input data-custom-preset-field="id" data-custom-preset-index="${index}" value="${escapedId}" ${editable ? "" : 'readonly="readonly"'} />
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px;">
+          <span>${zh ? "显示标题" : "Label"}</span>
+          <input data-custom-preset-field="label" data-custom-preset-index="${index}" value="${escapedLabel}" ${editable ? "" : 'readonly="readonly"'} />
+        </label>
+      </div>
+      <label style="display: flex; flex-direction: column; gap: 4px;">
+        <span>${zh ? "提示词模板" : "Prompt template"}</span>
+        <textarea data-custom-preset-field="promptPrefix" data-custom-preset-index="${index}" style="min-height: 84px;" ${editable ? "" : 'readonly="readonly"'}>${escapedPrompt}</textarea>
+      </label>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <label style="display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px;">
+          <span>${zh ? "说明文案" : "Description"}</span>
+          <input data-custom-preset-field="description" data-custom-preset-index="${index}" value="${escapedDescription}" ${editable ? "" : 'readonly="readonly"'} />
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px;">
+          <span>${zh ? "别名（逗号分隔）" : "Aliases (comma separated)"}</span>
+          <input data-custom-preset-field="aliasesText" data-custom-preset-index="${index}" value="${escapedAliases}" ${editable ? "" : 'readonly="readonly"'} />
+        </label>
+      </div>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+        <label><input type="checkbox" data-custom-preset-field="scope-paper" data-custom-preset-index="${index}" ${scopes.has("paper") ? "checked" : ""} ${editable ? "" : 'disabled="disabled"'} /> ${zh ? "论文" : "Paper"}</label>
+        <label><input type="checkbox" data-custom-preset-field="scope-pdf" data-custom-preset-index="${index}" ${scopes.has("pdf") ? "checked" : ""} ${editable ? "" : 'disabled="disabled"'} /> PDF</label>
+        <label><input type="checkbox" data-custom-preset-field="scope-collection" data-custom-preset-index="${index}" ${scopes.has("collection") ? "checked" : ""} ${editable ? "" : 'disabled="disabled"'} /> ${zh ? "分类" : "Collection"}</label>
+        <label><input type="checkbox" data-custom-preset-field="scope-manual-selection" data-custom-preset-index="${index}" ${scopes.has("manual-selection") ? "checked" : ""} ${editable ? "" : 'disabled="disabled"'} /> ${zh ? "选中文本" : "Selection"}</label>
+      </div>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+        <label><input type="checkbox" data-custom-preset-field="evidenceHint" data-custom-preset-index="${index}" ${preset.evidenceHint ? "checked" : ""} ${editable ? "" : 'disabled="disabled"'} /> ${zh ? "默认开启查证倾向" : "Evidence-oriented"}</label>
+        ${
+          editable
+            ? `<label><input type="checkbox" data-custom-preset-field="enabled" data-custom-preset-index="${index}" checked="checked" /> ${
+                zh ? "启用" : "Enabled"
+              }</label>
+        <button type="button" data-custom-preset-action="remove" data-custom-preset-index="${index}">${zh ? "删除" : "Remove"}</button>`
+            : `<button type="button" data-custom-preset-action="copy" data-custom-preset-index="${index}">${
+                zh ? "复制为自定义" : "Copy to customize"
+              }</button>`
+        }
+      </div>
+    </div>
+  `;
+}
+
+function bindCustomPresetEditorEvents(doc: PreferencesDocument): void {
+  const container = doc.getElementById(CUSTOM_PRESETS_EDITOR_ID);
+  if (!container) {
+    return;
+  }
+
+  const persistFromEditor = () => {
+    syncCustomPresetStorageField(doc);
+    const customPresetsField = getField(doc, CUSTOM_PRESETS_ID);
+    updateCustomPresetsStatus(doc, customPresetsField?.value || "");
+    updateCustomPresetsPreview(doc, customPresetsField?.value || "");
+  };
+
+  const fields = container.querySelectorAll(
+    "[data-custom-preset-field]",
+  ) as NodeListOf<HTMLElement>;
+  fields.forEach((field: HTMLElement) => {
+    field.addEventListener("change", persistFromEditor);
+    field.addEventListener("input", persistFromEditor);
+  });
+
+  const actionButtons = container.querySelectorAll(
+    "[data-custom-preset-action]",
+  ) as NodeListOf<HTMLElement>;
+  actionButtons.forEach((button: HTMLElement) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.getAttribute("data-custom-preset-index"));
+      const presets = readEditablePresetsFromDom(doc);
+      const action = button.getAttribute("data-custom-preset-action");
+      if (action === "copy") {
+        const source = presets[index];
+        const next = {
+          ...source,
+          enabled: true,
+        };
+        const existingIndex = presets.findIndex(
+          (preset, presetIndex) =>
+            preset.enabled && preset.id === next.id && presetIndex !== index,
+        );
+        if (existingIndex >= 0) {
+          presets[existingIndex] = next;
+        } else {
+          presets.push(next);
+        }
+      } else {
+        presets.splice(index, 1);
+      }
+      renderCustomPresetEditor(doc, presets);
+      persistFromEditor();
+    });
+  });
+}
+
+function addCustomPresetCard(doc: PreferencesDocument): void {
+  const presets = readEditablePresetsFromDom(doc);
+  presets.push(createEmptyEditableCustomPreset(presets.length));
+  renderCustomPresetEditor(doc, presets);
+}
+
+function readEditablePresetsFromDom(
+  doc: PreferencesDocument,
+): EditableCustomCommandPreset[] {
+  const container = doc.getElementById(CUSTOM_PRESETS_EDITOR_ID);
+  if (!container) {
+    return [];
+  }
+
+  const cards = Array.from(
+    container.querySelectorAll("[data-custom-preset-card]"),
+  ) as HTMLElement[];
+
+  return cards.map((card, index) => {
+    const readValue = (name: string) =>
+      (
+        card.querySelector(
+          `[data-custom-preset-field="${name}"]`,
+        ) as PreferencesFieldElement | null
+      )?.value || "";
+    const readChecked = (name: string) =>
+      Boolean(
+        (
+          card.querySelector(
+            `[data-custom-preset-field="${name}"]`,
+          ) as PreferencesFieldElement | null
+        )?.checked,
+      );
+
+    const scopeHint = [
+      readChecked("scope-paper") ? "paper" : null,
+      readChecked("scope-pdf") ? "pdf" : null,
+      readChecked("scope-collection") ? "collection" : null,
+      readChecked("scope-manual-selection") ? "manual-selection" : null,
+    ].filter(Boolean) as EditableCustomCommandPreset["scopeHint"];
+
+    return {
+      aliasesText: readValue("aliasesText"),
+      description: readValue("description"),
+      enabled: readChecked("enabled"),
+      evidenceHint: readChecked("evidenceHint"),
+      group: "reading",
+      id: readValue("id") || `custom-action-${index + 1}`,
+      label: readValue("label"),
+      promptPrefix: readValue("promptPrefix"),
+      scopeHint: scopeHint.length > 0 ? scopeHint : ["paper", "pdf"],
+    };
+  });
+}
+
+function syncCustomPresetStorageField(doc: PreferencesDocument): void {
+  const container = doc.getElementById(CUSTOM_PRESETS_EDITOR_ID) as
+    | (HTMLElement & {
+        querySelectorAll?: (selector: string) => NodeListOf<Element>;
+      })
+    | null;
+  const field = getField(doc, CUSTOM_PRESETS_ID);
+  if (!field || !container?.querySelectorAll) {
+    return;
+  }
+
+  const serialized = stringifyEditableCustomPresets(
+    readEditablePresetsFromDom(doc),
+  );
+  field.value = serialized;
+  updateCustomPresetsPreview(doc, serialized);
+}
+
+function updateCustomPresetsPreview(
+  doc: PreferencesDocument,
+  customPresetsValue: string,
+): void {
+  const preview = getField(doc, CUSTOM_PRESETS_PREVIEW_ID);
+  if (!preview) {
+    return;
+  }
+
+  preview.value = customPresetsValue;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;");
 }
 
 function applyEvidenceProviderVisibility(

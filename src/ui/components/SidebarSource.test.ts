@@ -37,6 +37,12 @@ describe("Sidebar recent thread layout", () => {
     expect(fallbackIndex).toBeGreaterThan(helperIndex);
   });
 
+  it("uses host temp-directory helpers instead of hardcoded /tmp when picker fallback is needed", () => {
+    expect(sidebarSource).toContain("PathUtils?.tempDir");
+    expect(sidebarSource).toMatch(/OS[\s\S]*Constants[\s\S]*Path[\s\S]*tmpDir/);
+    expect(sidebarSource).not.toContain('const fallbackPath = `/tmp/${fileName}`');
+  });
+
   it("renders the composer in a dedicated dock after the scrollable message viewport", () => {
     const scrollViewportIndex = sidebarSource.indexOf(
       "ref={scrollViewportRef}",

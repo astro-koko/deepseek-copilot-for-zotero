@@ -8,9 +8,11 @@ import React, {
 import {
   COMMAND_PRESET_GROUP_ORDER,
   applyPreset,
+  expandSlashCommandInput,
   filterPresets,
   getPresetById,
   getPresetGroupLabel,
+  getPresetSlashCommand,
   getPresetWarning,
   type CommandPreset,
 } from "../../services/presets";
@@ -158,11 +160,23 @@ export const Composer: React.FC<ComposerProps> = ({
   const handleSubmit = useCallback(() => {
     const trimmed = input.trim();
     if (!trimmed || isStreaming || disabled) return;
-    onSend(trimmed);
+    const expanded =
+      currentScopeType != null
+        ? expandSlashCommandInput(trimmed, currentScopeType, customPresets)
+        : trimmed;
+    onSend(expanded);
     setInput("");
     onDraftChange?.("");
     setShowPresets(false);
-  }, [disabled, input, isStreaming, onDraftChange, onSend]);
+  }, [
+    currentScopeType,
+    customPresets,
+    disabled,
+    input,
+    isStreaming,
+    onDraftChange,
+    onSend,
+  ]);
 
   const applyPresetToInput = useCallback(
     (presetId: string) => {
@@ -458,10 +472,10 @@ function renderPresetGroups({
             onMouseEnter={() => setSelectedPresetIndex(presetIndex)}
           >
             <span style={{ ...styles.presetLabel, color: theme.text }}>
-              /{preset.label}
+              /{getPresetSlashCommand(preset)}
             </span>
             <span style={{ ...styles.presetDesc, color: theme.mutedText }}>
-              {preset.description}
+              {preset.label} · {preset.description}
             </span>
           </button>
         );
