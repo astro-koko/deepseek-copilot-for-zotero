@@ -257,6 +257,22 @@ describe("registerPreferencesPane", () => {
     expect(customPresetsStatus.dataset.variant).toBe("success");
   });
 
+  it("does not persist invalid custom suggested action JSON", async () => {
+    registerPreferencesPane(createWindow(), deps);
+
+    customPresetsField.value = "[";
+    customPresetsField.dispatch("change");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(deps.saveSettings).not.toHaveBeenCalled();
+    expect(customPresetsStatus.dataset.variant).toBe("error");
+    expect(status.dataset.variant).toBe("error");
+    expect(status.textContent).toContain(
+      "Custom suggested actions JSON is invalid; not saved",
+    );
+  });
+
   it("runs validation with unsaved values and reports errors inline", async () => {
     deps.validateSettings = vi.fn(async () => ({
       valid: false,

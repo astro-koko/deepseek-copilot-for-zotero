@@ -7,6 +7,7 @@ import {
   validateEvidenceSettings,
   validateSettings,
 } from "../services/settingsManager";
+import { createHostEvent } from "../utils/domEvents";
 import { EventBus } from "../utils/eventBus";
 import { isChineseLocale } from "../utils/locale";
 
@@ -83,10 +84,26 @@ export function registerPreferencesPane(
 
   const persist = () => {
     const values = readFormValues(doc);
+    const customPresetsResult = parseCustomPresets(values.customPresets || "");
+    if (customPresetsResult.error) {
+      const zh = isChineseLocale();
+      updateCustomPresetsStatus(doc, values.customPresets || "");
+      setStatusText(
+        getStatusElement(doc),
+        zh
+          ? `自定义建议操作 JSON 无效，未保存：${customPresetsResult.error}`
+          : `Custom suggested actions JSON is invalid; not saved: ${customPresetsResult.error}`,
+        "error",
+      );
+      return;
+    }
+
     deps.saveSettings(values);
     applyEvidenceProviderVisibility(doc, values.evidenceProviderMode);
     updateCustomPresetsStatus(doc, values.customPresets || "");
-    EventBus.getInstance().dispatchEvent(new Event("settingsChange"));
+    EventBus.getInstance().dispatchEvent(
+      createHostEvent("settingsChange", win),
+    );
     const formatter = doc.l10n?.formatValue;
     const status = getStatusElement(doc);
     if (!status) {

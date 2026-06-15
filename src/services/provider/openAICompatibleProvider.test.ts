@@ -286,4 +286,39 @@ describe("openAICompatibleProvider", () => {
     expect(reasoning).toBe("Check evidence. ");
     expect(content).toBe("Answer");
   });
+
+  it("raises explicit provider error events from the SSE stream", async () => {
+    const chunks = [
+      new TextEncoder().encode(
+        'data: {"error":{"message":"Authentication failed"}}\n\n',
+      ),
+    ];
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            new ReadableStream({
+              start(controller: ReadableStreamDefaultController) {
+                chunks.forEach((chunk) => controller.enqueue(chunk));
+                controller.close();
+              },
+            }),
+          ),
+      ),
+    );
+
+    const provider = createOpenAICompatibleProvider({
+      baseURL: "https://api.deepseek.com",
+      apiKey: "test-key",
+      model: "deepseek-v4-flash",
+    });
+
+    const response = await provider.sendChat([{ role: "user", content: "hi" }]);
+
+    await expect(collectStream(response.stream)).rejects.toThrow(
+      "Provider stream error: Authentication failed",
+    );
+  });
 });

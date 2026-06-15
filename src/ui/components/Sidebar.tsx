@@ -5,6 +5,7 @@ import React, {
   useState,
   useSyncExternalStore,
 } from "react";
+import { FilePickerHelper } from "zotero-plugin-toolkit";
 import { Composer } from "./Composer";
 import { buildSidebarViewModel } from "./sidebarViewModel";
 import {
@@ -36,6 +37,7 @@ import { deleteThreadAndRefresh } from "../../services/threadActions";
 import { getSidebarTheme } from "../theme";
 import { typography } from "../typography";
 import { isChineseLocale } from "../../utils/locale";
+import { createHostEvent } from "../../utils/domEvents";
 
 const BRAND_ICON_SRC =
   "chrome://zotero-ai-assistant/content/icons/deepseek-favicon.png";
@@ -336,13 +338,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ) => {
     saveSettings({ model });
     setSettings(getSettings());
-    eventBus.dispatchEvent(new Event("settingsChange"));
+    eventBus.dispatchEvent(createHostEvent("settingsChange", hostWindow));
   };
 
   const handleToggleEvidence = () => {
     saveSettings({ evidenceEnabled: !settings.evidenceEnabled });
     setSettings(getSettings());
-    eventBus.dispatchEvent(new Event("settingsChange"));
+    eventBus.dispatchEvent(createHostEvent("settingsChange", hostWindow));
   };
 
   const model = buildSidebarViewModel({
@@ -862,30 +864,50 @@ async function pickThreadExportPath(
 ): Promise<string | null> {
   const fileName = buildThreadExportFileName(thread);
   const fallbackPath = `/tmp/${fileName}`;
+  const title = zh ? "导出当前会话" : "Export current thread";
+  const filters: [string, string][] = [["Markdown (*.md)", "*.md"]];
+
+  try {
+    const selected = await new FilePickerHelper(
+      title,
+      "save",
+      filters,
+      fileName,
+      hostWindow,
+    ).open();
+    return selected || null;
+  } catch (error) {
+    ztoolkit.log("Native export file picker failed:", error);
+  }
+
   const toolkit =
     (globalThis as { ztoolkit?: { FilePicker?: unknown } }).ztoolkit ||
     (typeof ztoolkit !== "undefined" ? ztoolkit : null);
   const FilePicker = (toolkit as { FilePicker?: unknown } | null)?.FilePicker;
 
-  if (typeof FilePicker !== "function") {
-    return fallbackPath;
+  if (typeof FilePicker === "function") {
+    const selected = await new (FilePicker as new (
+      title: string,
+      mode: "save",
+      filters: [string, string][],
+      suggestion: string,
+      window: Window,
+    ) => { open: () => Promise<string | false> })(
+      title,
+      "save",
+      filters,
+      fileName,
+      hostWindow,
+    ).open();
+
+    return selected || null;
   }
 
-  const selected = await new (FilePicker as new (
-    title: string,
-    mode: "save",
-    filters: [string, string][],
-    suggestion: string,
-    window: Window,
-  ) => { open: () => Promise<string | false> })(
-    zh ? "导出当前会话" : "Export current thread",
-    "save",
-    [["Markdown (*.md)", "*.md"]],
-    fileName,
-    hostWindow,
-  ).open();
-
-  return selected || null;
+  ztoolkit.log(
+    "No export file picker available; using fallback path",
+    fallbackPath,
+  );
+  return fallbackPath;
 }
 
 function formatThreadTimestamp(timestamp: number): string {

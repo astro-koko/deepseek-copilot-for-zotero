@@ -297,18 +297,22 @@ function attachMessagePane(doc: FakeDocument, parent: FakeElement) {
     messageBox.replaceChildren(node);
   });
 
-  (pane as any).renderCustomHead = vi.fn((callback?: (args: {
-    doc: FakeDocument;
-    append: (...nodes: unknown[]) => void;
-  }) => void) => {
-    customHead.replaceChildren();
-    callback?.({
-      doc,
-      append: (...nodes: unknown[]) => {
-        nodes.forEach((node) => customHead.appendChild(node));
-      },
-    });
-  });
+  (pane as any).renderCustomHead = vi.fn(
+    (
+      callback?: (args: {
+        doc: FakeDocument;
+        append: (...nodes: unknown[]) => void;
+      }) => void,
+    ) => {
+      customHead.replaceChildren();
+      callback?.({
+        doc,
+        append: (...nodes: unknown[]) => {
+          nodes.forEach((node) => customHead.appendChild(node));
+        },
+      });
+    },
+  );
 
   return {
     customHead,
@@ -721,13 +725,13 @@ describe("UIFactory", () => {
     win.ZoteroPane.getSelectedItems = () => [];
 
     const queuedTimeouts: Array<() => void> = [];
-    win.setTimeout = (((fn: (...args: any[]) => void) => {
+    win.setTimeout = ((fn: (...args: any[]) => void) => {
       queuedTimeouts.push(() => fn());
       return queuedTimeouts.length - 1;
-    }) as unknown) as Window["setTimeout"];
-    win.clearTimeout = (((id: number) => {
+    }) as unknown as Window["setTimeout"];
+    win.clearTimeout = ((id: number) => {
       queuedTimeouts[id] = () => {};
-    }) as unknown) as Window["clearTimeout"];
+    }) as unknown as Window["clearTimeout"];
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
     await Promise.resolve();
@@ -751,13 +755,13 @@ describe("UIFactory", () => {
     win.ZoteroPane.getSelectedItems = () => [];
 
     const queuedTimeouts: Array<() => void> = [];
-    win.setTimeout = (((fn: (...args: any[]) => void) => {
+    win.setTimeout = ((fn: (...args: any[]) => void) => {
       queuedTimeouts.push(() => fn());
       return queuedTimeouts.length - 1;
-    }) as unknown) as Window["setTimeout"];
-    win.clearTimeout = (((id: number) => {
+    }) as unknown as Window["setTimeout"];
+    win.clearTimeout = ((id: number) => {
       queuedTimeouts[id] = () => {};
-    }) as unknown) as Window["clearTimeout"];
+    }) as unknown as Window["clearTimeout"];
 
     UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
     await Promise.resolve();
@@ -1036,7 +1040,8 @@ describe("UIFactory", () => {
 
     expect(setEnabled).toHaveBeenCalledWith(true);
     expect(mocks.eventBusDispatchEvent).toHaveBeenCalledTimes(1);
-    const dispatchedEvent = mocks.eventBusDispatchEvent.mock.calls[0]?.[0] as CustomEvent;
+    const dispatchedEvent = mocks.eventBusDispatchEvent.mock
+      .calls[0]?.[0] as CustomEvent;
     expect(dispatchedEvent.type).toBe("scopeChange");
     expect(dispatchedEvent.detail).toEqual({
       id: "paper-202",
@@ -1044,6 +1049,57 @@ describe("UIFactory", () => {
       label: "Fresh Library Paper",
       type: "paper",
     });
+  });
+
+  it("uses the Zotero host window CustomEvent when the plugin global lacks it", async () => {
+    const originalCustomEvent = (globalThis as any).CustomEvent;
+    (globalThis as any).CustomEvent = undefined;
+
+    try {
+      const win = new FakeWindow();
+      (win as any).CustomEvent = class HostCustomEvent extends Event {
+        detail: unknown;
+
+        constructor(type: string, init?: CustomEventInit) {
+          super(type);
+          this.detail = init?.detail;
+        }
+      };
+      mainWindows.push(win);
+      win.Zotero_Tabs.selectedType = "library";
+      win.ZoteroPane.getSelectedItems = () => [{}];
+
+      UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+      const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+      const body = win.document.createElement("vbox");
+      body.ownerDocument = win.document;
+
+      mocks.eventBusDispatchEvent.mockClear();
+      mocks.getCurrentScope.mockReturnValue({
+        id: "paper-host-event",
+        itemIds: [303],
+        label: "Host Event Paper",
+        type: "paper",
+      });
+
+      sectionConfig.onItemChange({
+        body,
+        setEnabled: vi.fn(),
+        tabType: "library",
+      });
+
+      const dispatchedEvent = mocks.eventBusDispatchEvent.mock
+        .calls[0]?.[0] as CustomEvent;
+      expect(dispatchedEvent.type).toBe("scopeChange");
+      expect(dispatchedEvent.detail).toEqual({
+        id: "paper-host-event",
+        itemIds: [303],
+        label: "Host Event Paper",
+        type: "paper",
+      });
+    } finally {
+      (globalThis as any).CustomEvent = originalCustomEvent;
+    }
   });
 
   it("retries library scope sync when the first item-pane pass still sees the previous paper", async () => {

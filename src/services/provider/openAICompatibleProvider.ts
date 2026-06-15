@@ -142,24 +142,62 @@ function parseSseDataPayload(rawEvent: string): string {
 async function* parseStreamEvent(
   data: string,
 ): AsyncGenerator<ChatStreamChunk> {
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(data);
-    const delta = parsed.choices?.[0]?.delta;
-    const reasoningDelta =
-      delta?.reasoning_content || delta?.reasoning || delta?.reasoningContent;
-    if (reasoningDelta) {
-      yield {
-        type: "reasoning_delta",
-        content: String(reasoningDelta),
-      };
-    }
-
-    const contentDelta = delta?.content;
-    if (contentDelta) {
-      yield String(contentDelta);
-    }
+    parsed = JSON.parse(data);
   } catch {
     // Ignore malformed stream events; later valid SSE events can still arrive.
+    return;
+  }
+
+  const streamError = extractProviderStreamError(parsed);
+  if (streamError) {
+    throw new Error(`Provider stream error: ${streamError}`);
+  }
+
+  const delta = (parsed as any).choices?.[0]?.delta;
+  const reasoningDelta =
+    delta?.reasoning_content || delta?.reasoning || delta?.reasoningContent;
+  if (reasoningDelta) {
+    yield {
+      type: "reasoning_delta",
+      content: String(reasoningDelta),
+    };
+  }
+
+  const contentDelta = delta?.content;
+  if (contentDelta) {
+    yield String(contentDelta);
+  }
+}
+
+function extractProviderStreamError(parsed: unknown): string | null {
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+
+  const record = parsed as Record<string, unknown>;
+  const error = record.error;
+  if (!error) {
+    return null;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (typeof error === "object") {
+    const errorRecord = error as Record<string, unknown>;
+    const message = errorRecord.message || errorRecord.type || errorRecord.code;
+    if (message) {
+      return String(message);
+    }
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "Unknown provider stream error";
   }
 }
 

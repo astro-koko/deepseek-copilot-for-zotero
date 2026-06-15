@@ -1,4 +1,5 @@
 import React from "react";
+import { createHostCustomEvent } from "../utils/domEvents";
 import { EventBus } from "../utils/eventBus";
 import { getLocaleID } from "../utils/locale";
 import { Sidebar } from "./components/Sidebar";
@@ -68,8 +69,14 @@ const windowSectionRefresh = new WeakMap<
   () => Promise<void>
 >();
 const windowScopeRetryTimer = new WeakMap<AIAssistantWindow, number>();
-const windowLibraryEmptyStateRetryTimer = new WeakMap<AIAssistantWindow, number>();
-const windowLibraryEmptyStateRetryBudget = new WeakMap<AIAssistantWindow, number>();
+const windowLibraryEmptyStateRetryTimer = new WeakMap<
+  AIAssistantWindow,
+  number
+>();
+const windowLibraryEmptyStateRetryBudget = new WeakMap<
+  AIAssistantWindow,
+  number
+>();
 const BRANDED_SECTION_ICON =
   "chrome://zotero-ai-assistant/content/icons/icon-20.png";
 
@@ -325,7 +332,7 @@ export class UIFactory {
     const win = body.ownerDocument.defaultView as AIAssistantWindow | null;
     const eventBus = win?.__aiAssistantEventBus ?? EventBus.getInstance();
     const initialScope = getCurrentScope();
-    this.dispatchScopeChange(eventBus, initialScope);
+    this.dispatchScopeChange(eventBus, initialScope, win);
 
     if (!win || this.resolveSectionLocation(tabType, body) !== "library") {
       return;
@@ -336,7 +343,7 @@ export class UIFactory {
       this.clearScopeRetryTimer(win);
       const retriedScope = getCurrentScope();
       if (!this.areScopesEquivalent(initialScope, retriedScope)) {
-        this.dispatchScopeChange(eventBus, retriedScope);
+        this.dispatchScopeChange(eventBus, retriedScope, win);
       }
     }, 100);
     windowScopeRetryTimer.set(win, retryTimer);
@@ -345,12 +352,9 @@ export class UIFactory {
   private static dispatchScopeChange(
     eventBus: EventTarget,
     scope: ReturnType<typeof getCurrentScope>,
+    win?: AIAssistantWindow | null,
   ) {
-    eventBus.dispatchEvent(
-      new CustomEvent("scopeChange", {
-        detail: scope,
-      }),
-    );
+    eventBus.dispatchEvent(createHostCustomEvent("scopeChange", scope, win));
   }
 
   private static areScopesEquivalent(
@@ -464,7 +468,9 @@ export class UIFactory {
   private static getLibraryMessagePane(
     doc: Pick<Document, "getElementById">,
   ): ItemMessagePaneLike | null {
-    return doc.getElementById("zotero-item-message") as ItemMessagePaneLike | null;
+    return doc.getElementById(
+      "zotero-item-message",
+    ) as ItemMessagePaneLike | null;
   }
 
   private static scheduleLibraryEmptyStateRetry(win: AIAssistantWindow): void {
@@ -485,7 +491,9 @@ export class UIFactory {
     windowLibraryEmptyStateRetryTimer.set(win, timer);
   }
 
-  private static clearLibraryEmptyStateRetryTimer(win: AIAssistantWindow): void {
+  private static clearLibraryEmptyStateRetryTimer(
+    win: AIAssistantWindow,
+  ): void {
     const retryTimer = windowLibraryEmptyStateRetryTimer.get(win);
     if (retryTimer == null) {
       return;
