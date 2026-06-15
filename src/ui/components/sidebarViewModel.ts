@@ -2,7 +2,7 @@ import type { ChatSessionState } from "../../services/chatSession";
 import type { AssembledContext } from "../../services/contextAssembler";
 import {
   getPresetSlashCommand,
-  getPresetsForScope,
+  getSidebarPresetsForScope,
   type CommandPresetGroup,
 } from "../../services/presets";
 import type { Settings } from "../../services/settingsManager";
@@ -304,7 +304,7 @@ export function buildSidebarViewModel({
 
   const hasThreadMessages =
     Boolean(session.activeThread?.messages.length) || session.isStreaming;
-  const suggestedActions = getPresetsForScope(
+  const suggestedActions = getSidebarPresetsForScope(
     scope.type,
     _settings.customPresets,
   ).map((preset) => ({

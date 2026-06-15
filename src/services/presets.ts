@@ -13,6 +13,7 @@ export interface CommandPreset {
   promptPrefix: string;
   aliases: string[];
   group: "reading" | "analysis" | "evidence";
+  showInSidebar?: boolean;
   scopeHint?: ScopeType[];
   evidenceHint?: boolean;
 }
@@ -24,6 +25,15 @@ export const COMMAND_PRESET_GROUP_ORDER: CommandPresetGroup[] = [
   "analysis",
   "evidence",
 ];
+
+export const DEFAULT_SIDEBAR_PRESET_IDS = [
+  "summarize",
+  "explain",
+  "core-contribution",
+  "limitations",
+] as const;
+
+const MAX_SIDEBAR_PRESETS = 4;
 
 const GROUP_LABELS: Record<CommandPresetGroup, { en: string; zh: string }> = {
   reading: {
@@ -46,9 +56,10 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Summarize",
     description: "Concise paper-level summary",
     promptPrefix:
-      "请用简洁的方式总结这篇论文。请涵盖核心研究问题、方法、关键发现和结论，控制在 3 到 5 段。",
+      "Please provide a concise summary of this paper. Cover the research question, method, key findings, and conclusion in 3 to 5 short paragraphs.",
     aliases: ["summary", "overview"],
     group: "reading",
+    showInSidebar: true,
     scopeHint: ["paper", "pdf"],
   },
   {
@@ -56,9 +67,10 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Explain",
     description: "Explain a concept or passage",
     promptPrefix:
-      "请用清晰、易懂的语言解释当前概念、段落或结果。拆解专业术语，并说明它与论文整体论点之间的关系。",
+      "Please explain the current concept, passage, or result in clear, accessible language. Break down technical terms and connect it to the paper's overall argument.",
     aliases: ["clarify", "passage"],
     group: "reading",
+    showInSidebar: true,
     scopeHint: ["paper", "pdf"],
   },
   {
@@ -66,9 +78,10 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Core Contribution",
     description: "Extract the main contribution",
     promptPrefix:
-      "请识别这篇论文的核心贡献。说明真正的新意是什么、为什么重要，以及作者是如何论证这项贡献的。",
+      "Please identify the paper's core contribution. Explain what is genuinely new, why it matters, and how the authors support that contribution.",
     aliases: ["novelty", "contribution"],
     group: "reading",
+    showInSidebar: true,
     scopeHint: ["paper", "pdf"],
   },
   {
@@ -76,7 +89,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Method",
     description: "Analyze the research method",
     promptPrefix:
-      "请拆解这篇论文的方法。逐步说明方法流程、关键假设，以及该方法最可能强或弱的地方。",
+      "Please break down the paper's method step by step. Explain the workflow, key assumptions, and where the method is most likely strong or weak.",
     aliases: ["methodology", "approach"],
     group: "analysis",
     scopeHint: ["paper", "pdf"],
@@ -86,9 +99,10 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Limitations",
     description: "Identify the main limitations",
     promptPrefix:
-      "请识别这项研究的关键局限。考虑方法、数据、假设、评估设计、可推广性以及可能存在的过度结论。",
+      "Please identify the study's main limitations. Consider the method, data, assumptions, evaluation design, generalizability, and any possible overclaims.",
     aliases: ["weakness", "risk"],
     group: "analysis",
+    showInSidebar: true,
     scopeHint: ["paper", "pdf"],
   },
   {
@@ -96,7 +110,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Verify Claim",
     description: "Check whether the conclusion holds up",
     promptPrefix:
-      "请评估论文的核心结论是否得到充分支持。区分哪些内容是论文直接支持的，哪些部分需要额外查证或更强证据。",
+      "Please assess whether the paper's core conclusion is well supported. Separate what the paper directly supports from what still needs external verification or stronger evidence.",
     aliases: ["verify", "fact-check", "evidence"],
     group: "analysis",
     scopeHint: ["paper", "pdf"],
@@ -107,7 +121,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Background",
     description: "Add missing background context",
     promptPrefix:
-      "请补充深入阅读这篇论文前所需的背景信息。解释相关领域背景、关键术语和问题设置。",
+      "Please add the background needed to read this paper well. Explain the field context, key terms, and problem setup.",
     aliases: ["context", "primer"],
     group: "evidence",
     scopeHint: ["paper", "pdf"],
@@ -118,7 +132,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Related Work",
     description: "Place the paper in the literature",
     promptPrefix:
-      "请把这篇论文放回更广泛的研究脉络中。说明它建立在哪些前人工作之上、与它们有何不同，以及还应关注哪些相邻方向。",
+      "Please place this paper in the broader literature. Explain which prior work it builds on, how it differs, and which neighboring directions are worth reading next.",
     aliases: ["literature", "related"],
     group: "evidence",
     scopeHint: ["paper", "pdf"],
@@ -248,6 +262,10 @@ function normalizeCustomPreset(
       id: existingPreset.id,
       label: preset.label?.trim() || existingPreset.label,
       promptPrefix: preset.promptPrefix?.trim() || existingPreset.promptPrefix,
+      showInSidebar:
+        preset.showInSidebar === undefined
+          ? existingPreset.showInSidebar
+          : preset.showInSidebar,
       scopeHint: preset.scopeHint || existingPreset.scopeHint,
       customOverride: true,
     } as CommandPreset & { customOverride: boolean };
@@ -265,6 +283,7 @@ function normalizeCustomPreset(
     id: preset.id,
     label: preset.label.trim(),
     promptPrefix: preset.promptPrefix.trim(),
+    showInSidebar: preset.showInSidebar,
     scopeHint: preset.scopeHint,
     customOverride: true,
   } as CommandPreset & { customOverride: boolean };
@@ -293,6 +312,13 @@ function getMergedPresets(customPresetsValue?: string): CommandPreset[] {
       existingIndex >= 0 ? merged[existingIndex] : undefined,
     );
     if (!normalized) {
+      continue;
+    }
+
+    if (customPreset.hidden) {
+      if (existingIndex >= 0) {
+        merged.splice(existingIndex, 1);
+      }
       continue;
     }
 
@@ -336,6 +362,31 @@ export function getPresetsForScope(
   );
 
   return presets.map((preset) => localizePreset(preset));
+}
+
+export function getSidebarPresetsForScope(
+  scopeType: ScopeType,
+  customPresetsValue?: string,
+): CommandPreset[] {
+  const presets = getPresetsForScope(scopeType, customPresetsValue);
+  const defaultIds = new Set<string>(DEFAULT_SIDEBAR_PRESET_IDS);
+
+  return [...presets]
+    .filter(
+      (preset) =>
+        preset.showInSidebar === true ||
+        (preset.showInSidebar === undefined && defaultIds.has(preset.id)),
+    )
+    .sort((left, right) => {
+      const leftExplicit = left.showInSidebar === true ? 0 : 1;
+      const rightExplicit = right.showInSidebar === true ? 0 : 1;
+      if (leftExplicit !== rightExplicit) {
+        return leftExplicit - rightExplicit;
+      }
+      return presets.findIndex((preset) => preset.id === left.id) -
+        presets.findIndex((preset) => preset.id === right.id);
+    })
+    .slice(0, MAX_SIDEBAR_PRESETS);
 }
 
 export function getAllPresets(customPresetsValue?: string): CommandPreset[] {

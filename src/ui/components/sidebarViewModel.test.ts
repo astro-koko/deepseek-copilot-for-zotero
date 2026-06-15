@@ -126,16 +126,12 @@ describe("buildSidebarViewModel", () => {
     );
     expect(model.providerLabel).toBe("DeepSeek");
     expect(model.statusLabel).toBe("Ready");
-    expect(model.suggestedActions).toHaveLength(8);
+    expect(model.suggestedActions).toHaveLength(4);
     expect(model.suggestedActions.map((action) => action.group)).toEqual([
       "reading",
       "reading",
       "reading",
       "analysis",
-      "analysis",
-      "analysis",
-      "evidence",
-      "evidence",
     ]);
   });
 
@@ -299,6 +295,33 @@ describe("buildSidebarViewModel", () => {
     expect(model.statusLabel).toBe("等待上下文");
   });
 
+  it("keeps the home panel limited to the fixed recommendation set", () => {
+    const model = buildSidebarViewModel({
+      location: "library",
+      recentThreads: [],
+      scope: makeScope(),
+      session: makeSession(),
+      settings: makeSettings({
+        customPresets: JSON.stringify([
+          {
+            id: "future-work",
+            label: "Future Work",
+            promptPrefix: "Suggest follow-up directions.",
+            showInSidebar: true,
+          },
+        ]),
+      }),
+      settingsIssue: null,
+    });
+
+    expect(model.suggestedActions.map((action) => action.id)).toEqual([
+      "summarize",
+      "explain",
+      "core-contribution",
+      "limitations",
+    ]);
+  });
+
   it("surfaces Chinese suggested action labels from the shared command catalog", () => {
     vi.stubGlobal("Zotero", {
       Prefs: {
@@ -322,7 +345,7 @@ describe("buildSidebarViewModel", () => {
     );
   });
 
-  it("includes custom suggested actions from settings", () => {
+  it("keeps custom commands available in the slash catalog even when the home panel stays fixed", () => {
     const model = buildSidebarViewModel({
       location: "library",
       recentThreads: [],
@@ -336,14 +359,18 @@ describe("buildSidebarViewModel", () => {
             description: "Suggest next steps",
             promptPrefix: "Suggest follow-up research directions.",
             aliases: ["future"],
+            showInSidebar: true,
           },
         ]),
       }),
       settingsIssue: null,
     });
 
-    expect(model.suggestedActions.map((action) => action.id)).toContain(
-      "future-work",
-    );
+    expect(model.suggestedActions.map((action) => action.id)).toEqual([
+      "summarize",
+      "explain",
+      "core-contribution",
+      "limitations",
+    ]);
   });
 });

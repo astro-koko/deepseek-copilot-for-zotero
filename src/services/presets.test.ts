@@ -4,6 +4,7 @@ import {
   applyPreset,
   expandSlashCommandInput,
   filterPresets,
+  getSidebarPresetsForScope,
   getPresetsForScope,
 } from "./presets";
 
@@ -83,13 +84,47 @@ describe("presets", () => {
     expect(prompt).toContain("请重点看实验部分");
   });
 
+  it("uses English preset prompts in English locales", () => {
+    const prompt = applyPreset("summarize", "Focus on the experiment section");
+
+    expect(prompt).toContain("Please provide a concise summary of this paper.");
+    expect(prompt).not.toContain("请用简洁的方式总结这篇论文");
+  });
+
   it("expands exact slash commands typed into the composer input", () => {
     const prompt = expandSlashCommandInput(
       "/summarize 重点关注实验结果",
       "paper",
     );
 
-    expect(prompt).toContain("请用简洁的方式总结这篇论文");
+    expect(prompt).toContain("Please provide a concise summary of this paper.");
     expect(prompt).toContain("重点关注实验结果");
+  });
+
+  it("limits sidebar presets to the fixed high-frequency commands", () => {
+    expect(getSidebarPresetsForScope("paper").map((preset) => preset.id)).toEqual([
+      "summarize",
+      "explain",
+      "core-contribution",
+      "limitations",
+    ]);
+  });
+
+  it("removes hidden built-in commands from both slash and sidebar catalogs", () => {
+    const customPresets = JSON.stringify([
+      {
+        id: "summarize",
+        hidden: true,
+      },
+    ]);
+
+    expect(
+      getPresetsForScope("paper", customPresets).map((preset) => preset.id),
+    ).not.toContain("summarize");
+    expect(
+      getSidebarPresetsForScope("paper", customPresets).map(
+        (preset) => preset.id,
+      ),
+    ).not.toContain("summarize");
   });
 });

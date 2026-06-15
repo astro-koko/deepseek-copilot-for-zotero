@@ -268,8 +268,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const handlePresetSend = async (prompt: string) => {
-    await handleSend(prompt);
+  const handlePresetSend = (prompt: string) => {
+    setComposerDraft(prompt);
+    setComposerFocusNonce((value) => value + 1);
+    setShowRecentChats(false);
   };
 
   const handleCancel = () => {
@@ -649,7 +651,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div
                 style={{
-                  ...styles.suggestedActionsGrid,
+                  ...styles.suggestedActionsList,
                   borderTopColor: theme.border,
                   borderBottomColor: theme.border,
                   background: theme.border,
@@ -663,19 +665,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       background: theme.surfaceBackground,
                     }}
                     onClick={() => {
-                      void handlePresetSend(action.prompt);
+                      handlePresetSend(action.prompt);
                     }}
                   >
                     <span style={styles.listRow}>
-                      <span
-                        style={{
-                          ...styles.listMeta,
-                          color: theme.mutedText,
-                          marginBottom: "2px",
-                        }}
-                      >
-                        /{action.command}
-                      </span>
                       <span
                         style={{ ...styles.listPrimary, color: theme.text }}
                       >
@@ -688,6 +681,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }}
                       >
                         {action.description}
+                      </span>
+                      <span
+                        style={{
+                          ...styles.listMeta,
+                          color: theme.mutedText,
+                          marginTop: "2px",
+                        }}
+                      >
+                        /{action.command}
                       </span>
                     </span>
                   </button>
@@ -727,87 +729,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
 
-          {isRecentChatsVisible && (
-            <section
-              style={{ ...styles.section, borderTopColor: theme.softBorder }}
-            >
-              <div style={{ ...styles.sectionTitle, color: theme.text }}>
-                {model.recentThreadsLabel}
-              </div>
-              <div
-                style={{
-                  ...styles.list,
-                  borderTopColor: theme.border,
-                  borderBottomColor: theme.border,
-                  background: theme.border,
-                }}
-              >
-                {model.recentThreads.map((thread) => (
-                  <div
-                    key={thread.id}
-                    style={{
-                      ...styles.listButton,
-                      background: theme.surfaceBackground,
-                    }}
-                  >
-                    <button
-                      style={styles.threadMainButton}
-                      onClick={() => handleOpenThread(thread)}
-                    >
-                      <span style={styles.listRow}>
-                        <span
-                          style={{ ...styles.listPrimary, color: theme.text }}
-                        >
-                          {thread.title}
-                        </span>
-                        <span
-                          style={{
-                            ...styles.listSecondary,
-                            color: theme.mutedText,
-                          }}
-                        >
-                          {getThreadPreview(thread)}
-                        </span>
-                      </span>
-                    </button>
-                    <div style={styles.threadMetaRow}>
-                      <span
-                        style={{ ...styles.listMeta, color: theme.mutedText }}
-                      >
-                        {formatThreadTimestamp(thread.updatedAt)}
-                      </span>
-                    </div>
-                    <div style={styles.threadActionRow}>
-                      <button
-                        style={{
-                          ...styles.threadActionButton,
-                          color: theme.buttonText,
-                          borderColor: theme.buttonBorder,
-                        }}
-                        onClick={() => {
-                          void handleExportThread(thread);
-                        }}
-                      >
-                        {zh ? "导出" : "Export"}
-                      </button>
-                      <button
-                        style={{
-                          ...styles.threadActionButton,
-                          color: theme.errorText,
-                          borderColor: theme.errorBorder,
-                        }}
-                        onClick={() => {
-                          void handleDeleteThread(thread);
-                        }}
-                      >
-                        {zh ? "删除" : "Delete"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
         </div>
 
         <section
@@ -843,6 +764,89 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onDraftChange={setComposerDraft}
           />
         </section>
+
+        {isRecentChatsVisible && (
+          <section
+            style={{
+              ...styles.composerDock,
+              ...styles.recentThreadsDock,
+              background: theme.background,
+              borderTopColor: theme.softBorder,
+            }}
+          >
+            <div style={{ ...styles.sectionTitle, color: theme.text }}>
+              {model.recentThreadsLabel}
+            </div>
+            <div
+              style={{
+                ...styles.list,
+                borderTopColor: theme.border,
+                borderBottomColor: theme.border,
+                background: theme.border,
+              }}
+            >
+              {model.recentThreads.map((thread) => (
+                <div
+                  key={thread.id}
+                  style={{
+                    ...styles.listButton,
+                    background: theme.surfaceBackground,
+                  }}
+                >
+                  <button
+                    style={styles.threadMainButton}
+                    onClick={() => handleOpenThread(thread)}
+                  >
+                    <span style={styles.listRow}>
+                      <span style={{ ...styles.listPrimary, color: theme.text }}>
+                        {thread.title}
+                      </span>
+                      <span
+                        style={{
+                          ...styles.listSecondary,
+                          color: theme.mutedText,
+                        }}
+                      >
+                        {getThreadPreview(thread)}
+                      </span>
+                    </span>
+                  </button>
+                  <div style={styles.threadMetaRow}>
+                    <span style={{ ...styles.listMeta, color: theme.mutedText }}>
+                      {formatThreadTimestamp(thread.updatedAt)}
+                    </span>
+                  </div>
+                  <div style={styles.threadActionRow}>
+                    <button
+                      style={{
+                        ...styles.threadActionButton,
+                        color: theme.buttonText,
+                        borderColor: theme.buttonBorder,
+                      }}
+                      onClick={() => {
+                        void handleExportThread(thread);
+                      }}
+                    >
+                      {zh ? "导出" : "Export"}
+                    </button>
+                    <button
+                      style={{
+                        ...styles.threadActionButton,
+                        color: theme.errorText,
+                        borderColor: theme.errorBorder,
+                      }}
+                      onClick={() => {
+                        void handleDeleteThread(thread);
+                      }}
+                    >
+                      {zh ? "删除" : "Delete"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
@@ -1249,6 +1253,9 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "8px 10px 10px",
     flex: "none",
   },
+  recentThreadsDock: {
+    paddingTop: "0",
+  },
   sectionTitle: {
     fontSize: typography.body,
     fontWeight: 600,
@@ -1264,9 +1271,9 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     background: "#dddddd",
   },
-  suggestedActionsGrid: {
+  suggestedActionsList: {
     display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gridTemplateColumns: "1fr",
     gap: "1px",
     borderTop: "1px solid #dddddd",
     borderBottom: "1px solid #dddddd",

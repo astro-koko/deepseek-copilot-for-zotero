@@ -68,8 +68,10 @@ function normalizeBoolean(value: unknown): boolean {
 }
 
 export type CustomCommandPreset = Partial<CommandPreset> & {
+  hidden?: boolean;
   id?: string;
   mode?: "append" | "replace";
+  showInSidebar?: boolean;
 };
 
 export type ParsedCustomCommandPreset = CustomCommandPreset & {
@@ -82,9 +84,11 @@ export interface EditableCustomCommandPreset {
   enabled: boolean;
   evidenceHint: boolean;
   group: NonNullable<CommandPreset["group"]>;
+  hidden?: boolean;
   id: string;
   label: string;
   promptPrefix: string;
+  showInSidebar: boolean;
   scopeHint: ScopeType[];
 }
 
@@ -219,6 +223,12 @@ export function parseCustomPresets(value: string): CustomPresetsParseResult {
     if (source.scopeHint !== undefined || source.scopes !== undefined) {
       preset.scopeHint = normalizeScopeHints(source.scopeHint ?? source.scopes);
     }
+    if (source.hidden !== undefined) {
+      preset.hidden = normalizeBoolean(source.hidden);
+    }
+    if (source.showInSidebar !== undefined) {
+      preset.showInSidebar = normalizeBoolean(source.showInSidebar);
+    }
 
     presets.push(preset);
   }
@@ -235,9 +245,11 @@ export function toEditableCustomPreset(
     enabled: true,
     evidenceHint: Boolean(preset.evidenceHint),
     group: normalizePresetGroup(preset.group),
+    hidden: Boolean(preset.hidden),
     id: preset.id,
     label: String(preset.label || "").trim(),
     promptPrefix: String(preset.promptPrefix || "").trim(),
+    showInSidebar: Boolean(preset.showInSidebar),
     scopeHint: (preset.scopeHint || ["paper", "pdf"]) as ScopeType[],
   };
 }
@@ -251,9 +263,11 @@ export function createEmptyEditableCustomPreset(
     enabled: true,
     evidenceHint: false,
     group: "reading",
+    hidden: false,
     id: `custom-action-${index + 1}`,
     label: "",
     promptPrefix: "",
+    showInSidebar: false,
     scopeHint: ["paper", "pdf"],
   };
 }
@@ -270,7 +284,7 @@ export function stringifyEditableCustomPresets(
   presets: EditableCustomCommandPreset[],
 ): string {
   const normalized = presets
-    .filter((preset) => preset.enabled !== false)
+    .filter((preset) => preset.enabled !== false || preset.hidden)
     .map((preset, index) => {
       const id = slugifyPresetId(preset.id || preset.label, index);
       return {
@@ -278,9 +292,11 @@ export function stringifyEditableCustomPresets(
         description: String(preset.description || "").trim(),
         evidenceHint: Boolean(preset.evidenceHint),
         group: normalizePresetGroup(preset.group),
+        hidden: Boolean(preset.hidden),
         id,
         label: String(preset.label || "").trim(),
         promptPrefix: String(preset.promptPrefix || "").trim(),
+        showInSidebar: Boolean(preset.showInSidebar),
         scopeHint: preset.scopeHint?.length
           ? preset.scopeHint
           : ["paper", "pdf"],

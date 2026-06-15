@@ -326,7 +326,9 @@ function renderCustomPresetEditor(
   const zh = isChineseLocale();
   const rows = presets.length > 0 ? presets : [];
   const customizedIds = new Set(
-    rows.filter((preset) => preset.enabled).map((preset) => preset.id),
+    rows
+      .filter((preset) => preset.enabled || preset.hidden)
+      .map((preset) => preset.id),
   );
   const fallbackCards: EditableCustomCommandPreset[] = getAllPresets()
     .filter((preset) => !customizedIds.has(preset.id))
@@ -336,12 +338,17 @@ function renderCustomPresetEditor(
           enabled: false,
           evidenceHint: Boolean(preset.evidenceHint),
           group: preset.group,
+          hidden: false,
           id: preset.id,
           label: preset.label,
           promptPrefix: preset.promptPrefix,
+          showInSidebar: Boolean(preset.showInSidebar),
           scopeHint: preset.scopeHint || ["paper", "pdf"],
         }));
-  const visibleCards = [...fallbackCards, ...rows.filter((preset) => preset.enabled)];
+  const visibleCards = [
+    ...fallbackCards,
+    ...rows.filter((preset) => preset.enabled || preset.hidden),
+  ];
 
   container.innerHTML = visibleCards
     .map((preset, index) =>
@@ -357,7 +364,7 @@ function renderCustomPresetCardMarkup(
   index: number,
   zh: boolean,
 ): string {
-  const editable = preset.enabled;
+  const editable = preset.enabled || preset.hidden;
   const scopes = new Set(preset.scopeHint);
   const slash = getPresetSlashCommand({ id: preset.id });
   const escapedPrompt = escapeHtml(preset.promptPrefix);
@@ -403,14 +410,18 @@ function renderCustomPresetCardMarkup(
       </div>
       <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
         <label><input type="checkbox" data-custom-preset-field="evidenceHint" data-custom-preset-index="${index}" ${preset.evidenceHint ? "checked" : ""} ${editable ? "" : 'disabled="disabled"'} /> ${zh ? "默认开启查证倾向" : "Evidence-oriented"}</label>
+        <label><input type="checkbox" data-custom-preset-field="showInSidebar" data-custom-preset-index="${index}" ${preset.showInSidebar ? "checked" : ""} ${editable ? "" : 'disabled="disabled"'} /> ${zh ? "显示在首页推荐位" : "Show on home panel"}</label>
         ${
           editable
-            ? `<label><input type="checkbox" data-custom-preset-field="enabled" data-custom-preset-index="${index}" checked="checked" /> ${
-                zh ? "启用" : "Enabled"
+            ? `<label><input type="checkbox" data-custom-preset-field="enabled" data-custom-preset-index="${index}" ${preset.hidden ? "" : 'checked="checked"'} /> ${
+                zh ? "启用此命令" : "Enable command"
               }</label>
-        <button type="button" data-custom-preset-action="remove" data-custom-preset-index="${index}">${zh ? "删除" : "Remove"}</button>`
+        <button type="button" data-custom-preset-action="remove" data-custom-preset-index="${index}">${preset.hidden ? (zh ? "恢复默认命令" : "Restore built-in command") : zh ? "删除自定义项" : "Remove custom entry"}</button>`
             : `<button type="button" data-custom-preset-action="copy" data-custom-preset-index="${index}">${
-                zh ? "复制为自定义" : "Copy to customize"
+                zh ? "复制后编辑" : "Copy to customize"
+              }</button>
+        <button type="button" data-custom-preset-action="hide-default" data-custom-preset-index="${index}">${
+                zh ? "从首页和命令库隐藏" : "Hide built-in command"
               }</button>`
         }
       </div>
@@ -452,10 +463,28 @@ function bindCustomPresetEditorEvents(doc: PreferencesDocument): void {
         const next = {
           ...source,
           enabled: true,
+          hidden: false,
         };
         const existingIndex = presets.findIndex(
           (preset, presetIndex) =>
             preset.enabled && preset.id === next.id && presetIndex !== index,
+        );
+        if (existingIndex >= 0) {
+          presets[existingIndex] = next;
+        } else {
+          presets.push(next);
+        }
+      } else if (action === "hide-default") {
+        const source = presets[index];
+        const next = {
+          ...source,
+          enabled: true,
+          hidden: true,
+          showInSidebar: false,
+        };
+        const existingIndex = presets.findIndex(
+          (preset, presetIndex) =>
+            preset.id === next.id && presetIndex !== index,
         );
         if (existingIndex >= 0) {
           presets[existingIndex] = next;
@@ -518,9 +547,11 @@ function readEditablePresetsFromDom(
       enabled: readChecked("enabled"),
       evidenceHint: readChecked("evidenceHint"),
       group: "reading",
+      hidden: !readChecked("enabled"),
       id: readValue("id") || `custom-action-${index + 1}`,
       label: readValue("label"),
       promptPrefix: readValue("promptPrefix"),
+      showInSidebar: readChecked("showInSidebar"),
       scopeHint: scopeHint.length > 0 ? scopeHint : ["paper", "pdf"],
     };
   });

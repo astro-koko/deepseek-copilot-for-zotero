@@ -9,12 +9,10 @@ describe("Sidebar recent thread layout", () => {
     expect(sidebarSource).toContain("deepseek-favicon.png");
   });
 
-  it("renders suggested actions as one compact grid instead of grouped subsections", () => {
+  it("renders suggested actions as one compact list instead of grouped subsections", () => {
     expect(sidebarSource).toContain("model.suggestedActions.map((action) =>");
-    expect(sidebarSource).toContain("suggestedActionsGrid: {");
-    expect(sidebarSource).toContain(
-      'gridTemplateColumns: "repeat(2, minmax(0, 1fr))"',
-    );
+    expect(sidebarSource).toContain("suggestedActionsList: {");
+    expect(sidebarSource).toContain('gridTemplateColumns: "1fr"');
     expect(sidebarSource).not.toContain("suggestedActionGroups.map");
     expect(sidebarSource).not.toContain("getPresetGroupLabel(group, zh)");
   });
@@ -57,6 +55,16 @@ describe("Sidebar recent thread layout", () => {
     expect(composerDockIndex).toBeGreaterThan(-1);
     expect(scrollViewportIndex).toBeLessThan(composerDockIndex);
     expect(threadSectionIndex).toBeLessThan(composerDockIndex);
+  });
+
+  it("renders recent chats after the composer dock instead of inside the scroll viewport", () => {
+    const composerDockIndex = sidebarSource.indexOf("composerDock");
+    const recentChatsIndex = sidebarSource.indexOf("{isRecentChatsVisible && (");
+
+    expect(composerDockIndex).toBeGreaterThan(-1);
+    expect(recentChatsIndex).toBeGreaterThan(-1);
+    expect(composerDockIndex).toBeLessThan(recentChatsIndex);
+    expect(sidebarSource).toContain("recentThreadsDock: {");
   });
 
   it("uses a full-height scrollable viewport with a bottom-docked composer", () => {

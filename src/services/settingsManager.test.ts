@@ -20,6 +20,7 @@ import {
   DEEPSEEK_MODELS,
   getSettings,
   saveSettings,
+  stringifyEditableCustomPresets,
   validateEvidenceSettings,
   validateSettings,
 } from "./settingsManager";
@@ -348,6 +349,27 @@ describe("settingsManager", () => {
       evidenceProviderMode: "tavily",
       tavilyApiKey: "tvly-test",
     });
+  });
+
+  it("keeps hidden preset tombstones when serializing editable custom presets", () => {
+    const serialized = stringifyEditableCustomPresets([
+      {
+        aliasesText: "",
+        description: "Hide summarize",
+        enabled: false,
+        evidenceHint: false,
+        group: "reading",
+        hidden: true,
+        id: "summarize",
+        label: "Summarize",
+        promptPrefix: "Please summarize this paper.",
+        showInSidebar: false,
+        scopeHint: ["paper", "pdf"],
+      },
+    ]);
+
+    expect(serialized).toContain('"id": "summarize"');
+    expect(serialized).toContain('"hidden": true');
   });
 
   it("validates Tavily settings against the Tavily search endpoint", async () => {
