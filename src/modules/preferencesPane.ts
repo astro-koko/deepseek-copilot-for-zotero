@@ -12,6 +12,7 @@ import {
   validateSettings,
 } from "../services/settingsManager";
 import { createHostEvent } from "../utils/domEvents";
+import { createTraceId, debugLog, exportDebugLog } from "../utils/debugLog";
 import { EventBus } from "../utils/eventBus";
 import { isChineseLocale } from "../utils/locale";
 import { getAllPresets, getPresetSlashCommand } from "../services/presets";
@@ -46,6 +47,7 @@ interface PreferencesStatusElement extends HTMLElement {
 }
 
 export interface PreferencesPaneDeps {
+  exportDebugLog: typeof exportDebugLog;
   getSettings: typeof getSettings;
   saveSettings: typeof saveSettings;
   validateSettings: typeof validateSettings;
@@ -57,6 +59,8 @@ const API_KEY_ID = "zotero-ai-assistant-pref-api-key";
 const API_KEY_LINK_ID = "zotero-ai-assistant-pref-api-key-link";
 const SAVE_BUTTON_ID = "zotero-ai-assistant-pref-save";
 const VALIDATE_BUTTON_ID = "zotero-ai-assistant-pref-validate";
+const EXPORT_DEBUG_LOG_BUTTON_ID =
+  "zotero-ai-assistant-pref-export-debug-log";
 const STATUS_ID = "zotero-ai-assistant-pref-status";
 const EVIDENCE_PROVIDER_ID = "zotero-ai-assistant-pref-evidence-provider";
 const TAVILY_API_KEY_ID = "zotero-ai-assistant-pref-tavily-api-key";
@@ -81,6 +85,7 @@ export const TAVILY_APP_URL = "https://app.tavily.com/";
 export function registerPreferencesPane(
   win: Window,
   deps: PreferencesPaneDeps = {
+    exportDebugLog,
     getSettings,
     saveSettings,
     validateEvidenceSettings,
@@ -93,11 +98,22 @@ export function registerPreferencesPane(
     return;
   }
 
+  debugLog.info("settings.pane.load", {
+    surface: "settings",
+  });
   hydrateForm(doc, deps.getSettings());
 
   const persist = () => {
+    const traceId = createTraceId("settings-save");
     syncCustomPresetStorageField(doc);
     const values = readFormValues(doc);
+    debugLog.info("settings.save.start", {
+      evidenceProviderMode: values.evidenceProviderMode,
+      hasApiKey: Boolean(values.apiKey?.trim()),
+      hasTavilyApiKey: Boolean(values.tavilyApiKey?.trim()),
+      surface: "settings",
+      traceId,
+    });
     const customPresetsResult = parseCustomPresets(values.customPresets || "");
     if (customPresetsResult.error) {
       const zh = isChineseLocale();
@@ -109,6 +125,11 @@ export function registerPreferencesPane(
           : `Custom commands JSON is invalid; not saved: ${customPresetsResult.error}`,
         "error",
       );
+      debugLog.warn("settings.save.blocked", {
+        reason: "invalid-custom-presets",
+        surface: "settings",
+        traceId,
+      });
       return;
     }
 
@@ -125,6 +146,10 @@ export function registerPreferencesPane(
     }
 
     status.dataset.variant = "success";
+    debugLog.info("settings.save.success", {
+      surface: "settings",
+      traceId,
+    });
     if (!formatter) {
       status.textContent = "ai-assistant-pref-status-saved";
       return;
@@ -142,8 +167,14 @@ export function registerPreferencesPane(
   };
 
   const validate = async () => {
+    const traceId = createTraceId("settings-validate");
     const values = readFormValues(doc);
     const zh = isChineseLocale();
+    debugLog.info("settings.validate.start", {
+      hasApiKey: Boolean(values.apiKey?.trim()),
+      surface: "settings",
+      traceId,
+    });
     setStatusText(
       getStatusElement(doc),
       zh ? "正在验证连接..." : "Validating connection...",
@@ -151,6 +182,10 @@ export function registerPreferencesPane(
     );
     const result = await deps.validateSettings(values);
     if (result.valid) {
+      debugLog.info("settings.validate.success", {
+        surface: "settings",
+        traceId,
+      });
       setStatusText(
         getStatusElement(doc),
         zh ? "DeepSeek 连接正常" : "DeepSeek connection looks good",
@@ -164,6 +199,11 @@ export function registerPreferencesPane(
       return;
     }
 
+    debugLog.warn("settings.validate.error", {
+      errorMessage: result.error || "Validation failed",
+      surface: "settings",
+      traceId,
+    });
     setStatusText(
       getStatusElement(doc),
       result.error || (zh ? "验证失败" : "Validation failed"),
@@ -177,8 +217,15 @@ export function registerPreferencesPane(
   };
 
   const validateEvidence = async () => {
+    const traceId = createTraceId("settings-evidence-validate");
     const values = readFormValues(doc);
     const zh = isChineseLocale();
+    debugLog.info("settings.evidence.validate.start", {
+      evidenceProviderMode: values.evidenceProviderMode,
+      hasTavilyApiKey: Boolean(values.tavilyApiKey?.trim()),
+      surface: "settings",
+      traceId,
+    });
     setStatusText(
       getEvidenceStatusElement(doc),
       zh ? "正在验证 Tavily..." : "Validating Tavily...",
@@ -186,6 +233,10 @@ export function registerPreferencesPane(
     );
     const result = await deps.validateEvidenceSettings(values);
     if (result.valid) {
+      debugLog.info("settings.evidence.validate.success", {
+        surface: "settings",
+        traceId,
+      });
       setStatusText(
         getEvidenceStatusElement(doc),
         zh ? "Tavily 连接正常" : "Tavily connection looks good",
@@ -194,11 +245,72 @@ export function registerPreferencesPane(
       return;
     }
 
+    debugLog.warn("settings.evidence.validate.error", {
+      errorMessage: result.error || "Tavily validation failed",
+      surface: "settings",
+      traceId,
+    });
     setStatusText(
       getEvidenceStatusElement(doc),
       result.error || (zh ? "Tavily 验证失败" : "Tavily validation failed"),
       "error",
     );
+  };
+
+  const exportLog = async () => {
+    const traceId = createTraceId("settings-export-debug-log");
+    const zh = isChineseLocale();
+    const status = getStatusElement(doc);
+    const outputPath = buildDebugLogExportPath();
+    debugLog.info("settings.debugLog.export.start", {
+      hasOutputPath: Boolean(outputPath),
+      surface: "settings",
+      traceId,
+    });
+
+    if (!outputPath) {
+      const message = zh
+        ? "无法确定调试日志导出路径"
+        : "Could not determine a debug log export path";
+      setStatusText(status, message, "error");
+      debugLog.warn("settings.debugLog.export.error", {
+        reason: "missing-output-path",
+        surface: "settings",
+        traceId,
+      });
+      return;
+    }
+
+    try {
+      const exportedPath = await deps.exportDebugLog(outputPath);
+      setStatusText(
+        status,
+        zh
+          ? `调试日志已导出到 ${exportedPath}`
+          : `Debug log exported to ${exportedPath}`,
+        "success",
+      );
+      debugLog.info("settings.debugLog.export.success", {
+        surface: "settings",
+        traceId,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : zh
+            ? "导出失败"
+            : "Export failed";
+      setStatusText(
+        status,
+        zh ? `调试日志导出失败：${message}` : `Debug log export failed: ${message}`,
+        "error",
+      );
+      debugLog.error("settings.debugLog.export.error", error, {
+        surface: "settings",
+        traceId,
+      });
+    }
   };
 
   bindFieldEvent(doc, API_KEY_ID, "change", persist);
@@ -223,6 +335,9 @@ export function registerPreferencesPane(
   bindButtonActivation(doc, SAVE_BUTTON_ID, persist);
   bindButtonActivation(doc, VALIDATE_BUTTON_ID, () => {
     void validate();
+  });
+  bindButtonActivation(doc, EXPORT_DEBUG_LOG_BUTTON_ID, () => {
+    void exportLog();
   });
   bindButtonActivation(doc, TAVILY_VALIDATE_BUTTON_ID, () => {
     void validateEvidence();
@@ -902,4 +1017,18 @@ function showValidationDialog(
   } catch (error) {
     ztoolkit.log("Failed to show validation dialog:", error);
   }
+}
+
+function buildDebugLogExportPath(): string | null {
+  const tempDir =
+    (globalThis as { PathUtils?: { tempDir?: string } }).PathUtils?.tempDir ||
+    (globalThis as { OS?: { Constants?: { Path?: { tmpDir?: string } } } }).OS
+      ?.Constants?.Path?.tmpDir ||
+    null;
+  if (!tempDir) {
+    return null;
+  }
+
+  const separator = tempDir.includes("\\") ? "\\" : "/";
+  return `${tempDir}${separator}deepseek-copliot-debug-${Date.now()}.jsonl`;
 }

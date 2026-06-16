@@ -4,6 +4,7 @@ ai-assistant-pref-api-key-help = Deepseek Copliot uses the built-in DeepSeek def
 ai-assistant-pref-api-key-link = Get a DeepSeek API key
 ai-assistant-pref-save = Save
 ai-assistant-pref-validate = Validate Connection
+ai-assistant-pref-export-debug-log = Export Debug Log
 ai-assistant-pref-status-saved = Settings saved
 ai-assistant-pref-status-valid = DeepSeek connection looks good
 ai-assistant-pref-custom-presets-title = Custom commands

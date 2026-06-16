@@ -74,4 +74,13 @@ describe("preferences.xhtml", () => {
       'id="zotero-ai-assistant-pref-tavily-validate"',
     );
   });
+
+  it("includes a debug log export action for user issue reports", () => {
+    expect(preferencesSource).toContain(
+      'id="zotero-ai-assistant-pref-export-debug-log"',
+    );
+    expect(preferencesSource).toContain(
+      'data-l10n-id="ai-assistant-pref-export-debug-log"',
+    );
+  });
 });

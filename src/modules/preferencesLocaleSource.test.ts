@@ -48,4 +48,13 @@ describe("preferences locale copy", () => {
       "ai-assistant-pref-evidence-provider-help = 默认联网查证无需 API Key。切换到 Tavily 后，下面才会显示 Tavily API Key 输入框。",
     );
   });
+
+  it("labels the debug log export action", () => {
+    expect(enPreferences).toContain(
+      "ai-assistant-pref-export-debug-log = Export Debug Log",
+    );
+    expect(zhPreferences).toContain(
+      "ai-assistant-pref-export-debug-log = 导出调试日志",
+    );
+  });
 });

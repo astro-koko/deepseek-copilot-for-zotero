@@ -5,6 +5,7 @@ import {
   type PreferencesPaneDeps,
 } from "./preferencesPane";
 import { EventBus } from "../utils/eventBus";
+import { debugLog } from "../utils/debugLog";
 
 class FakeEventTarget {
   listeners = new Map<string, Set<(...args: any[]) => void>>();
@@ -76,6 +77,7 @@ describe("registerPreferencesPane", () => {
   let apiKeyField: FakeField;
   let saveButton: FakeButton;
   let validateButton: FakeButton;
+  let exportDebugLogButton: FakeButton;
   let status: FakeStatusElement;
   let customPresetsField: FakeField;
   let customPresetsStatus: FakeStatusElement;
@@ -100,6 +102,7 @@ describe("registerPreferencesPane", () => {
     apiKeyField = new FakeField();
     saveButton = new FakeButton();
     validateButton = new FakeButton();
+    exportDebugLogButton = new FakeButton();
     status = new FakeStatusElement();
     customPresetsField = new FakeField();
     customPresetsStatus = new FakeStatusElement();
@@ -126,6 +129,7 @@ describe("registerPreferencesPane", () => {
       saveSettings: vi.fn(),
       validateSettings: vi.fn(async () => ({ valid: true })),
       validateEvidenceSettings: vi.fn(async () => ({ valid: true })),
+      exportDebugLog: vi.fn(async () => "/tmp/deepseek-copliot-debug.jsonl"),
     };
   });
 
@@ -135,6 +139,7 @@ describe("registerPreferencesPane", () => {
       "zotero-ai-assistant-pref-api-key": apiKeyField,
       "zotero-ai-assistant-pref-save": saveButton,
       "zotero-ai-assistant-pref-validate": validateButton,
+      "zotero-ai-assistant-pref-export-debug-log": exportDebugLogButton,
       "zotero-ai-assistant-pref-status": status,
       "zotero-ai-assistant-pref-custom-presets": customPresetsField,
       "zotero-ai-assistant-pref-custom-presets-status": customPresetsStatus,
@@ -173,6 +178,7 @@ describe("registerPreferencesPane", () => {
     expect(apiKeyField.getListenerCount("change")).toBe(1);
     expect(saveButton.getListenerCount("command")).toBe(1);
     expect(validateButton.getListenerCount("command")).toBe(1);
+    expect(exportDebugLogButton.getListenerCount("command")).toBe(1);
     expect(evidenceProviderField.getListenerCount("change")).toBe(1);
     expect(evidenceProviderField.getListenerCount("command")).toBe(1);
     expect(tavilyValidateButton.getListenerCount("command")).toBe(1);
@@ -398,6 +404,37 @@ describe("registerPreferencesPane", () => {
     });
   });
 
+  it("exports the structured debug log from the preferences pane", async () => {
+    vi.stubGlobal("PathUtils", { tempDir: "/tmp" });
+    registerPreferencesPane(createWindow(), deps);
+    debugLog.info("settings.test-marker", { surface: "settings" });
+
+    exportDebugLogButton.dispatch("command");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(deps.exportDebugLog).toHaveBeenCalledWith(
+      expect.stringMatching(/deepseek-copliot-debug-\d+\.jsonl$/),
+    );
+    expect(status.dataset.variant).toBe("success");
+    expect(status.textContent).toContain("Debug log exported to");
+  });
+
+  it("reports debug log export failures inline", async () => {
+    vi.stubGlobal("PathUtils", { tempDir: "/tmp" });
+    deps.exportDebugLog = vi.fn(async () => {
+      throw new Error("no writable path");
+    });
+    registerPreferencesPane(createWindow(), deps);
+
+    exportDebugLogButton.dispatch("click");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(status.dataset.variant).toBe("error");
+    expect(status.textContent).toBe("Debug log export failed: no writable path");
+  });
+
   it("rebinds listeners when Zotero recreates the field nodes under the same root", () => {
     const win = createWindow();
     registerPreferencesPane(win, deps);
@@ -405,6 +442,7 @@ describe("registerPreferencesPane", () => {
     const replacementApiKeyField = new FakeField();
     const replacementSaveButton = new FakeButton();
     const replacementValidateButton = new FakeButton();
+    const replacementExportDebugLogButton = new FakeButton();
     const replacementStatus = new FakeStatusElement();
     const replacementCustomPresetsField = new FakeField();
     const replacementCustomPresetsStatus = new FakeStatusElement();
@@ -420,6 +458,8 @@ describe("registerPreferencesPane", () => {
       "zotero-ai-assistant-pref-api-key": replacementApiKeyField,
       "zotero-ai-assistant-pref-save": replacementSaveButton,
       "zotero-ai-assistant-pref-validate": replacementValidateButton,
+      "zotero-ai-assistant-pref-export-debug-log":
+        replacementExportDebugLogButton,
       "zotero-ai-assistant-pref-status": replacementStatus,
       "zotero-ai-assistant-pref-custom-presets": replacementCustomPresetsField,
       "zotero-ai-assistant-pref-custom-presets-status":
@@ -452,6 +492,7 @@ describe("registerPreferencesPane", () => {
       tavilyApiKey: "",
     });
     expect(replacementSaveButton.getListenerCount("command")).toBe(1);
+    expect(replacementExportDebugLogButton.getListenerCount("command")).toBe(1);
     expect(replacementDeepSeekLink.getListenerCount("click")).toBe(1);
     expect(replacementTavilyLink.getListenerCount("click")).toBe(1);
   });

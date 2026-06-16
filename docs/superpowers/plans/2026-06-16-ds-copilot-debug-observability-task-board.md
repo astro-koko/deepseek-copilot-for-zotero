@@ -191,11 +191,11 @@ Files:
 - Update: `src/modules/preferencesPane.test.ts`
 - Update: `src/services/settingsManager.test.ts`
 
-- [ ] Step 1: Add an `Export Debug Log` button to Settings.
-- [ ] Step 2: Use Zotero file picker or a safe temp fallback path.
-- [ ] Step 3: Log settings pane load, save, validation start, validation result, and export result.
-- [ ] Step 4: Ensure API keys are represented only as `hasApiKey` and never logged as values.
-- [ ] Step 5: Run:
+- [x] Step 1: Add an `Export Debug Log` button to Settings.
+- [x] Step 2: Use Zotero file picker or a safe temp fallback path.
+- [x] Step 3: Log settings pane load, save, validation start, validation result, and export result.
+- [x] Step 4: Ensure API keys are represented only as `hasApiKey` and never logged as values.
+- [x] Step 5: Run:
 
 ```bash
 npm test -- src/modules/preferencesPane.test.ts src/services/settingsManager.test.ts
@@ -207,6 +207,11 @@ Real Zotero smoke:
 - Save/reopen.
 - Export debug log.
 - Restart Zotero and repeat.
+
+Completion evidence:
+
+- `npm test -- src/modules/preferencesPane.test.ts src/modules/preferencesPaneSource.test.ts src/modules/preferencesLocaleSource.test.ts src/utils/debugLog.test.ts` passes with 41 tests.
+- Settings now exposes `Export Debug Log` and writes a JSONL file through the structured logger export helper.
 
 ---
 
