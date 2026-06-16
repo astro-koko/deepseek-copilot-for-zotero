@@ -1,6 +1,8 @@
 import {
+  buildCustomCommandAIPrompt,
   createEmptyEditableCustomPreset,
   DEFAULT_EVIDENCE_PROVIDER_MODE,
+  mergeEditableCustomPresets,
   parseEditableCustomPresets,
   type PersistedSettings,
   stringifyEditableCustomPresets,
@@ -78,9 +80,31 @@ const CUSTOM_PRESETS_RESET_ID =
   "zotero-ai-assistant-pref-custom-presets-reset";
 const CUSTOM_PRESETS_STATUS_ID =
   "zotero-ai-assistant-pref-custom-presets-status";
+const CUSTOM_PRESETS_IMPORT_EDITOR_ID =
+  "zotero-ai-assistant-pref-custom-presets-import-editor";
+const CUSTOM_PRESETS_IMPORT_PREVIEW_ID =
+  "zotero-ai-assistant-pref-custom-presets-import-preview";
+const CUSTOM_PRESETS_VALIDATE_IMPORT_ID =
+  "zotero-ai-assistant-pref-custom-presets-validate-import";
+const CUSTOM_PRESETS_APPLY_IMPORT_ID =
+  "zotero-ai-assistant-pref-custom-presets-apply-import";
+const CUSTOM_PRESETS_COPY_AI_PROMPT_ID =
+  "zotero-ai-assistant-pref-custom-presets-copy-ai-prompt";
+const CUSTOM_PRESETS_DOCS_LINK_ID =
+  "zotero-ai-assistant-pref-custom-presets-docs-link";
+const CUSTOM_COMMANDS_DOCS_URL =
+  "https://github.com/astro-koko/deepseek-copilot-for-zotero/blob/main/docs/custom-commands.md";
 
 export const DEEPSEEK_PLATFORM_URL = "https://platform.deepseek.com/";
 export const TAVILY_APP_URL = "https://app.tavily.com/";
+
+interface CustomPresetImportState {
+  presets: EditableCustomCommandPreset[];
+}
+
+function createCustomPresetImportState(): CustomPresetImportState {
+  return { presets: [] };
+}
 
 export function registerPreferencesPane(
   win: Window,
@@ -102,10 +126,15 @@ export function registerPreferencesPane(
     surface: "settings",
   });
   hydrateForm(doc, deps.getSettings());
+  const importState = createCustomPresetImportState();
 
-  const persist = () => {
+  const persist = (
+    options: { syncCustomPresetsFromEditor?: boolean } = {},
+  ) => {
     const traceId = createTraceId("settings-save");
-    syncCustomPresetStorageField(doc);
+    if (options.syncCustomPresetsFromEditor !== false) {
+      syncCustomPresetStorageField(doc);
+    }
     const values = readFormValues(doc);
     debugLog.info("settings.save.start", {
       evidenceProviderMode: values.evidenceProviderMode,
@@ -313,26 +342,52 @@ export function registerPreferencesPane(
     }
   };
 
-  bindFieldEvent(doc, API_KEY_ID, "change", persist);
-  bindFieldEvent(doc, CUSTOM_PRESETS_ID, "change", persist);
+  bindFieldEvent(doc, API_KEY_ID, "change", () => persist());
+  bindFieldEvent(doc, CUSTOM_PRESETS_ID, "change", () => {
+    const field = getField(doc, CUSTOM_PRESETS_ID);
+    const value = field?.value || "";
+    const parsed = parseCustomPresets(value);
+    if (!parsed.error) {
+      renderCustomPresetEditor(doc, parseEditableCustomPresets(value));
+      updateCustomPresetsPreview(doc, value);
+    }
+    persist({ syncCustomPresetsFromEditor: false });
+  });
+  bindTriggeredFieldEvents(
+    doc,
+    CUSTOM_PRESETS_PREVIEW_ID,
+    ["change", "input"],
+    () => syncAdvancedCustomPresetsJson(doc, persist),
+  );
   bindButtonActivation(doc, CUSTOM_PRESETS_ADD_ID, () => {
     addCustomPresetCard(doc);
     persist();
   });
   bindButtonActivation(doc, CUSTOM_PRESETS_RESET_ID, () => {
-    renderCustomPresetEditor(doc, []);
-    persist();
+    restoreBuiltInPresets(doc);
+    persist({ syncCustomPresetsFromEditor: false });
+  });
+  bindButtonActivation(doc, CUSTOM_PRESETS_VALIDATE_IMPORT_ID, () => {
+    validateCustomPresetImport(doc, importState);
+  });
+  bindButtonActivation(doc, CUSTOM_PRESETS_APPLY_IMPORT_ID, () => {
+    applyCustomPresetImport(doc, importState);
+    persist({ syncCustomPresetsFromEditor: false });
+  });
+  bindButtonActivation(doc, CUSTOM_PRESETS_COPY_AI_PROMPT_ID, () => {
+    void copyCustomCommandAIPrompt(doc);
   });
   bindTriggeredFieldEvents(
     doc,
     EVIDENCE_PROVIDER_ID,
     ["change", "command"],
-    persist,
+    () => persist(),
   );
-  bindFieldEvent(doc, TAVILY_API_KEY_ID, "change", persist);
+  bindFieldEvent(doc, TAVILY_API_KEY_ID, "change", () => persist());
   bindExternalLink(doc, API_KEY_LINK_ID, DEEPSEEK_PLATFORM_URL);
   bindExternalLink(doc, TAVILY_LINK_ID, TAVILY_APP_URL);
-  bindButtonActivation(doc, SAVE_BUTTON_ID, persist);
+  bindExternalLink(doc, CUSTOM_PRESETS_DOCS_LINK_ID, CUSTOM_COMMANDS_DOCS_URL);
+  bindButtonActivation(doc, SAVE_BUTTON_ID, () => persist());
   bindButtonActivation(doc, VALIDATE_BUTTON_ID, () => {
     void validate();
   });
@@ -729,6 +784,131 @@ function addCustomPresetCard(doc: PreferencesDocument): void {
   renderCustomPresetEditor(doc, presets);
 }
 
+function syncAdvancedCustomPresetsJson(
+  doc: PreferencesDocument,
+  persist: (options?: { syncCustomPresetsFromEditor?: boolean }) => void,
+): void {
+  const advancedField = getField(doc, CUSTOM_PRESETS_PREVIEW_ID);
+  const value = advancedField?.value || "";
+  const parsed = parseCustomPresets(value);
+  if (parsed.error) {
+    setStatusText(getCustomPresetsStatusElement(doc), parsed.error, "error");
+    return;
+  }
+
+  setCustomPresetStorageField(doc, value);
+  renderCustomPresetEditor(doc, parseEditableCustomPresets(value));
+  updateCustomPresetsStatus(doc, value);
+  persist({ syncCustomPresetsFromEditor: false });
+}
+
+function restoreBuiltInPresets(doc: PreferencesDocument): void {
+  const builtInPresetIds = new Set(getAllPresets().map((preset) => preset.id));
+  const remainingCustomPresets = parseEditableCustomPresets(
+    getField(doc, CUSTOM_PRESETS_ID)?.value || "",
+  ).filter((preset) => !builtInPresetIds.has(preset.id));
+  renderCustomPresetEditor(doc, remainingCustomPresets);
+  setCustomPresetStorageField(
+    doc,
+    stringifyEditableCustomPresets(remainingCustomPresets),
+  );
+}
+
+function validateCustomPresetImport(
+  doc: PreferencesDocument,
+  state: CustomPresetImportState,
+): void {
+  const field = getField(doc, CUSTOM_PRESETS_IMPORT_EDITOR_ID);
+  const preview = doc.getElementById(CUSTOM_PRESETS_IMPORT_PREVIEW_ID) as
+    | HTMLElement
+    | null;
+  const applyButton = getField(doc, CUSTOM_PRESETS_APPLY_IMPORT_ID);
+  const value = field?.value || "";
+  const parsed = parseCustomPresets(value);
+  if (parsed.error) {
+    state.presets = [];
+    if (preview) {
+      preview.innerHTML = "";
+    }
+    setDisabled(applyButton, true);
+    setStatusText(getCustomPresetsStatusElement(doc), parsed.error, "error");
+    return;
+  }
+
+  state.presets = parseEditableCustomPresets(value);
+  if (preview) {
+    preview.innerHTML = state.presets
+      .map((preset, index) =>
+        renderCustomPresetCardMarkup({
+          index,
+          isBuiltIn: false,
+          preset,
+          zh: isChineseLocale(),
+        }),
+      )
+      .join("");
+  }
+  setDisabled(applyButton, state.presets.length === 0);
+  const zh = isChineseLocale();
+  setStatusText(
+    getCustomPresetsStatusElement(doc),
+    zh
+      ? `已预览 ${state.presets.length} 个命令`
+      : `Previewing ${state.presets.length} commands`,
+    "success",
+  );
+}
+
+function applyCustomPresetImport(
+  doc: PreferencesDocument,
+  state: CustomPresetImportState,
+): void {
+  if (state.presets.length === 0) {
+    return;
+  }
+
+  const merged = mergeEditableCustomPresets(
+    readEditablePresetsFromDom(doc),
+    state.presets,
+  );
+  state.presets = [];
+  renderCustomPresetEditor(doc, merged);
+  setCustomPresetStorageField(doc, stringifyEditableCustomPresets(merged));
+  setDisabled(getField(doc, CUSTOM_PRESETS_APPLY_IMPORT_ID), true);
+}
+
+async function copyCustomCommandAIPrompt(
+  doc: PreferencesDocument,
+): Promise<void> {
+  const prompt = buildCustomCommandAIPrompt();
+  const clipboard = (
+    (globalThis as {
+      navigator?: {
+        clipboard?: { writeText?: (text: string) => Promise<void> };
+      };
+    }).navigator as
+      | { clipboard?: { writeText?: (text: string) => Promise<void> } }
+      | undefined
+  )?.clipboard;
+  if (typeof clipboard?.writeText !== "function") {
+    setStatusText(
+      getCustomPresetsStatusElement(doc),
+      isChineseLocale()
+        ? "当前环境无法写入剪贴板"
+        : "Clipboard is not available",
+      "error",
+    );
+    return;
+  }
+
+  await clipboard.writeText(prompt);
+  setStatusText(
+    getCustomPresetsStatusElement(doc),
+    isChineseLocale() ? "AI 生成提示词已复制" : "AI generation prompt copied",
+    "success",
+  );
+}
+
 function readEditablePresetsFromDom(
   doc: PreferencesDocument,
 ): EditableCustomCommandPreset[] {
@@ -741,45 +921,56 @@ function readEditablePresetsFromDom(
     container.querySelectorAll("[data-custom-preset-card]"),
   ) as HTMLElement[];
 
-  return cards.map((card, index) => {
-    const readValue = (name: string) =>
-      (
-        card.querySelector(
-          `[data-custom-preset-field="${name}"]`,
-        ) as PreferencesFieldElement | null
-      )?.value || "";
-    const readChecked = (name: string) =>
-      Boolean(
+  return cards
+    .map((card, index) => {
+      const isBuiltIn =
+        card.getAttribute("data-custom-preset-built-in") === "true";
+      const enabledField = card.querySelector(
+        '[data-custom-preset-field="enabled"]',
+      ) as PreferencesFieldElement | null;
+      if (isBuiltIn && !enabledField) {
+        return null;
+      }
+
+      const readValue = (name: string) =>
         (
           card.querySelector(
             `[data-custom-preset-field="${name}"]`,
           ) as PreferencesFieldElement | null
-        )?.checked,
-      );
+        )?.value || "";
+      const readChecked = (name: string) =>
+        Boolean(
+          (
+            card.querySelector(
+              `[data-custom-preset-field="${name}"]`,
+            ) as PreferencesFieldElement | null
+          )?.checked,
+        );
 
-    const scopeHint = [
-      readChecked("scope-paper") ? "paper" : null,
-      readChecked("scope-pdf") ? "pdf" : null,
-      readChecked("scope-collection") ? "collection" : null,
-      readChecked("scope-manual-selection") ? "manual-selection" : null,
-    ].filter(Boolean) as EditableCustomCommandPreset["scopeHint"];
+      const scopeHint = [
+        readChecked("scope-paper") ? "paper" : null,
+        readChecked("scope-pdf") ? "pdf" : null,
+        readChecked("scope-collection") ? "collection" : null,
+        readChecked("scope-manual-selection") ? "manual-selection" : null,
+      ].filter(Boolean) as EditableCustomCommandPreset["scopeHint"];
 
-    return {
-      aliasesText: readValue("aliasesText"),
-      description: readValue("description"),
-      enabled: readChecked("enabled"),
-      evidenceHint: readChecked("evidenceHint"),
-      group:
-        (readValue("group") as EditableCustomCommandPreset["group"]) ||
-        "reading",
-      hidden: !readChecked("enabled"),
-      id: readValue("id") || `custom-action-${index + 1}`,
-      label: readValue("label"),
-      promptPrefix: readValue("promptPrefix"),
-      showInSidebar: readChecked("showInSidebar"),
-      scopeHint: scopeHint.length > 0 ? scopeHint : ["paper", "pdf"],
-    };
-  });
+      return {
+        aliasesText: readValue("aliasesText"),
+        description: readValue("description"),
+        enabled: enabledField ? readChecked("enabled") : true,
+        evidenceHint: readChecked("evidenceHint"),
+        group:
+          (readValue("group") as EditableCustomCommandPreset["group"]) ||
+          "reading",
+        hidden: enabledField ? !readChecked("enabled") : false,
+        id: readValue("id") || `custom-action-${index + 1}`,
+        label: readValue("label"),
+        promptPrefix: readValue("promptPrefix"),
+        showInSidebar: readChecked("showInSidebar"),
+        scopeHint: scopeHint.length > 0 ? scopeHint : ["paper", "pdf"],
+      };
+    })
+    .filter(Boolean) as EditableCustomCommandPreset[];
 }
 
 function syncCustomPresetStorageField(doc: PreferencesDocument): void {
@@ -793,9 +984,21 @@ function syncCustomPresetStorageField(doc: PreferencesDocument): void {
     return;
   }
 
-  const serialized = stringifyEditableCustomPresets(
-    readEditablePresetsFromDom(doc),
+  setCustomPresetStorageField(
+    doc,
+    stringifyEditableCustomPresets(readEditablePresetsFromDom(doc)),
   );
+}
+
+function setCustomPresetStorageField(
+  doc: PreferencesDocument,
+  serialized: string,
+): void {
+  const field = getField(doc, CUSTOM_PRESETS_ID);
+  if (!field) {
+    return;
+  }
+
   field.value = serialized;
   updateCustomPresetsPreview(doc, serialized);
 }
@@ -993,6 +1196,27 @@ function setStatusText(
   status.textContent = value;
 }
 
+function setDisabled(
+  field: (PreferencesFieldElement & {
+    setAttribute?: (name: string, value: string) => void;
+    removeAttribute?: (name: string) => void;
+  }) | null,
+  disabled: boolean,
+): void {
+  if (!field) {
+    return;
+  }
+
+  field.disabled = disabled;
+  if (disabled) {
+    field.setAttribute?.("disabled", "disabled");
+    field.disabled = true;
+  } else {
+    field.removeAttribute?.("disabled");
+    field.disabled = false;
+  }
+}
+
 function getStatusElement(
   doc: PreferencesDocument,
 ): PreferencesStatusElement | null {
@@ -1004,6 +1228,14 @@ function getEvidenceStatusElement(
 ): PreferencesStatusElement | null {
   return doc.getElementById(
     TAVILY_STATUS_ID,
+  ) as PreferencesStatusElement | null;
+}
+
+function getCustomPresetsStatusElement(
+  doc: PreferencesDocument,
+): PreferencesStatusElement | null {
+  return doc.getElementById(
+    CUSTOM_PRESETS_STATUS_ID,
   ) as PreferencesStatusElement | null;
 }
 

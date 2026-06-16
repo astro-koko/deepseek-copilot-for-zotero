@@ -38,7 +38,25 @@ class FakeEventTarget {
 class FakeField extends FakeEventTarget {
   value = "";
   disabled = false;
+  innerHTML = "";
+  textContent = "";
   style = { display: "" };
+  querySelectorAll = vi.fn(() => [] as unknown as NodeListOf<Element>);
+  querySelector = vi.fn(() => null as Element | null);
+
+  setAttribute(name: string, value: string) {
+    if (name === "disabled") {
+      this.disabled = true;
+    }
+    (this as unknown as Record<string, string>)[name] = value;
+  }
+
+  removeAttribute(name: string) {
+    if (name === "disabled") {
+      this.disabled = false;
+    }
+    delete (this as unknown as Record<string, string>)[name];
+  }
 }
 
 class FakeButton extends FakeField {}
@@ -80,6 +98,16 @@ describe("registerPreferencesPane", () => {
   let exportDebugLogButton: FakeButton;
   let status: FakeStatusElement;
   let customPresetsField: FakeField;
+  let customPresetsEditor: FakeField;
+  let customPresetsPreview: FakeField;
+  let customPresetsAddButton: FakeButton;
+  let customPresetsResetButton: FakeButton;
+  let customPresetsImportEditor: FakeField;
+  let customPresetsImportPreview: FakeField;
+  let customPresetsValidateImportButton: FakeButton;
+  let customPresetsApplyImportButton: FakeButton;
+  let customPresetsCopyAiPromptButton: FakeButton;
+  let customPresetsDocsLink: FakeLink;
   let customPresetsStatus: FakeStatusElement;
   let evidenceProviderField: FakeField;
   let tavilyApiKeyField: FakeField;
@@ -105,6 +133,16 @@ describe("registerPreferencesPane", () => {
     exportDebugLogButton = new FakeButton();
     status = new FakeStatusElement();
     customPresetsField = new FakeField();
+    customPresetsEditor = new FakeField();
+    customPresetsPreview = new FakeField();
+    customPresetsAddButton = new FakeButton();
+    customPresetsResetButton = new FakeButton();
+    customPresetsImportEditor = new FakeField();
+    customPresetsImportPreview = new FakeField();
+    customPresetsValidateImportButton = new FakeButton();
+    customPresetsApplyImportButton = new FakeButton();
+    customPresetsCopyAiPromptButton = new FakeButton();
+    customPresetsDocsLink = new FakeLink();
     customPresetsStatus = new FakeStatusElement();
     evidenceProviderField = new FakeField();
     tavilyApiKeyField = new FakeField();
@@ -142,6 +180,22 @@ describe("registerPreferencesPane", () => {
       "zotero-ai-assistant-pref-export-debug-log": exportDebugLogButton,
       "zotero-ai-assistant-pref-status": status,
       "zotero-ai-assistant-pref-custom-presets": customPresetsField,
+      "zotero-ai-assistant-pref-custom-presets-editor": customPresetsEditor,
+      "zotero-ai-assistant-pref-custom-presets-preview": customPresetsPreview,
+      "zotero-ai-assistant-pref-custom-presets-add": customPresetsAddButton,
+      "zotero-ai-assistant-pref-custom-presets-reset": customPresetsResetButton,
+      "zotero-ai-assistant-pref-custom-presets-import-editor":
+        customPresetsImportEditor,
+      "zotero-ai-assistant-pref-custom-presets-import-preview":
+        customPresetsImportPreview,
+      "zotero-ai-assistant-pref-custom-presets-validate-import":
+        customPresetsValidateImportButton,
+      "zotero-ai-assistant-pref-custom-presets-apply-import":
+        customPresetsApplyImportButton,
+      "zotero-ai-assistant-pref-custom-presets-copy-ai-prompt":
+        customPresetsCopyAiPromptButton,
+      "zotero-ai-assistant-pref-custom-presets-docs-link":
+        customPresetsDocsLink,
       "zotero-ai-assistant-pref-custom-presets-status": customPresetsStatus,
       "zotero-ai-assistant-pref-evidence-provider": evidenceProviderField,
       "zotero-ai-assistant-pref-tavily-api-key": tavilyApiKeyField,
@@ -276,6 +330,175 @@ describe("registerPreferencesPane", () => {
     expect(status.dataset.variant).toBe("error");
     expect(status.textContent).toContain(
       "Custom commands JSON is invalid; not saved",
+    );
+  });
+
+  it("saves valid edits from the advanced JSON editor and refreshes visual cards", async () => {
+    registerPreferencesPane(createWindow(), deps);
+
+    customPresetsPreview.value = JSON.stringify([
+      {
+        id: "future-work",
+        label: "Future Work",
+        promptPrefix: "Suggest next steps",
+      },
+    ]);
+    customPresetsPreview.dispatch("change");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(customPresetsField.value).toContain('"id":"future-work"');
+    expect(customPresetsEditor.innerHTML).toContain("Future Work");
+    expect(deps.saveSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        customPresets: expect.stringContaining('"id":"future-work"'),
+      }),
+    );
+  });
+
+  it("does not overwrite saved commands when advanced JSON edits are invalid", async () => {
+    const savedPresets = JSON.stringify([
+      {
+        id: "future-work",
+        label: "Future Work",
+        promptPrefix: "Suggest next steps",
+      },
+    ]);
+    deps.getSettings = vi.fn(() => ({
+      apiKey: "sk-test",
+      baseURL: "https://api.deepseek.com",
+      customPresets: savedPresets,
+      model: "deepseek-v4-pro",
+      maxContextBudget: 8192,
+      keyboardShortcut: "I",
+      evidenceEnabled: false,
+      evidenceProviderMode: "mcp-web-search" as const,
+      tavilyApiKey: "",
+    }));
+    registerPreferencesPane(createWindow(), deps);
+
+    customPresetsPreview.value = "[";
+    customPresetsPreview.dispatch("change");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(customPresetsField.value).toBe(savedPresets);
+    expect(deps.saveSettings).not.toHaveBeenCalled();
+    expect(customPresetsStatus.dataset.variant).toBe("error");
+  });
+
+  it("previews valid imported command JSON without saving immediately", () => {
+    registerPreferencesPane(createWindow(), deps);
+
+    customPresetsImportEditor.value = JSON.stringify([
+      {
+        id: "replication-risk",
+        label: "Replication Risk",
+        promptPrefix: "Assess replication risks",
+        aliases: ["replication"],
+      },
+    ]);
+    customPresetsValidateImportButton.dispatch("command");
+
+    expect(deps.saveSettings).not.toHaveBeenCalled();
+    expect(customPresetsImportPreview.innerHTML).toContain("Replication Risk");
+    expect(customPresetsApplyImportButton.disabled).toBe(false);
+    expect(customPresetsStatus.dataset.variant).toBe("success");
+  });
+
+  it("applies imported commands through the normal custom preset storage", () => {
+    registerPreferencesPane(createWindow(), deps);
+
+    customPresetsImportEditor.value = JSON.stringify([
+      {
+        id: "replication-risk",
+        label: "Replication Risk",
+        promptPrefix: "Assess replication risks",
+      },
+    ]);
+    customPresetsValidateImportButton.dispatch("command");
+    customPresetsApplyImportButton.dispatch("command");
+
+    expect(deps.saveSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        customPresets: expect.stringContaining('"id": "replication-risk"'),
+      }),
+    );
+  });
+
+  it("keeps saved commands untouched when imported JSON is invalid", () => {
+    registerPreferencesPane(createWindow(), deps);
+
+    customPresetsImportEditor.value = "[";
+    customPresetsValidateImportButton.dispatch("command");
+
+    expect(deps.saveSettings).not.toHaveBeenCalled();
+    expect(customPresetsApplyImportButton.disabled).toBe(true);
+    expect(customPresetsStatus.dataset.variant).toBe("error");
+  });
+
+  it("copies the AI generation prompt without terminal punctuation", async () => {
+    const writeText = vi.fn(async (_text: string) => undefined);
+    vi.stubGlobal("navigator", {
+      clipboard: { writeText },
+    });
+    registerPreferencesPane(createWindow(), deps);
+
+    customPresetsCopyAiPromptButton.dispatch("command");
+    await Promise.resolve();
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const prompt = writeText.mock.calls[0]?.[0] ?? "";
+    expect(prompt.endsWith(".")).toBe(false);
+    expect(prompt.endsWith("。")).toBe(false);
+  });
+
+  it("opens the command JSON documentation link through Zotero.launchURL", () => {
+    (Zotero as any).launchURL = vi.fn();
+    registerPreferencesPane(createWindow(), deps);
+
+    customPresetsDocsLink.dispatch("click", { preventDefault: vi.fn() });
+
+    expect((Zotero as any).launchURL).toHaveBeenCalledWith(
+      "https://github.com/astro-koko/deepseek-copilot-for-zotero/blob/main/docs/custom-commands.md",
+    );
+  });
+
+  it("restores built-in commands without deleting user-created commands", () => {
+    deps.getSettings = vi.fn(() => ({
+      apiKey: "sk-test",
+      baseURL: "https://api.deepseek.com",
+      customPresets: JSON.stringify([
+        {
+          id: "summarize",
+          hidden: true,
+        },
+        {
+          id: "future-work",
+          label: "Future Work",
+          promptPrefix: "Suggest next steps",
+        },
+      ]),
+      model: "deepseek-v4-pro",
+      maxContextBudget: 8192,
+      keyboardShortcut: "I",
+      evidenceEnabled: false,
+      evidenceProviderMode: "mcp-web-search" as const,
+      tavilyApiKey: "",
+    }));
+    registerPreferencesPane(createWindow(), deps);
+
+    customPresetsResetButton.dispatch("command");
+
+    expect(deps.saveSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        customPresets: expect.stringContaining('"id": "future-work"'),
+      }),
+    );
+    expect(deps.saveSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        customPresets: expect.not.stringContaining('"id": "summarize"'),
+      }),
     );
   });
 

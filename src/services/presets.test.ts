@@ -79,7 +79,7 @@ describe("presets", () => {
 
     const prompt = applyPreset("summarize", "请重点看实验部分");
 
-    expect(prompt).toContain("请用简洁的方式总结这篇论文");
+    expect(prompt).toContain("请面向正在读论文的研究者总结这篇论文");
     expect(prompt).not.toContain("Please provide a concise summary");
     expect(prompt).toContain("请重点看实验部分");
   });
@@ -87,7 +87,7 @@ describe("presets", () => {
   it("uses English preset prompts in English locales", () => {
     const prompt = applyPreset("summarize", "Focus on the experiment section");
 
-    expect(prompt).toContain("Please provide a concise summary of this paper.");
+    expect(prompt).toContain("Summarize this paper for an active researcher");
     expect(prompt).not.toContain("请用简洁的方式总结这篇论文");
   });
 
@@ -97,8 +97,21 @@ describe("presets", () => {
       "paper",
     );
 
-    expect(prompt).toContain("Please provide a concise summary of this paper.");
+    expect(prompt).toContain("Summarize this paper for an active researcher");
     expect(prompt).toContain("重点关注实验结果");
+  });
+
+  it("uses stronger built-in prompts that separate evidence from inference", () => {
+    const summarize = getPresetsForScope("paper").find(
+      (preset) => preset.id === "summarize",
+    );
+    const verify = getPresetsForScope("paper").find(
+      (preset) => preset.id === "verify-claim",
+    );
+
+    expect(summarize?.promptPrefix).toContain("Distinguish");
+    expect(summarize?.promptPrefix).toContain("paper directly states");
+    expect(verify?.promptPrefix).toContain("external verification");
   });
 
   it("limits sidebar presets to the fixed high-frequency commands", () => {

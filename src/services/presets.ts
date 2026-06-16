@@ -54,9 +54,9 @@ const COMMAND_PRESETS: CommandPreset[] = [
   {
     id: "summarize",
     label: "Summarize",
-    description: "Concise paper-level summary",
+    description: "Structured paper-level summary",
     promptPrefix:
-      "Please provide a concise summary of this paper. Cover the research question, method, key findings, and conclusion in 3 to 5 short paragraphs.",
+      "Summarize this paper for an active researcher. Use short sections for research question, method, key findings, and why it matters. Distinguish what the paper directly states from your interpretation, and name any important uncertainty or missing context",
     aliases: ["summary", "overview"],
     group: "reading",
     showInSidebar: true,
@@ -67,7 +67,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Explain",
     description: "Explain a concept or passage",
     promptPrefix:
-      "Please explain the current concept, passage, or result in clear, accessible language. Break down technical terms and connect it to the paper's overall argument.",
+      "Explain the current concept, passage, or result in clear language for a researcher entering this topic. Define technical terms, connect the explanation to the paper's argument, and separate what is explicit in the text from helpful background inference",
     aliases: ["clarify", "passage"],
     group: "reading",
     showInSidebar: true,
@@ -78,7 +78,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Core Contribution",
     description: "Extract the main contribution",
     promptPrefix:
-      "Please identify the paper's core contribution. Explain what is genuinely new, why it matters, and how the authors support that contribution.",
+      "Identify the paper's core contribution. State the claimed novelty, why it matters, what evidence the authors provide, and what would still need stronger support or external verification",
     aliases: ["novelty", "contribution"],
     group: "reading",
     showInSidebar: true,
@@ -89,7 +89,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Method",
     description: "Analyze the research method",
     promptPrefix:
-      "Please break down the paper's method step by step. Explain the workflow, key assumptions, and where the method is most likely strong or weak.",
+      "Analyze the paper's method step by step. Describe the workflow, inputs, assumptions, evaluation setup, and likely failure modes. Separate methodological facts stated by the paper from your assessment of strengths and weaknesses",
     aliases: ["methodology", "approach"],
     group: "analysis",
     scopeHint: ["paper", "pdf"],
@@ -99,7 +99,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Limitations",
     description: "Identify the main limitations",
     promptPrefix:
-      "Please identify the study's main limitations. Consider the method, data, assumptions, evaluation design, generalizability, and any possible overclaims.",
+      "Identify the study's main limitations. Focus on method, data, assumptions, evaluation design, generalizability, and possible overclaims. For each limitation, say whether it is acknowledged by the paper or inferred from the evidence presented",
     aliases: ["weakness", "risk"],
     group: "analysis",
     showInSidebar: true,
@@ -110,7 +110,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Verify Claim",
     description: "Check whether the conclusion holds up",
     promptPrefix:
-      "Please assess whether the paper's core conclusion is well supported. Separate what the paper directly supports from what still needs external verification or stronger evidence.",
+      "Assess whether the paper's core conclusion is well supported. Separate what the paper directly supports, what is only plausible inference, and what requires external verification or additional evidence. List the highest-priority checks to perform next",
     aliases: ["verify", "fact-check", "evidence"],
     group: "analysis",
     scopeHint: ["paper", "pdf"],
@@ -121,7 +121,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Background",
     description: "Add missing background context",
     promptPrefix:
-      "Please add the background needed to read this paper well. Explain the field context, key terms, and problem setup.",
+      "Add the background needed to read this paper well. Explain the field context, key terms, problem setup, and prerequisite ideas. Mark which points come from the paper and which points are external context that should be verified if used in writing",
     aliases: ["context", "primer"],
     group: "evidence",
     scopeHint: ["paper", "pdf"],
@@ -132,7 +132,7 @@ const COMMAND_PRESETS: CommandPreset[] = [
     label: "Related Work",
     description: "Place the paper in the literature",
     promptPrefix:
-      "Please place this paper in the broader literature. Explain which prior work it builds on, how it differs, and which neighboring directions are worth reading next.",
+      "Place this paper in the broader literature. Explain the research line it belongs to, the kinds of prior work it builds on, how it differs, and which neighboring directions are worth reading next. Flag claims that require external verification",
     aliases: ["literature", "related"],
     group: "evidence",
     scopeHint: ["paper", "pdf"],
@@ -148,58 +148,58 @@ const zhMap: Record<
 > = {
   summarize: {
     label: "总结论文",
-    description: "快速抓住研究问题、方法和结论",
+    description: "结构化总结研究问题、方法和结论",
     promptPrefix:
-      "请用简洁的方式总结这篇论文。请涵盖核心研究问题、方法、关键发现和结论，控制在 3 到 5 段。",
+      "请面向正在读论文的研究者总结这篇论文。用简短小节说明研究问题、方法、关键发现和意义。请区分论文直接陈述的内容与你的解释，并指出重要不确定性或缺失背景",
     aliases: ["总结", "概览", "摘要"],
   },
   explain: {
     label: "通俗解释",
     description: "把难懂概念和段落讲清楚",
     promptPrefix:
-      "请用清晰、易懂的语言解释当前概念、段落或结果。拆解专业术语，并说明它与论文整体论点之间的关系。",
+      "请面向刚进入这个主题的研究者解释当前概念、段落或结果。定义关键术语，说明它与论文整体论点的关系，并区分原文明确表达的内容和有助于理解的背景推断",
     aliases: ["解释", "看不懂", "讲清楚"],
   },
   "core-contribution": {
     label: "核心贡献",
     description: "提炼这篇论文真正的新意",
     promptPrefix:
-      "请识别这篇论文的核心贡献。说明真正的新意是什么、为什么重要，以及作者是如何论证这项贡献的。",
+      "请识别这篇论文的核心贡献。说明作者声称的新意、为什么重要、论文提供了什么证据，以及哪些部分仍需要更强支持或外部查证",
     aliases: ["贡献", "创新点", "新意"],
   },
   method: {
     label: "方法拆解",
     description: "逐步分析论文方法和假设",
     promptPrefix:
-      "请拆解这篇论文的方法。逐步说明方法流程、关键假设，以及该方法最可能强或弱的地方。",
+      "请逐步分析这篇论文的方法。说明流程、输入、关键假设、评估设置和可能失败模式。请区分论文陈述的方法事实与你对优缺点的判断",
     aliases: ["方法", "方法论", "技术路线"],
   },
   limitations: {
     label: "研究局限",
     description: "识别论文的弱点和边界",
     promptPrefix:
-      "请识别这项研究的关键局限。考虑方法、数据、假设、评估设计、可推广性以及可能存在的过度结论。",
+      "请识别这项研究的关键局限。重点考虑方法、数据、假设、评估设计、可推广性和可能的过度结论。每条局限请说明是论文自己承认的，还是你基于证据推断的",
     aliases: ["局限", "缺点", "风险"],
   },
   "verify-claim": {
     label: "查证结论",
     description: "检查结论是否真的站得住",
     promptPrefix:
-      "请评估论文的核心结论是否得到充分支持。区分哪些内容是论文直接支持的，哪些部分需要额外查证或更强证据。",
+      "请评估论文的核心结论是否得到充分支持。区分论文直接支持的内容、只是合理推断的内容，以及需要外部查证或额外证据的内容。最后列出最优先查证的事项",
     aliases: ["查证", "核验", "验证", "事实核查"],
   },
   background: {
     label: "补充背景",
     description: "补足理解这篇论文所需的背景",
     promptPrefix:
-      "请补充深入阅读这篇论文前所需的背景信息。解释相关领域背景、关键术语和问题设置。",
+      "请补充理解这篇论文所需的背景。解释领域脉络、关键术语、问题设置和前置知识。请标明哪些来自论文，哪些是外部背景且在写作引用前需要查证",
     aliases: ["背景", "上下文", "入门背景"],
   },
   "related-work": {
     label: "相关工作",
     description: "把论文放回更大的研究脉络里",
     promptPrefix:
-      "请把这篇论文放回更广泛的研究脉络中。说明它建立在哪些前人工作之上、与它们有何不同，以及还应关注哪些相邻方向。",
+      "请把这篇论文放回更广泛的研究脉络中。说明它所属的研究线、通常建立在哪些前人工作之上、与它们可能有何不同，以及接下来值得阅读的相邻方向。请标出需要外部查证的判断",
     aliases: ["相关研究", "文献脉络", "邻近工作"],
   },
 };

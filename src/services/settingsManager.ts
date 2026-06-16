@@ -311,6 +311,34 @@ export function stringifyEditableCustomPresets(
   return JSON.stringify(normalized, null, 2);
 }
 
+export function buildCustomCommandAIPrompt(): string {
+  return [
+    "Create Deepseek Copliot custom slash commands as a JSON array",
+    "Output JSON only, with no Markdown fences and no explanation",
+    "Each object may include id, label, description, promptPrefix, aliases, scopeHint, showInSidebar, and evidenceHint",
+    'Use lower-case hyphenated ids, aliases as an array, and scopeHint values from ["paper","pdf","collection","manual-selection"]',
+    "Keep showInSidebar true only for the few commands that should appear on the sidebar home panel",
+    "Write promptPrefix text for research reading: be specific, ask for concise structure, separate paper evidence from inference, and ask for uncertainty when relevant",
+    "My command ideas are:",
+  ].join("\n");
+}
+
+export function mergeEditableCustomPresets(
+  existing: EditableCustomCommandPreset[],
+  imported: EditableCustomCommandPreset[],
+): EditableCustomCommandPreset[] {
+  const merged = [...existing];
+  for (const preset of imported) {
+    const index = merged.findIndex((candidate) => candidate.id === preset.id);
+    if (index >= 0) {
+      merged[index] = preset;
+    } else {
+      merged.push(preset);
+    }
+  }
+  return merged;
+}
+
 export function getSettings(): Settings {
   return {
     apiKey: (getPref("apiKey") || "") as string,

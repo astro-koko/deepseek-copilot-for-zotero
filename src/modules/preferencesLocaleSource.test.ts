@@ -22,6 +22,36 @@ describe("preferences locale copy", () => {
     );
   });
 
+  it("labels the commands and prompts section independently", () => {
+    expect(enPreferences).toContain(
+      "ai-assistant-pref-commands-title = Commands and Prompts",
+    );
+    expect(zhPreferences).toContain(
+      "ai-assistant-pref-commands-title = 命令与提示词",
+    );
+  });
+
+  it("labels command import and documentation actions", () => {
+    expect(enPreferences).toContain(
+      "ai-assistant-pref-custom-presets-import = Import from JSON",
+    );
+    expect(zhPreferences).toContain(
+      "ai-assistant-pref-custom-presets-import = 从 JSON 导入",
+    );
+    expect(enPreferences).toContain(
+      "ai-assistant-pref-custom-presets-copy-ai-prompt = Copy AI prompt",
+    );
+    expect(zhPreferences).toContain(
+      "ai-assistant-pref-custom-presets-copy-ai-prompt = 复制 AI 生成提示词",
+    );
+    expect(enPreferences).toContain(
+      "ai-assistant-pref-custom-presets-docs-link = View JSON examples on GitHub",
+    );
+    expect(zhPreferences).toContain(
+      "ai-assistant-pref-custom-presets-docs-link = 在 GitHub 查看 JSON 示例",
+    );
+  });
+
   it("makes the default web verification path explicitly keyless", () => {
     expect(enPreferences).toContain(
       "ai-assistant-pref-evidence-provider-builtin = Default web verification (recommended, no API key)",

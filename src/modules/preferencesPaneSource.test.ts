@@ -38,6 +38,51 @@ describe("preferences.xhtml", () => {
     );
   });
 
+  it("places Commands and Prompts after web verification settings", () => {
+    const evidenceIndex = preferencesSource.indexOf(
+      'data-l10n-id="ai-assistant-pref-evidence-description"',
+    );
+    const commandsIndex = preferencesSource.indexOf(
+      'data-l10n-id="ai-assistant-pref-commands-title"',
+    );
+
+    expect(evidenceIndex).toBeGreaterThanOrEqual(0);
+    expect(commandsIndex).toBeGreaterThan(evidenceIndex);
+  });
+
+  it("includes JSON import, preview, and command docs controls", () => {
+    expect(preferencesSource).toContain(
+      'id="zotero-ai-assistant-pref-custom-presets-import"',
+    );
+    expect(preferencesSource).toContain(
+      'id="zotero-ai-assistant-pref-custom-presets-import-preview"',
+    );
+    expect(preferencesSource).toContain(
+      'id="zotero-ai-assistant-pref-custom-presets-copy-ai-prompt"',
+    );
+    expect(preferencesSource).toContain(
+      'id="zotero-ai-assistant-pref-custom-presets-docs-link"',
+    );
+  });
+
+  it("keeps the advanced JSON editor editable for recovery and batch edits", () => {
+    const previewId =
+      'id="zotero-ai-assistant-pref-custom-presets-preview"';
+    const previewIdIndex = preferencesSource.indexOf(previewId);
+    const previewStart = preferencesSource.lastIndexOf(
+      "<html:textarea",
+      previewIdIndex,
+    );
+    const previewEnd = preferencesSource.indexOf(
+      "</html:textarea>",
+      previewIdIndex,
+    );
+    const previewEditor = preferencesSource.slice(previewStart, previewEnd);
+
+    expect(previewEditor).toBeTruthy();
+    expect(previewEditor).not.toContain('readonly="readonly"');
+  });
+
   it("uses an explicit select control for choosing the evidence provider", () => {
     expect(preferencesSource).toMatch(
       /<html:select[\s\S]*id="zotero-ai-assistant-pref-evidence-provider"/,

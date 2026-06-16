@@ -17,8 +17,11 @@ vi.mock("../utils/prefs", () => ({
 }));
 
 import {
+  buildCustomCommandAIPrompt,
   DEEPSEEK_MODELS,
   getSettings,
+  mergeEditableCustomPresets,
+  parseEditableCustomPresets,
   saveSettings,
   stringifyEditableCustomPresets,
   validateEvidenceSettings,
@@ -370,6 +373,52 @@ describe("settingsManager", () => {
 
     expect(serialized).toContain('"id": "summarize"');
     expect(serialized).toContain('"hidden": true');
+  });
+
+  it("builds an AI command JSON prompt that does not end with sentence punctuation", () => {
+    const prompt = buildCustomCommandAIPrompt();
+
+    expect(prompt).toContain("JSON array");
+    expect(prompt).toContain("promptPrefix");
+    expect(prompt.endsWith(".")).toBe(false);
+    expect(prompt.endsWith("。")).toBe(false);
+  });
+
+  it("merges imported commands into existing commands by id", () => {
+    const existing = parseEditableCustomPresets(
+      JSON.stringify([
+        {
+          id: "future-work",
+          label: "Future Work",
+          promptPrefix: "Suggest next steps",
+          aliases: ["future"],
+        },
+      ]),
+    );
+    const imported = parseEditableCustomPresets(
+      JSON.stringify([
+        {
+          id: "future-work",
+          label: "Future Work Updated",
+          promptPrefix: "Suggest three concrete next studies",
+        },
+        {
+          id: "replication-risk",
+          label: "Replication Risk",
+          promptPrefix: "Assess replication risks",
+        },
+      ]),
+    );
+
+    const merged = mergeEditableCustomPresets(existing, imported);
+
+    expect(merged.map((preset) => preset.id)).toEqual([
+      "future-work",
+      "replication-risk",
+    ]);
+    expect(merged[0]).toMatchObject({
+      label: "Future Work Updated",
+    });
   });
 
   it("validates Tavily settings against the Tavily search endpoint", async () => {

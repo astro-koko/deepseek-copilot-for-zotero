@@ -69,105 +69,6 @@
 
       <separator class="thin" />
 
-      <description
-        data-l10n-id="ai-assistant-pref-custom-presets-title"
-        style="font-weight: 600"
-      />
-      <description data-l10n-id="ai-assistant-pref-custom-presets-help" />
-      <html:div
-        style="
-          padding: 10px 12px;
-          border: 1px solid rgba(0, 0, 0, 0.12);
-          border-radius: 8px;
-          background: rgba(0, 0, 0, 0.02);
-          line-height: 1.5;
-        "
-      >
-        <html:strong
-          data-l10n-id="ai-assistant-pref-custom-presets-visual-title"
-        ></html:strong>
-        <html:div
-          data-l10n-id="ai-assistant-pref-custom-presets-visual-help"
-          style="margin-top: 4px"
-        ></html:div>
-      </html:div>
-      <html:div
-        style="
-          display: flex;
-          gap: 8px;
-          align-items: center;
-          flex-wrap: wrap;
-          margin-top: 2px;
-        "
-      >
-        <button
-          id="zotero-ai-assistant-pref-custom-presets-add"
-          label="Add custom command"
-          data-l10n-id="ai-assistant-pref-custom-presets-add"
-        />
-        <button
-          id="zotero-ai-assistant-pref-custom-presets-reset"
-          label="Restore built-in commands"
-          data-l10n-id="ai-assistant-pref-custom-presets-reset"
-        />
-      </html:div>
-      <html:div
-        id="zotero-ai-assistant-pref-custom-presets-editor"
-        style="
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          width: 100%;
-        "
-      ></html:div>
-      <html:textarea
-        id="zotero-ai-assistant-pref-custom-presets"
-        spellcheck="false"
-        style="
-          min-height: 120px;
-          width: 100%;
-          box-sizing: border-box;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: 12px;
-          padding: 8px;
-          border-radius: 6px;
-          display: none;
-        "
-        readonly="readonly"
-      ></html:textarea>
-      <html:details>
-        <html:summary
-          data-l10n-id="ai-assistant-pref-custom-presets-advanced"
-          style="cursor: pointer; user-select: none"
-        >
-          Advanced JSON
-        </html:summary>
-        <description
-          data-l10n-id="ai-assistant-pref-custom-presets-advanced-help"
-        />
-        <html:textarea
-          id="zotero-ai-assistant-pref-custom-presets-preview"
-          spellcheck="false"
-          readonly="readonly"
-          style="
-            min-height: 140px;
-            width: 100%;
-            box-sizing: border-box;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 12px;
-            padding: 8px;
-            border-radius: 6px;
-            margin-top: 6px;
-          "
-        ></html:textarea>
-      </html:details>
-      <description
-        id="zotero-ai-assistant-pref-custom-presets-status"
-        style="margin-top: -4px"
-      />
-
-      <separator class="thin" />
-
       <description data-l10n-id="ai-assistant-pref-evidence-description" />
 
       <vbox style="display: flex; flex-direction: column; gap: 6px">
@@ -255,6 +156,183 @@
           />
         </hbox>
       </vbox>
+
+      <separator class="thin" />
+
+      <description
+        data-l10n-id="ai-assistant-pref-commands-title"
+        style="font-weight: 600"
+      />
+      <description data-l10n-id="ai-assistant-pref-commands-help" />
+      <description
+        data-l10n-id="ai-assistant-pref-custom-presets-title"
+        style="font-weight: 600"
+      />
+      <description data-l10n-id="ai-assistant-pref-custom-presets-help" />
+      <html:div
+        style="
+          padding: 10px 12px;
+          border: 1px solid rgba(0, 0, 0, 0.12);
+          border-radius: 8px;
+          background: rgba(0, 0, 0, 0.02);
+          line-height: 1.5;
+        "
+      >
+        <html:strong
+          data-l10n-id="ai-assistant-pref-custom-presets-visual-title"
+        ></html:strong>
+        <html:div
+          data-l10n-id="ai-assistant-pref-custom-presets-visual-help"
+          style="margin-top: 4px"
+        ></html:div>
+      </html:div>
+      <html:div
+        style="
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          flex-wrap: wrap;
+          margin-top: 2px;
+        "
+      >
+        <button
+          id="zotero-ai-assistant-pref-custom-presets-add"
+          label="Add custom command"
+          data-l10n-id="ai-assistant-pref-custom-presets-add"
+        />
+        <button
+          id="zotero-ai-assistant-pref-custom-presets-reset"
+          label="Restore built-in commands"
+          data-l10n-id="ai-assistant-pref-custom-presets-reset"
+        />
+      </html:div>
+      <html:div
+        id="zotero-ai-assistant-pref-custom-presets-editor"
+        style="
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          width: 100%;
+        "
+      ></html:div>
+      <html:textarea
+        id="zotero-ai-assistant-pref-custom-presets"
+        spellcheck="false"
+        style="
+          min-height: 120px;
+          width: 100%;
+          box-sizing: border-box;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 12px;
+          padding: 8px;
+          border-radius: 6px;
+          display: none;
+        "
+        readonly="readonly"
+      ></html:textarea>
+      <html:details id="zotero-ai-assistant-pref-custom-presets-import">
+        <html:summary
+          data-l10n-id="ai-assistant-pref-custom-presets-import"
+          style="cursor: pointer; user-select: none"
+        >
+          Import from JSON
+        </html:summary>
+        <description
+          data-l10n-id="ai-assistant-pref-custom-presets-import-help"
+        />
+        <html:div
+          style="
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+          "
+        >
+          <button
+            id="zotero-ai-assistant-pref-custom-presets-copy-ai-prompt"
+            label="Copy AI prompt"
+            data-l10n-id="ai-assistant-pref-custom-presets-copy-ai-prompt"
+          />
+          <html:a
+            id="zotero-ai-assistant-pref-custom-presets-docs-link"
+            href="https://github.com/astro-koko/deepseek-copilot-for-zotero/blob/main/docs/custom-commands.md"
+            data-l10n-id="ai-assistant-pref-custom-presets-docs-link"
+            style="color: #0a66cc; text-decoration: underline; cursor: pointer"
+          ></html:a>
+        </html:div>
+        <html:textarea
+          id="zotero-ai-assistant-pref-custom-presets-import-editor"
+          spellcheck="false"
+          style="
+            min-height: 120px;
+            width: 100%;
+            box-sizing: border-box;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 12px;
+            padding: 8px;
+            border-radius: 6px;
+            margin-top: 6px;
+          "
+        ></html:textarea>
+        <html:div
+          style="
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+          "
+        >
+          <button
+            id="zotero-ai-assistant-pref-custom-presets-validate-import"
+            label="Validate and preview"
+            data-l10n-id="ai-assistant-pref-custom-presets-validate-import"
+          />
+          <button
+            id="zotero-ai-assistant-pref-custom-presets-apply-import"
+            label="Apply import"
+            data-l10n-id="ai-assistant-pref-custom-presets-apply-import"
+            disabled="disabled"
+          />
+        </html:div>
+        <html:div
+          id="zotero-ai-assistant-pref-custom-presets-import-preview"
+          style="
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 8px;
+          "
+        ></html:div>
+      </html:details>
+      <html:details>
+        <html:summary
+          data-l10n-id="ai-assistant-pref-custom-presets-advanced"
+          style="cursor: pointer; user-select: none"
+        >
+          Advanced JSON
+        </html:summary>
+        <description
+          data-l10n-id="ai-assistant-pref-custom-presets-advanced-help"
+        />
+        <html:textarea
+          id="zotero-ai-assistant-pref-custom-presets-preview"
+          spellcheck="false"
+          style="
+            min-height: 140px;
+            width: 100%;
+            box-sizing: border-box;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 12px;
+            padding: 8px;
+            border-radius: 6px;
+            margin-top: 6px;
+          "
+        ></html:textarea>
+      </html:details>
+      <description
+        id="zotero-ai-assistant-pref-custom-presets-status"
+        style="margin-top: -4px"
+      />
     </vbox>
   </groupbox>
 </vbox>
