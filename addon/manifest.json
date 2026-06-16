@@ -2,6 +2,7 @@
   "manifest_version": 2,
   "name": "__addonName__",
   "version": "__buildVersion__",
+  "version_name": "__buildVersionName__",
   "description": "__description__",
   "homepage_url": "__homepage__",
   "author": "__author__",

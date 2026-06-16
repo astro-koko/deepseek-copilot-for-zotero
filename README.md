@@ -8,15 +8,15 @@
 
 `Deepseek Copliot` 面向“边读边问”的论文场景：你可以在文库里选中一篇论文后直接提问，在 PDF Reader 里选中文本后发起解释或追问，并按需开启联网查证，而不用在 Zotero、浏览器聊天页和临时笔记之间来回切换。
 
-当前最新公开发布版本是 `v0.9.3`。这一版重点补齐稳定的 GitHub XPI release 资产、社区收录入口和对外发布素材，让插件更容易被 Zotero 用户发现、安装和转发。
+当前最新公开发布版本是 `v0.9.4`。这一版重点改善侧栏对话布局，让活跃线程更稳定地聚焦在消息记录和底部输入框上。
 
 > 仓库对外名称使用 `Deepseek Copliot`。当前插件内部历史 ID 与部分界面文案仍保留 `Deepseek Copliot`，在插件界面里看到这个名字是正常的，不影响安装和使用。
 
-## v0.9.3 重点更新
+## v0.9.4 重点更新
 
-- GitHub tag 现在可以自动产出稳定的 `.xpi` release 资产和 `update*.json` 清单
-- 仓库首页改成更适合普通 Zotero 使用者的安装入口，而不只是开发说明
-- 已准备好提交到 scraper-powered Zotero 插件社区的数据和发布文案
+- 侧栏聊天输入框稳定停靠在底部，消息区独立滚动
+- 线程已有消息后隐藏欢迎文案和建议操作，避免干扰活跃对话
+- 对话布局更聚焦于 transcript，而不是空状态外壳
 - 当前单篇 `pdf` / 单篇 `paper` 全文问答能力延续自 `0.9.2`，包括真实 Zotero 打包安装与冷重启 smoke 验证
 
 ## 你会在哪里用到它
@@ -44,7 +44,7 @@
 
 ## 安装
 
-如果你是普通使用者，最简单的安装方式是从 GitHub Releases 下载 `.xpi` 插件包。当前稳定版本为 `v0.9.3`。
+如果你是普通使用者，最简单的安装方式是从 GitHub Releases 下载 `.xpi` 插件包。当前稳定版本为 `v0.9.4`。
 
 1. 打开本仓库的 GitHub Releases 页面。
 2. 下载最新的 `Deepseek.Copliot-<version>.xpi`。
@@ -127,7 +127,9 @@ npm run verify:xpi
 补充说明：
 
 - `.env` 和 `.scaffold/` 只用于本地开发与 smoke 测试，不属于公开 release 路径
+- 开发期真实安装调试包使用 `npm run build:dev:xpi`，产物名会带 `-dev.<编号>`；正式发布验收使用 `npm run build:release:xpi`，版本号保持干净
 - 开发与打包前请先看 [docs/zotero-dev-workbench.md](docs/zotero-dev-workbench.md)
+- issue、spec、agent 拆分和真实 Zotero smoke 闭环见 [docs/agent-dev-workflow.md](docs/agent-dev-workflow.md)
 - 公开 release smoke 请使用全新的 clean profile，不要预注入 `DEEPSEEK_API_KEY`、`TAVILY_API_KEY`，也不要复用旧线程数据库。细则见 [docs/zotero-dev-smoke-checklist.md](docs/zotero-dev-smoke-checklist.md)
 
 ## 仓库结构

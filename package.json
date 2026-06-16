@@ -22,6 +22,8 @@
     "check": "npm run privacy:check && npm test && npm run build && npm run verify:xpi",
     "privacy:check": "node scripts/privacy-check.mjs",
     "smoke:xpi": "npm run build && npm run verify:xpi",
+    "build:dev:xpi": "DS_COPILOT_BUILD_CHANNEL=dev DS_COPILOT_DEV_NUMBER=$(node scripts/dev-build-number.mjs) npm run smoke:xpi",
+    "build:release:xpi": "DS_COPILOT_BUILD_CHANNEL=release npm run smoke:xpi",
     "verify:xpi": "node scripts/verify-build-artifact.mjs",
     "lint:check": "prettier --check . && eslint .",
     "lint:fix": "prettier --write . && eslint . --fix",

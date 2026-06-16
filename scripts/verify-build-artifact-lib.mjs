@@ -1,4 +1,5 @@
 import path from "node:path";
+import { buildAddonVersionMetadata } from "./build-version-lib.mjs";
 
 const ALLOWED_ARCHIVE_TOP_LEVEL_ENTRIES = new Set([
   "bootstrap.js",
@@ -19,21 +20,23 @@ function normalizeArchiveEntry(entry) {
   return entry.replace(/\\/g, "/").replace(/^\.\//, "").trim();
 }
 
-export function buildVerificationContext({ buildRoot, pkg }) {
-  const xpiFileName = `${pkg.config.addonName.replace(/\s+/g, ".")}-${pkg.version}.xpi`;
+export function buildVerificationContext({ buildRoot, pkg, env = process.env }) {
+  const addonVersion = buildAddonVersionMetadata({
+    baseVersion: pkg.version,
+    env,
+  });
+  const xpiFileName = `${pkg.config.addonName.replace(/\s+/g, ".")}-${addonVersion.xpiVersion}.xpi`;
   const xpiPath = path.join(
     buildRoot,
     xpiFileName,
   );
-  const updateJsonName = pkg.version.includes("-")
-    ? "update-beta.json"
-    : "update.json";
 
   return {
     xpiPath,
+    addonVersion,
     requiredFiles: [
       xpiPath,
-      path.join(buildRoot, updateJsonName),
+      path.join(buildRoot, addonVersion.updateJsonName),
       path.join(buildRoot, "addon/bootstrap.js"),
       path.join(buildRoot, "addon/manifest.json"),
       path.join(buildRoot, "addon/prefs.js"),
