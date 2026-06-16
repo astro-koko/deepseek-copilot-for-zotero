@@ -16,27 +16,6 @@ import {
 import { registerSidebarRefreshHandler } from "./sidebarRuntime";
 import { typography } from "./typography";
 
-interface AIAssistantWindow extends Window {
-  __aiAssistantEventBus?: EventTarget;
-  __aiAssistantTabObserverId?: string | null;
-  MozXULElement?: {
-    insertFTLIfNeeded?: (path: string) => void;
-  };
-  ZoteroPane?: {
-    getSelectedItems?: () => unknown[];
-    itemPane?: {
-      collapsed?: boolean;
-    };
-  };
-  ZoteroContextPane?: {
-    collapsed?: boolean;
-    togglePane?: () => void;
-  };
-  Zotero_Tabs?: {
-    selectedType?: string;
-  };
-}
-
 interface ItemMessagePaneLike extends HTMLElement {
   renderCustomHead?(
     callback?: (args: {
@@ -62,19 +41,19 @@ const LEGACY_STANDALONE_ARTIFACT_IDS = [
   "zotero-ai-assistant-tb-chat-toggle",
 ];
 
-const windowHosts = new WeakMap<AIAssistantWindow, SidebarHostState>();
-const windowRefreshCleanup = new WeakMap<AIAssistantWindow, () => void>();
+const windowHosts = new WeakMap<Window, SidebarHostState>();
+const windowRefreshCleanup = new WeakMap<Window, () => void>();
 const windowSectionRefresh = new WeakMap<
-  AIAssistantWindow,
+  Window,
   () => Promise<void>
 >();
-const windowScopeRetryTimer = new WeakMap<AIAssistantWindow, number>();
+const windowScopeRetryTimer = new WeakMap<Window, number>();
 const windowLibraryEmptyStateRetryTimer = new WeakMap<
-  AIAssistantWindow,
+  Window,
   number
 >();
 const windowLibraryEmptyStateRetryBudget = new WeakMap<
-  AIAssistantWindow,
+  Window,
   number
 >();
 const BRANDED_SECTION_ICON =
@@ -85,7 +64,7 @@ let reactDomClientPromise: Promise<typeof import("react-dom/client")> | null =
   null;
 
 export class UIFactory {
-  static registerChatPanel(win: AIAssistantWindow) {
+  static registerChatPanel(win: Window) {
     this.removeLegacyStandaloneArtifacts(win);
     this.registerSection();
     this.ensureWindowRefreshRegistration(win);
@@ -93,7 +72,7 @@ export class UIFactory {
     this.refreshWindow(win);
   }
 
-  static removeChatPanel(win: AIAssistantWindow) {
+  static removeChatPanel(win: Window) {
     const hosts = windowHosts.get(win);
     if (hosts) {
       [hosts.library, hosts.reader].forEach((hostState) => {
@@ -116,21 +95,21 @@ export class UIFactory {
     this.removeLegacyStandaloneArtifacts(win);
   }
 
-  static refreshWindow(win: AIAssistantWindow) {
+  static refreshWindow(win: Window) {
     void this.requestSectionRefresh(win);
     this.syncLibraryEmptyStateHost(win);
   }
 
   static refreshAllWindows() {
     for (const win of Zotero.getMainWindows()) {
-      this.refreshWindow(win as AIAssistantWindow);
+      this.refreshWindow(win);
     }
   }
 
   static shutdown() {
     for (const win of Zotero.getMainWindows()) {
       try {
-        this.removeChatPanel(win as AIAssistantWindow);
+        this.removeChatPanel(win);
       } catch {
         // Ignore teardown issues while shutting down.
       }
@@ -200,7 +179,7 @@ export class UIFactory {
       return;
     }
 
-    const win = body.ownerDocument.defaultView as AIAssistantWindow | null;
+    const win = body.ownerDocument.defaultView as Window | null;
     if (!win) {
       const host = createFallbackSidebarHost(location, body.ownerDocument);
       attachSidebarHost(body, host);
@@ -244,7 +223,7 @@ export class UIFactory {
     });
   }
 
-  private static ensureWindowRefreshRegistration(win: AIAssistantWindow) {
+  private static ensureWindowRefreshRegistration(win: Window) {
     if (windowRefreshCleanup.has(win)) {
       return;
     }
@@ -258,7 +237,7 @@ export class UIFactory {
     windowRefreshCleanup.set(win, unregister);
   }
 
-  private static ensureTabSelectionRefreshRegistration(win: AIAssistantWindow) {
+  private static ensureTabSelectionRefreshRegistration(win: Window) {
     if (win.__aiAssistantTabObserverId) {
       return;
     }
@@ -287,7 +266,7 @@ export class UIFactory {
     }
   }
 
-  private static removeTabSelectionRefreshRegistration(win: AIAssistantWindow) {
+  private static removeTabSelectionRefreshRegistration(win: Window) {
     const observerId = win.__aiAssistantTabObserverId;
     if (!observerId) {
       return;
@@ -301,7 +280,7 @@ export class UIFactory {
     win.__aiAssistantTabObserverId = null;
   }
 
-  private static ensureWindowHosts(win: AIAssistantWindow): SidebarHostState {
+  private static ensureWindowHosts(win: Window): SidebarHostState {
     const existing = windowHosts.get(win);
     if (existing) {
       return existing;
@@ -320,7 +299,7 @@ export class UIFactory {
       return;
     }
 
-    const win = body.ownerDocument.defaultView as AIAssistantWindow | null;
+    const win = body.ownerDocument.defaultView as Window | null;
     if (!win) {
       return;
     }
@@ -329,7 +308,7 @@ export class UIFactory {
   }
 
   private static syncSectionScope(body: SectionRenderBody, tabType: string) {
-    const win = body.ownerDocument.defaultView as AIAssistantWindow | null;
+    const win = body.ownerDocument.defaultView as Window | null;
     const eventBus = win?.__aiAssistantEventBus ?? EventBus.getInstance();
     const initialScope = getCurrentScope();
     this.dispatchScopeChange(eventBus, initialScope, win);
@@ -352,7 +331,7 @@ export class UIFactory {
   private static dispatchScopeChange(
     eventBus: EventTarget,
     scope: ReturnType<typeof getCurrentScope>,
-    win?: AIAssistantWindow | null,
+    win?: Window | null,
   ) {
     eventBus.dispatchEvent(createHostCustomEvent("scopeChange", scope, win));
   }
@@ -364,7 +343,7 @@ export class UIFactory {
     return left?.type === right?.type && left?.id === right?.id;
   }
 
-  private static clearScopeRetryTimer(win: AIAssistantWindow) {
+  private static clearScopeRetryTimer(win: Window) {
     const retryTimer = windowScopeRetryTimer.get(win);
     if (retryTimer == null) {
       return;
@@ -375,7 +354,7 @@ export class UIFactory {
   }
 
   private static async requestSectionRefresh(
-    win: AIAssistantWindow,
+    win: Window,
   ): Promise<void> {
     try {
       await windowSectionRefresh.get(win)?.();
@@ -384,7 +363,7 @@ export class UIFactory {
     }
   }
 
-  private static syncLibraryEmptyStateHost(win: AIAssistantWindow): void {
+  private static syncLibraryEmptyStateHost(win: Window): void {
     const selectedLocation = this.getSelectedLocation(win);
     if (selectedLocation !== "library") {
       this.clearLibraryEmptyStateRetryTimer(win);
@@ -407,7 +386,7 @@ export class UIFactory {
   }
 
   private static renderLibraryEmptyStateHead(
-    win: AIAssistantWindow,
+    win: Window,
     shouldRender: boolean,
   ): boolean {
     const messagePane = this.getLibraryMessagePane(win.document);
@@ -445,7 +424,7 @@ export class UIFactory {
   }
 
   private static getOrCreateLibraryMessageHeadHost(
-    win: AIAssistantWindow,
+    win: Window,
   ): SidebarSurfaceHost {
     const hosts = this.ensureWindowHosts(win);
     const existing = hosts.library;
@@ -473,7 +452,7 @@ export class UIFactory {
     ) as ItemMessagePaneLike | null;
   }
 
-  private static scheduleLibraryEmptyStateRetry(win: AIAssistantWindow): void {
+  private static scheduleLibraryEmptyStateRetry(win: Window): void {
     if (windowLibraryEmptyStateRetryTimer.has(win)) {
       return;
     }
@@ -492,7 +471,7 @@ export class UIFactory {
   }
 
   private static clearLibraryEmptyStateRetryTimer(
-    win: AIAssistantWindow,
+    win: Window,
   ): void {
     const retryTimer = windowLibraryEmptyStateRetryTimer.get(win);
     if (retryTimer == null) {
@@ -504,7 +483,7 @@ export class UIFactory {
   }
 
   private static ensureHostBootstrapped(
-    win: AIAssistantWindow,
+    win: Window,
     hostState: SidebarSurfaceHost,
     location: SidebarLocation,
   ): Promise<void> {
@@ -554,19 +533,19 @@ export class UIFactory {
     }
 
     const win = body?.ownerDocument?.defaultView as
-      | AIAssistantWindow
+      | Window
       | null
       | undefined;
     return win ? this.getSelectedLocation(win) : null;
   }
 
   private static getSelectedLocation(
-    win: AIAssistantWindow,
+    win: Window,
   ): SidebarLocation | null {
     return resolveSidebarLocation(win.Zotero_Tabs?.selectedType || "");
   }
 
-  private static async getReactDomClient(win: AIAssistantWindow) {
+  private static async getReactDomClient(win: Window) {
     if (!reactDomClientPromise) {
       this.bindDomGlobals(win);
       reactDomClientPromise = import("react-dom/client");
@@ -574,7 +553,7 @@ export class UIFactory {
     return reactDomClientPromise;
   }
 
-  private static bindDomGlobals(win: AIAssistantWindow) {
+  private static bindDomGlobals(win: Window) {
     const globalScope = globalThis as typeof globalThis & {
       document?: Document;
       navigator?: Navigator;
@@ -593,7 +572,7 @@ export class UIFactory {
   }
 
   private static removeStaleMounts(
-    win: AIAssistantWindow,
+    win: Window,
     mountId: string,
     keepMount: HTMLElement,
   ) {
@@ -608,7 +587,7 @@ export class UIFactory {
     });
   }
 
-  private static removeLegacyStandaloneArtifacts(win: AIAssistantWindow) {
+  private static removeLegacyStandaloneArtifacts(win: Window) {
     const root = (win.document.documentElement ||
       win.document.body) as ParentNode | null;
     for (const artifactId of LEGACY_STANDALONE_ARTIFACT_IDS) {

@@ -6,10 +6,19 @@ import { describe, expect, it } from "vitest";
 describe("preferences locale copy", () => {
   it("documents the custom suggested action JSON editor", () => {
     expect(enPreferences).toContain(
-      "ai-assistant-pref-custom-presets-title = Custom suggested actions",
+      "ai-assistant-pref-custom-presets-title = Custom commands",
     );
     expect(zhPreferences).toContain(
-      "ai-assistant-pref-custom-presets-title = 自定义建议操作",
+      "ai-assistant-pref-custom-presets-title = 自定义命令",
+    );
+  });
+
+  it("labels the visual command manager explicitly", () => {
+    expect(enPreferences).toContain(
+      "ai-assistant-pref-custom-presets-visual-title = Visual command manager",
+    );
+    expect(zhPreferences).toContain(
+      "ai-assistant-pref-custom-presets-visual-title = 可视化命令管理",
     );
   });
 

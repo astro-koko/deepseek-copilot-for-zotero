@@ -1,14 +1,18 @@
-/**
- * Reader integration: text selection popup and context menu.
- *
- * Registers Zotero.Reader event listeners for:
- * 1. renderTextSelectionPopup — adds "Explain" and "Ask..." buttons
- * 2. createViewContextMenu — adds "Explain Selection" and "Ask..." items
- *
- * Dispatches events via __aiAssistantEventBus so the UI can respond.
- */
-
 import type { ReaderActionDetail } from "../ui/readerActionFlow";
+import { getReaderCurrentPage, getReaderSelectedText } from "./readerPrivate";
+import { createTraceId, debugLog } from "../utils/debugLog";
+
+type ReaderSelectionPopupEvent = Parameters<
+  typeof Zotero.Reader.registerEventListener<"renderTextSelectionPopup">
+>[1] extends (event: infer T) => unknown
+  ? T
+  : never;
+
+type ReaderViewContextMenuEvent = Parameters<
+  typeof Zotero.Reader.registerEventListener<"createViewContextMenu">
+>[1] extends (event: infer T) => unknown
+  ? T
+  : never;
 
 function isChineseLocale(): boolean {
   try {
@@ -22,8 +26,12 @@ function isChineseLocale(): boolean {
   }
 }
 
-let popupHandler: ((event: any) => void) | null = null;
-let contextMenuHandler: ((event: any) => void) | null = null;
+let popupHandler:
+  | ((event: ReaderSelectionPopupEvent) => void | Promise<void>)
+  | null = null;
+let contextMenuHandler:
+  | ((event: ReaderViewContextMenuEvent) => void | Promise<void>)
+  | null = null;
 
 function dispatchReaderAction(
   action: ReaderActionDetail["action"],
@@ -31,18 +39,52 @@ function dispatchReaderAction(
   page: number,
   readerItemID: number,
 ): void {
-  const win = Zotero.getMainWindow();
-  const eventBus = (win as any)?.__aiAssistantEventBus;
-  if (!eventBus) return;
+  const traceId = createTraceId(`reader-${action}`);
   const normalizedText = text.trim();
-  if (!normalizedText) return;
+  const win = Zotero.getMainWindow();
+  const eventBus = (win as Window & { __aiAssistantEventBus?: EventTarget } | null)
+    ?.__aiAssistantEventBus;
+  if (!normalizedText) {
+    debugLog.warn("reader.action.blocked", {
+      action,
+      page,
+      readerItemID,
+      reason: "empty-selection",
+      selectedTextChars: 0,
+      surface: "reader",
+      traceId,
+    });
+    return;
+  }
+  if (!eventBus) {
+    debugLog.warn("reader.action.blocked", {
+      action,
+      page,
+      readerItemID,
+      reason: "missing-event-bus",
+      selectedTextChars: normalizedText.length,
+      surface: "reader",
+      traceId,
+    });
+    return;
+  }
 
   const detail: ReaderActionDetail = {
     action,
     text: normalizedText,
     page,
     readerItemID,
+    traceId,
   };
+
+  debugLog.info("reader.action.dispatch", {
+    action,
+    page,
+    readerItemID,
+    selectedTextChars: normalizedText.length,
+    surface: "reader",
+    traceId,
+  });
 
   eventBus.dispatchEvent(
     new win.CustomEvent("readerSelectionAction", {
@@ -51,17 +93,53 @@ function dispatchReaderAction(
   );
 }
 
-function onRenderTextSelectionPopup(event: any): void {
+function onRenderTextSelectionPopup(event: ReaderSelectionPopupEvent): void {
   const { reader, doc, params, append } = event;
 
-  if (reader?.type !== "pdf") return;
+  if (reader?.type !== "pdf") {
+    debugLog.debug("reader.popup.skip", {
+      reason: "non-pdf-reader",
+      readerType: String(reader?.type || ""),
+      surface: "reader",
+    });
+    return;
+  }
 
-  const annotationText = params?.annotation?.text;
-  if (!annotationText) return;
+  const annotation = params?.annotation as
+    | { pageIndex?: number; text?: string }
+    | undefined;
+  const annotationText = annotation?.text || "";
+  if (!annotationText.trim()) {
+    debugLog.warn("reader.popup.skip", {
+      hasSelection: false,
+      reason: "empty-annotation-text",
+      readerItemID: reader?.itemID,
+      selectedTextChars: 0,
+      surface: "reader",
+    });
+    return;
+  }
 
-  const page = (params.annotation.pageIndex ?? 0) + 1;
+  const page = (annotation.pageIndex ?? 0) + 1;
   const readerItemID = reader?.itemID;
-  if (!readerItemID) return;
+  if (!readerItemID) {
+    debugLog.warn("reader.popup.skip", {
+      hasSelection: true,
+      page,
+      reason: "missing-reader-item-id",
+      selectedTextChars: annotationText.trim().length,
+      surface: "reader",
+    });
+    return;
+  }
+
+  debugLog.info("reader.popup.render", {
+    hasSelection: true,
+    page,
+    readerItemID,
+    selectedTextChars: annotationText.trim().length,
+    surface: "reader",
+  });
 
   const container = doc.createElement("div");
   container.className = "ai-assistant-selection-popup";
@@ -98,38 +176,33 @@ function onRenderTextSelectionPopup(event: any): void {
   append(container);
 }
 
-function onCreateViewContextMenu(event: any): void {
+function onCreateViewContextMenu(event: ReaderViewContextMenuEvent): void {
   const { reader, append } = event;
 
-  if (reader?.type !== "pdf") return;
+  if (reader?.type !== "pdf") {
+    debugLog.debug("reader.contextMenu.skip", {
+      reason: "non-pdf-reader",
+      readerType: String(reader?.type || ""),
+      surface: "reader",
+    });
+    return;
+  }
 
   const readerItemID = reader?.itemID;
 
-  let selectedText: string | null = null;
-  try {
-    const primaryView = reader?._internalReader?._primaryView;
-    if (primaryView?._selectionRanges?.length > 0) {
-      selectedText = primaryView._selectionRanges
-        .map((range: any) => range.text)
-        .join("\n\n");
-    }
-  } catch (_e) {
-    // Graceful fallback
-  }
-
-  let page = 1;
-  try {
-    const pdfViewer = reader?._internalReader?._primaryView
-      ?._iframeWindow?.PDFViewerApplication?.pdfViewer;
-    if (pdfViewer?.currentPageNumber) {
-      page = pdfViewer.currentPageNumber;
-    }
-  } catch (_e) {
-    // Fallback to page 1
-  }
+  const selectedText = getReaderSelectedText(reader);
+  const page = getReaderCurrentPage(reader) ?? 1;
 
   const hasSelection = !!selectedText && selectedText.length > 0;
   const zh = isChineseLocale();
+
+  debugLog.info("reader.contextMenu.create", {
+    hasSelection,
+    page,
+    readerItemID,
+    selectedTextChars: selectedText?.length || 0,
+    surface: "reader",
+  });
 
   append(
     {
@@ -139,7 +212,16 @@ function onCreateViewContextMenu(event: any): void {
       onCommand: () => {
         if (selectedText && readerItemID) {
           dispatchReaderAction("explain", selectedText, page, readerItemID);
+          return;
         }
+        debugLog.warn("reader.action.blocked", {
+          action: "explain",
+          page,
+          readerItemID,
+          reason: selectedText ? "missing-reader-item-id" : "empty-selection",
+          selectedTextChars: selectedText?.length || 0,
+          surface: "reader",
+        });
       },
     },
     {
@@ -149,24 +231,27 @@ function onCreateViewContextMenu(event: any): void {
       onCommand: () => {
         if (selectedText && readerItemID) {
           dispatchReaderAction("ask", selectedText, page, readerItemID);
+          return;
         }
+        debugLog.warn("reader.action.blocked", {
+          action: "ask",
+          page,
+          readerItemID,
+          reason: selectedText ? "missing-reader-item-id" : "empty-selection",
+          selectedTextChars: selectedText?.length || 0,
+          surface: "reader",
+        });
       },
     },
   );
 }
 
-function removeListenerSafely(type: string, handler: (...args: unknown[]) => unknown): boolean {
-  const reader = Zotero?.Reader as any;
-  const listeners = reader?._registeredListeners;
-  if (!Array.isArray(listeners)) return false;
-  reader._registeredListeners = listeners.filter(
-    (l: any) => !(l?.type === type && l?.handler === handler),
-  );
-  return true;
-}
-
 export function initReaderIntegration(): void {
   if (typeof Zotero?.Reader?.registerEventListener !== "function") {
+    debugLog.warn("reader.integration.skip", {
+      reason: "reader-api-unavailable",
+      surface: "reader",
+    });
     ztoolkit.log("readerIntegration: Reader API not available, skipping");
     return;
   }
@@ -187,16 +272,19 @@ export function initReaderIntegration(): void {
     addon.data.config.addonID,
   );
 
+  debugLog.info("reader.integration.registered", {
+    surface: "reader",
+  });
   ztoolkit.log("readerIntegration: Registered reader event listeners");
 }
 
 export function cleanupReaderIntegration(): void {
   if (popupHandler) {
-    removeListenerSafely("renderTextSelectionPopup", popupHandler);
+    Zotero.Reader.unregisterEventListener("renderTextSelectionPopup", popupHandler);
     popupHandler = null;
   }
   if (contextMenuHandler) {
-    removeListenerSafely("createViewContextMenu", contextMenuHandler);
+    Zotero.Reader.unregisterEventListener("createViewContextMenu", contextMenuHandler);
     contextMenuHandler = null;
   }
 }

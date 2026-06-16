@@ -38,6 +38,7 @@ import { getSidebarTheme } from "../theme";
 import { typography } from "../typography";
 import { isChineseLocale } from "../../utils/locale";
 import { createHostEvent } from "../../utils/domEvents";
+import { debugLog } from "../../utils/debugLog";
 
 const BRAND_ICON_SRC =
   "chrome://zotero-ai-assistant/content/icons/deepseek-favicon.png";
@@ -173,13 +174,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   useEffect(() => {
     const handleReaderSelectionAction = (event: Event) => {
-      const selectedType = (Zotero.getMainWindow() as any)?.Zotero_Tabs
-        ?.selectedType;
+      const selectedType = Zotero.getMainWindow()?.Zotero_Tabs?.selectedType;
+      const detail = (event as CustomEvent).detail as ReaderActionDetail;
       if (selectedType !== location) {
+        debugLog.debug("sidebar.readerAction.ignored", {
+          action: detail?.action,
+          location,
+          reason: "surface-mismatch",
+          selectedType,
+          surface: "sidebar",
+          traceId: detail?.traceId,
+        });
         return;
       }
 
-      const detail = (event as CustomEvent).detail as ReaderActionDetail;
+      debugLog.info("sidebar.readerAction.received", {
+        action: detail.action,
+        location,
+        page: detail.page,
+        readerItemID: detail.readerItemID,
+        selectedTextChars: detail.text?.trim?.().length || 0,
+        surface: "sidebar",
+        traceId: detail.traceId,
+      });
+
       const prompt = buildReaderActionDraft(detail);
       const currentScope = mergeReaderActionScope(getCurrentScope(), detail);
       setScope(currentScope);
@@ -187,6 +205,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       void (async () => {
         if (!isSupportedChatScope(currentScope)) {
+          debugLog.warn("sidebar.readerAction.blocked", {
+            action: detail.action,
+            reason: "unsupported-scope",
+            scopeId: currentScope?.id,
+            scopeType: currentScope?.type,
+            surface: "sidebar",
+            traceId: detail.traceId,
+          });
           return;
         }
 
@@ -195,6 +221,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         if (detail.action === "explain") {
           setComposerDraft("");
+          debugLog.info("sidebar.readerAction.autoSend", {
+            messageChars: prompt.length,
+            scopeId: currentScope.id,
+            scopeType: currentScope.type,
+            surface: "sidebar",
+            traceId: detail.traceId,
+          });
           await chatSessionStore.send(prompt, currentScope, {
             evidenceEnabled:
               settings.evidenceEnabled && !getEvidenceSettingsIssue(settings),
@@ -204,7 +237,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         setComposerDraft(prompt);
         setComposerFocusNonce((value) => value + 1);
+        debugLog.info("sidebar.readerAction.prefill", {
+          messageChars: prompt.length,
+          scopeId: currentScope.id,
+          scopeType: currentScope.type,
+          surface: "sidebar",
+          traceId: detail.traceId,
+        });
       })().catch((error) => {
+        debugLog.error("sidebar.readerAction.error", error, {
+          action: detail.action,
+          surface: "sidebar",
+          traceId: detail.traceId,
+        });
         ztoolkit.log("Failed to handle reader selection action:", error);
       });
     };

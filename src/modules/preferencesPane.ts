@@ -105,8 +105,8 @@ export function registerPreferencesPane(
       setStatusText(
         getStatusElement(doc),
         zh
-          ? `自定义建议操作 JSON 无效，未保存：${customPresetsResult.error}`
-          : `Custom suggested actions JSON is invalid; not saved: ${customPresetsResult.error}`,
+          ? `自定义命令 JSON 无效，未保存：${customPresetsResult.error}`
+          : `Custom commands JSON is invalid; not saved: ${customPresetsResult.error}`,
         "error",
       );
       return;
@@ -297,7 +297,7 @@ function updateCustomPresetsStatus(
   if (!customPresetsValue.trim()) {
     setStatusText(
       status,
-      zh ? "未添加自定义建议操作" : "No custom suggested actions",
+      zh ? "还没有自定义命令" : "No custom commands yet",
       "success",
     );
     return;
@@ -306,8 +306,8 @@ function updateCustomPresetsStatus(
   setStatusText(
     status,
     zh
-      ? `已读取 ${parsed.presets.length} 个自定义建议操作`
-      : `Loaded ${parsed.presets.length} custom suggested actions`,
+      ? `已读取 ${parsed.presets.length} 个自定义命令`
+      : `Loaded ${parsed.presets.length} custom commands`,
     "success",
   );
 }
@@ -325,59 +325,132 @@ function renderCustomPresetEditor(
 
   const zh = isChineseLocale();
   const rows = presets.length > 0 ? presets : [];
-  const customizedIds = new Set(
-    rows
-      .filter((preset) => preset.enabled || preset.hidden)
-      .map((preset) => preset.id),
+  const builtInPresets = getAllPresets().map((preset) => ({
+    aliasesText: preset.aliases.join(", "),
+    description: preset.description,
+    enabled: false,
+    evidenceHint: Boolean(preset.evidenceHint),
+    group: preset.group,
+    hidden: false,
+    id: preset.id,
+    label: preset.label,
+    promptPrefix: preset.promptPrefix,
+    showInSidebar: Boolean(preset.showInSidebar),
+    scopeHint: preset.scopeHint || ["paper", "pdf"],
+  }));
+  const builtInPresetIds = new Set(builtInPresets.map((preset) => preset.id));
+  const storedRows = rows.filter((preset) => preset.enabled || preset.hidden);
+  const builtInCards = builtInPresets.map(
+    (preset) => storedRows.find((row) => row.id === preset.id) || preset,
   );
-  const fallbackCards: EditableCustomCommandPreset[] = getAllPresets()
-    .filter((preset) => !customizedIds.has(preset.id))
-    .map((preset) => ({
-          aliasesText: preset.aliases.join(", "),
-          description: preset.description,
-          enabled: false,
-          evidenceHint: Boolean(preset.evidenceHint),
-          group: preset.group,
-          hidden: false,
-          id: preset.id,
-          label: preset.label,
-          promptPrefix: preset.promptPrefix,
-          showInSidebar: Boolean(preset.showInSidebar),
-          scopeHint: preset.scopeHint || ["paper", "pdf"],
-        }));
-  const visibleCards = [
-    ...fallbackCards,
-    ...rows.filter((preset) => preset.enabled || preset.hidden),
-  ];
+  const customCards = storedRows.filter(
+    (preset) => !builtInPresetIds.has(preset.id),
+  );
 
-  container.innerHTML = visibleCards
-    .map((preset, index) =>
-      renderCustomPresetCardMarkup(preset, index, zh),
-    )
-    .join("");
+  container.innerHTML = [
+    renderCustomPresetSectionMarkup({
+      cards: builtInCards,
+      description: zh
+        ? "管理内置 slash 命令。你可以直接复制后编辑、隐藏命令，或固定到首页推荐位。"
+        : "Manage the built-in slash commands. You can customize, hide, or pin them to the home panel.",
+      emptyState: "",
+      isBuiltInSection: true,
+      title: zh ? "内置命令" : "Built-in commands",
+      zh,
+    }),
+    renderCustomPresetSectionMarkup({
+      cards: customCards,
+      description: zh
+        ? "添加你自己的 slash 命令。新增后可直接修改标题、提示词和首页展示。"
+        : "Add your own slash commands here. New commands can be edited directly and pinned to the home panel.",
+      emptyState: zh
+        ? "还没有自定义命令，点击“添加自定义命令”开始。"
+        : "No custom commands yet. Use Add custom command to create one.",
+      isBuiltInSection: false,
+      title: zh ? "自定义命令" : "Custom commands",
+      zh,
+    }),
+  ].join("");
 
   bindCustomPresetEditorEvents(doc);
 }
 
-function renderCustomPresetCardMarkup(
-  preset: EditableCustomCommandPreset,
-  index: number,
-  zh: boolean,
-): string {
-  const editable = preset.enabled || preset.hidden;
+function renderCustomPresetSectionMarkup({
+  cards,
+  description,
+  emptyState,
+  isBuiltInSection,
+  title,
+  zh,
+}: {
+  cards: EditableCustomCommandPreset[];
+  description: string;
+  emptyState: string;
+  isBuiltInSection: boolean;
+  title: string;
+  zh: boolean;
+}): string {
+  const content = cards.length
+    ? cards
+        .map((preset, index) =>
+          renderCustomPresetCardMarkup({
+            index,
+            isBuiltIn: isBuiltInSection,
+            preset,
+            zh,
+          }),
+        )
+        .join("")
+    : `<div style="border: 1px dashed rgba(0,0,0,0.18); border-radius: 8px; padding: 12px; color: rgba(0,0,0,0.62);">${escapeHtml(
+        emptyState,
+      )}</div>`;
+
+  return `
+    <section style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <strong>${escapeHtml(title)}</strong>
+        <span style="opacity: 0.78;">${escapeHtml(description)}</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        ${content}
+      </div>
+    </section>
+  `;
+}
+
+function renderCustomPresetCardMarkup({
+  index,
+  isBuiltIn,
+  preset,
+  zh,
+}: {
+  index: number;
+  isBuiltIn: boolean;
+  preset: EditableCustomCommandPreset;
+  zh: boolean;
+}): string {
+  const editable = Boolean(preset.enabled || preset.hidden);
   const scopes = new Set(preset.scopeHint);
   const slash = getPresetSlashCommand({ id: preset.id });
   const escapedPrompt = escapeHtml(preset.promptPrefix);
   const escapedAliases = escapeHtml(preset.aliasesText);
   const escapedDescription = escapeHtml(preset.description);
+  const escapedGroup = escapeHtml(preset.group);
   const escapedId = escapeHtml(preset.id);
   const escapedLabel = escapeHtml(preset.label);
+  const statusBadges = buildPresetStatusBadges({ editable, isBuiltIn, preset, zh });
   return `
-    <div data-custom-preset-card="${index}" style="border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+    <div data-custom-preset-card="${index}" data-custom-preset-built-in="${isBuiltIn ? "true" : "false"}" style="border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: ${preset.hidden ? "rgba(0,0,0,0.02)" : "#fff"};">
       <div style="display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap;">
-        <strong>${zh ? "建议操作" : "Suggested action"} ${index + 1}</strong>
-        <span style="opacity: 0.72;">/${escapeHtml(slash)}</span>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <strong>${isBuiltIn ? (zh ? "内置命令" : "Built-in command") : zh ? "自定义命令" : "Custom command"}</strong>
+          <span style="opacity: 0.72;">/${escapeHtml(slash)}</span>
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          ${statusBadges}
+        </div>
       </div>
+      <input type="hidden" data-custom-preset-field="group" data-custom-preset-index="${index}" value="${escapedGroup}" />
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
         <label style="display: flex; flex-direction: column; gap: 4px; flex: 1 1 160px;">
           <span>${zh ? "命令 ID" : "Command ID"}</span>
@@ -416,17 +489,52 @@ function renderCustomPresetCardMarkup(
             ? `<label><input type="checkbox" data-custom-preset-field="enabled" data-custom-preset-index="${index}" ${preset.hidden ? "" : 'checked="checked"'} /> ${
                 zh ? "启用此命令" : "Enable command"
               }</label>
-        <button type="button" data-custom-preset-action="remove" data-custom-preset-index="${index}">${preset.hidden ? (zh ? "恢复默认命令" : "Restore built-in command") : zh ? "删除自定义项" : "Remove custom entry"}</button>`
+        <button type="button" data-custom-preset-action="remove" data-custom-preset-index="${index}">${preset.hidden ? (zh ? "恢复内置命令" : "Restore built-in command") : isBuiltIn ? (zh ? "恢复默认配置" : "Reset to built-in") : zh ? "删除自定义命令" : "Delete custom command"}</button>`
             : `<button type="button" data-custom-preset-action="copy" data-custom-preset-index="${index}">${
-                zh ? "复制后编辑" : "Copy to customize"
+                zh ? "复制后编辑" : "Customize"
               }</button>
         <button type="button" data-custom-preset-action="hide-default" data-custom-preset-index="${index}">${
-                zh ? "从首页和命令库隐藏" : "Hide built-in command"
+                zh ? "隐藏此内置命令" : "Hide built-in command"
               }</button>`
         }
       </div>
     </div>
   `;
+}
+
+function buildPresetStatusBadges({
+  editable,
+  isBuiltIn,
+  preset,
+  zh,
+}: {
+  editable: boolean;
+  isBuiltIn: boolean;
+  preset: EditableCustomCommandPreset;
+  zh: boolean;
+}): string {
+  const badges: string[] = [];
+  if (isBuiltIn) {
+    badges.push(renderPresetBadge(zh ? "内置" : "Built-in"));
+  } else {
+    badges.push(renderPresetBadge(zh ? "自定义" : "Custom"));
+  }
+  if (editable && !Boolean(preset.hidden)) {
+    badges.push(renderPresetBadge(zh ? "可编辑" : "Editable"));
+  }
+  if (Boolean(preset.hidden)) {
+    badges.push(renderPresetBadge(zh ? "已隐藏" : "Hidden"));
+  }
+  if (Boolean(preset.showInSidebar)) {
+    badges.push(renderPresetBadge(zh ? "首页推荐位" : "Home panel"));
+  }
+  return badges.join("");
+}
+
+function renderPresetBadge(label: string): string {
+  return `<span style="display: inline-flex; align-items: center; border: 1px solid rgba(0,0,0,0.14); border-radius: 999px; padding: 2px 8px; font-size: 11px; opacity: 0.82;">${escapeHtml(
+    label,
+  )}</span>`;
 }
 
 function bindCustomPresetEditorEvents(doc: PreferencesDocument): void {
@@ -546,7 +654,9 @@ function readEditablePresetsFromDom(
       description: readValue("description"),
       enabled: readChecked("enabled"),
       evidenceHint: readChecked("evidenceHint"),
-      group: "reading",
+      group:
+        (readValue("group") as EditableCustomCommandPreset["group"]) ||
+        "reading",
       hidden: !readChecked("enabled"),
       id: readValue("id") || `custom-action-${index + 1}`,
       label: readValue("label"),

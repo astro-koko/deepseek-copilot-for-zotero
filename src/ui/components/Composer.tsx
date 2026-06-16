@@ -6,15 +6,12 @@ import React, {
   useState,
 } from "react";
 import {
-  COMMAND_PRESET_GROUP_ORDER,
   applyPreset,
   expandSlashCommandInput,
   filterPresets,
   getPresetById,
-  getPresetGroupLabel,
   getPresetSlashCommand,
   getPresetWarning,
-  type CommandPreset,
 } from "../../services/presets";
 import type { ScopeType } from "../../types/scope";
 import { getSidebarTheme } from "../theme";
@@ -114,14 +111,6 @@ export const Composer: React.FC<ComposerProps> = ({
     }
     return filterPresets(slashQuery || "", currentScopeType, zh, customPresets);
   }, [currentScopeType, customPresets, slashQuery, zh]);
-  const groupedVisiblePresets = useMemo(
-    () =>
-      COMMAND_PRESET_GROUP_ORDER.map((group) => ({
-        group,
-        presets: visiblePresets.filter((preset) => preset.group === group),
-      })).filter((group) => group.presets.length > 0),
-    [visiblePresets],
-  );
 
   useEffect(() => {
     recordComposerDiagnostic(input, disabled, isStreaming);
@@ -297,13 +286,12 @@ export const Composer: React.FC<ComposerProps> = ({
             borderColor: theme.softBorder,
           }}
         >
-          {renderPresetGroups({
+          {renderPresetList({
             applyPresetToInput,
-            groupedVisiblePresets,
             selectedPresetIndex,
             setSelectedPresetIndex,
             theme,
-            zh,
+            visiblePresets,
           })}
         </div>
       )}
@@ -430,57 +418,36 @@ export const Composer: React.FC<ComposerProps> = ({
   );
 };
 
-function renderPresetGroups({
+function renderPresetList({
   applyPresetToInput,
-  groupedVisiblePresets,
   selectedPresetIndex,
   setSelectedPresetIndex,
   theme,
-  zh,
+  visiblePresets,
 }: {
   applyPresetToInput: (presetId: string) => void;
-  groupedVisiblePresets: Array<{
-    group: CommandPreset["group"];
-    presets: CommandPreset[];
-  }>;
   selectedPresetIndex: number;
   setSelectedPresetIndex: React.Dispatch<React.SetStateAction<number>>;
   theme: ReturnType<typeof getSidebarTheme>;
-  zh: boolean;
+  visiblePresets: ReturnType<typeof filterPresets>;
 }) {
-  let flatIndex = -1;
-
-  return groupedVisiblePresets.map(({ group, presets }) => (
-    <div key={group} style={styles.presetGroup}>
-      <div style={{ ...styles.presetGroupLabel, color: theme.mutedText }}>
-        {getPresetGroupLabel(group, zh)}
-      </div>
-      {presets.map((preset) => {
-        flatIndex += 1;
-        const presetIndex = flatIndex;
-        return (
-          <button
-            key={preset.id}
-            style={{
-              ...styles.presetItem,
-              background:
-                presetIndex === selectedPresetIndex
-                  ? theme.userMessageBackground
-                  : "transparent",
-            }}
-            onClick={() => applyPresetToInput(preset.id)}
-            onMouseEnter={() => setSelectedPresetIndex(presetIndex)}
-          >
-            <span style={{ ...styles.presetLabel, color: theme.text }}>
-              /{getPresetSlashCommand(preset)}
-            </span>
-            <span style={{ ...styles.presetDesc, color: theme.mutedText }}>
-              {preset.label} · {preset.description}
-            </span>
-          </button>
-        );
-      })}
-    </div>
+  return visiblePresets.map((preset, presetIndex) => (
+    <button
+      key={preset.id}
+      style={{
+        ...styles.presetItem,
+        background:
+          presetIndex === selectedPresetIndex
+            ? theme.userMessageBackground
+            : "transparent",
+      }}
+      onClick={() => applyPresetToInput(preset.id)}
+      onMouseEnter={() => setSelectedPresetIndex(presetIndex)}
+    >
+      <span style={{ ...styles.presetLabel, color: theme.text }}>
+        /{getPresetSlashCommand(preset)}
+      </span>
+    </button>
   ));
 }
 
@@ -599,37 +566,18 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 100,
   },
   presetItem: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-    padding: "7px 9px",
+    display: "block",
+    padding: "6px 9px",
     border: "none",
     background: "none",
     width: "100%",
     cursor: "pointer",
     textAlign: "left",
   },
-  presetGroup: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "2px",
-    padding: "6px 0",
-  },
-  presetGroupLabel: {
-    fontSize: typography.caption,
-    fontWeight: 700,
-    letterSpacing: "0.04em",
-    textTransform: "uppercase",
-    padding: "0 9px",
-  },
   presetLabel: {
     fontWeight: 600,
     fontSize: typography.body,
     color: "#333",
-  },
-  presetDesc: {
-    fontSize: typography.meta,
-    color: "#777",
   },
   disabledReason: {
     marginTop: "2px",

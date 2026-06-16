@@ -235,7 +235,7 @@ describe("registerPreferencesPane", () => {
     });
   });
 
-  it("persists custom suggested action JSON and reports the parsed count", async () => {
+  it("persists custom command JSON and reports the parsed count", async () => {
     registerPreferencesPane(createWindow(), deps);
 
     const customPresets =
@@ -252,12 +252,12 @@ describe("registerPreferencesPane", () => {
       tavilyApiKey: "",
     });
     expect(customPresetsStatus.textContent).toBe(
-      "Loaded 1 custom suggested actions",
+      "Loaded 1 custom commands",
     );
     expect(customPresetsStatus.dataset.variant).toBe("success");
   });
 
-  it("does not persist invalid custom suggested action JSON", async () => {
+  it("does not persist invalid custom command JSON", async () => {
     registerPreferencesPane(createWindow(), deps);
 
     customPresetsField.value = "[";
@@ -269,7 +269,7 @@ describe("registerPreferencesPane", () => {
     expect(customPresetsStatus.dataset.variant).toBe("error");
     expect(status.dataset.variant).toBe("error");
     expect(status.textContent).toContain(
-      "Custom suggested actions JSON is invalid; not saved",
+      "Custom commands JSON is invalid; not saved",
     );
   });
 

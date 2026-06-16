@@ -29,6 +29,15 @@ describe("preferences.xhtml", () => {
     );
   });
 
+  it("includes a visual command manager above the custom command editor", () => {
+    expect(preferencesSource).toContain(
+      'data-l10n-id="ai-assistant-pref-custom-presets-visual-title"',
+    );
+    expect(preferencesSource).toContain(
+      'data-l10n-id="ai-assistant-pref-custom-presets-visual-help"',
+    );
+  });
+
   it("uses an explicit select control for choosing the evidence provider", () => {
     expect(preferencesSource).toMatch(
       /<html:select[\s\S]*id="zotero-ai-assistant-pref-evidence-provider"/,

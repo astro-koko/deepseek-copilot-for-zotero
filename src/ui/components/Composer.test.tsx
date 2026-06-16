@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { Composer } from "./Composer";
+import composerSource from "./Composer.tsx?raw";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -82,5 +83,12 @@ describe("Composer layout", () => {
     expect(markup).toContain("font-family:inherit");
     expect(markup).toContain("font-size:1.04em");
     expect(markup).toContain("font-size:0.98em");
+  });
+
+  it("renders slash suggestions without grouped descriptions", () => {
+    expect(composerSource).toContain("renderPresetList");
+    expect(composerSource).not.toContain("renderPresetGroups");
+    expect(composerSource).not.toContain("presetDesc");
+    expect(composerSource).not.toContain("getPresetGroupLabel");
   });
 });

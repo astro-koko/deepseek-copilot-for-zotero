@@ -64,8 +64,28 @@
 
       <separator class="thin" />
 
-      <description data-l10n-id="ai-assistant-pref-custom-presets-title" />
+      <description
+        data-l10n-id="ai-assistant-pref-custom-presets-title"
+        style="font-weight: 600"
+      />
       <description data-l10n-id="ai-assistant-pref-custom-presets-help" />
+      <html:div
+        style="
+          padding: 10px 12px;
+          border: 1px solid rgba(0, 0, 0, 0.12);
+          border-radius: 8px;
+          background: rgba(0, 0, 0, 0.02);
+          line-height: 1.5;
+        "
+      >
+        <html:strong
+          data-l10n-id="ai-assistant-pref-custom-presets-visual-title"
+        ></html:strong>
+        <html:div
+          data-l10n-id="ai-assistant-pref-custom-presets-visual-help"
+          style="margin-top: 4px"
+        ></html:div>
+      </html:div>
       <html:div
         style="
           display: flex;
@@ -77,12 +97,12 @@
       >
         <button
           id="zotero-ai-assistant-pref-custom-presets-add"
-          label="Add custom action"
+          label="Add custom command"
           data-l10n-id="ai-assistant-pref-custom-presets-add"
         />
         <button
           id="zotero-ai-assistant-pref-custom-presets-reset"
-          label="Restore defaults"
+          label="Restore built-in commands"
           data-l10n-id="ai-assistant-pref-custom-presets-reset"
         />
       </html:div>

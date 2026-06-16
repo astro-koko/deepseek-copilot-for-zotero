@@ -35,6 +35,14 @@ describe("Sidebar recent thread layout", () => {
     expect(fallbackIndex).toBeGreaterThan(helperIndex);
   });
 
+  it("records reader handoff receipt and outcomes for debug triage", () => {
+    expect(sidebarSource).toContain("sidebar.readerAction.received");
+    expect(sidebarSource).toContain("sidebar.readerAction.blocked");
+    expect(sidebarSource).toContain("sidebar.readerAction.autoSend");
+    expect(sidebarSource).toContain("sidebar.readerAction.prefill");
+    expect(sidebarSource).toContain("sidebar.readerAction.error");
+  });
+
   it("uses host temp-directory helpers instead of hardcoded /tmp when picker fallback is needed", () => {
     expect(sidebarSource).toContain("PathUtils?.tempDir");
     expect(sidebarSource).toMatch(/OS[\s\S]*Constants[\s\S]*Path[\s\S]*tmpDir/);

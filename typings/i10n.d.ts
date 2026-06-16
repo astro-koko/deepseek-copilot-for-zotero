@@ -42,6 +42,8 @@ export type FluentMessageId =
   | 'ai-assistant-pref-custom-presets-help'
   | 'ai-assistant-pref-custom-presets-reset'
   | 'ai-assistant-pref-custom-presets-title'
+  | 'ai-assistant-pref-custom-presets-visual-help'
+  | 'ai-assistant-pref-custom-presets-visual-title'
   | 'ai-assistant-pref-description'
   | 'ai-assistant-pref-evidence-description'
   | 'ai-assistant-pref-evidence-provider-builtin'
