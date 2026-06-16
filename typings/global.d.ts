@@ -17,8 +17,8 @@ declare interface Window {
     insertFTLIfNeeded?: (ftlPath: string) => void;
   };
   ZoteroPane?: {
-    collectionsView?: {
-      getRow?: (index: unknown) => {
+    collectionsView?: false | {
+      getRow?: (index: number) => {
         isCollection?: () => boolean;
         ref?: {
           getChildItems?: (includeTrashed?: boolean) => number[] | null;
@@ -28,13 +28,11 @@ declare interface Window {
         };
       } | null;
       selection?: {
-        currentIndex?: unknown;
+        currentIndex?: number | string | null;
       };
     };
     getSelectedItems?: () => Zotero.Item[];
-    itemPane?: {
-      collapsed?: boolean;
-    };
+    itemPane?: unknown;
     itemsView?: unknown;
   };
   ZoteroContextPane?: {

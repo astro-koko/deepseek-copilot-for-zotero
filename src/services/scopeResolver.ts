@@ -18,8 +18,8 @@ type ReaderScopeLike = {
 
 type ZoteroTabHostLike = Window & {
   ZoteroPane?: {
-    collectionsView?: {
-      getRow?: (index: unknown) => {
+    collectionsView?: false | {
+      getRow?: (index: number) => {
         isCollection?: () => boolean;
         ref?: {
           getChildItems?: (includeTrashed?: boolean) => number[] | null;
@@ -29,7 +29,7 @@ type ZoteroTabHostLike = Window & {
         };
       } | null;
       selection?: {
-        currentIndex?: unknown;
+        currentIndex?: number | string | null;
       };
     };
     getSelectedItems?: () => Zotero.Item[];
@@ -79,17 +79,31 @@ export function resolveScopeFromLibrary(): ScopeContext | null {
 
   if (!itemsView || !collectionsView) return null;
 
-  const selectedCollectionRow = collectionsView.getRow(collectionsView.selection?.currentIndex);
+  const selectedCollectionRowIndex = toCollectionRowIndex(
+    collectionsView.selection?.currentIndex,
+  );
+  const selectedCollectionRow =
+    selectedCollectionRowIndex == null
+      ? null
+      : collectionsView.getRow?.(selectedCollectionRowIndex);
   const selectedItems = zp.getSelectedItems ? zp.getSelectedItems() : [];
 
   if (selectedItems.length === 0) {
     if (selectedCollectionRow?.isCollection?.()) {
       const collection = selectedCollectionRow.ref;
-      const itemIds = collection.getChildItems ? collection.getChildItems(true) || [] : [];
+      if (!collection) {
+        return null;
+      }
+
+      const collectionKey = collection.key ?? "unknown";
+      const collectionLibraryID = collection.libraryID ?? "unknown";
+      const itemIds = collection.getChildItems
+        ? collection.getChildItems(true) || []
+        : [];
       return {
         type: "collection",
-        id: `collection-${collection.libraryID}-${collection.key}`,
-        label: collection.name,
+        id: `collection-${collectionLibraryID}-${collectionKey}`,
+        label: collection.name || "Collection",
         itemIds,
       };
     }
@@ -207,6 +221,21 @@ function resolveScopeFromReaderTabData(
 }
 
 function toNumericID(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function toCollectionRowIndex(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
   }

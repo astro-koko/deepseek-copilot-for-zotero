@@ -50,6 +50,7 @@ export type FluentMessageId =
   | 'ai-assistant-pref-evidence-provider-help'
   | 'ai-assistant-pref-evidence-provider-label'
   | 'ai-assistant-pref-evidence-provider-tavily'
+  | 'ai-assistant-pref-export-debug-log'
   | 'ai-assistant-pref-save'
   | 'ai-assistant-pref-status-saved'
   | 'ai-assistant-pref-status-valid'

@@ -190,6 +190,18 @@ describe("scopeResolver", () => {
     });
   });
 
+  it("returns no library scope while Zotero reports the collections view as unavailable", () => {
+    (Zotero.getMainWindow as any).mockReturnValue({
+      ZoteroPane: {
+        collectionsView: false,
+        getSelectedItems: () => [],
+        itemsView: {},
+      },
+    });
+
+    expect(resolveScopeFromLibrary()).toBeNull();
+  });
+
   it("ignores attachment-like tab data when the selected tab is the Library", () => {
     const libraryItem = makeRegularItem(44, "DEBATE");
     const staleReaderParent = makeRegularItem(11, "AutoScientists");
