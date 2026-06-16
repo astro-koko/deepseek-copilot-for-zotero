@@ -57,6 +57,8 @@ const DEFAULT_STATE: ChatSessionState = {
   streamingStatus: "idle",
 };
 
+const GLOBAL_SCOPE_KEY = "__global__";
+
 interface AbortControllerLike {
   abort(): void;
   signal?: AbortSignal;
@@ -128,24 +130,50 @@ export function createChatSessionStore(
   deps: ChatSessionDeps,
 ): ChatSessionStore {
   const listeners = new Set<() => void>();
-  let state: ChatSessionState = { ...DEFAULT_STATE };
-  let abortController: AbortControllerLike | null = null;
-  let requestVersion = 0;
+  const statesByScope = new Map<string, ChatSessionState>();
+  const abortControllersByScope = new Map<string, AbortControllerLike | null>();
+  const requestVersionsByScope = new Map<string, number>();
+  let activeScopeKey = GLOBAL_SCOPE_KEY;
 
   const emit = () => {
     listeners.forEach((listener) => listener());
   };
 
-  const setState = (partial: Partial<ChatSessionState>) => {
-    state = { ...state, ...partial };
+  const getStateForKey = (scopeKey: string): ChatSessionState => {
+    const existing = statesByScope.get(scopeKey);
+    if (existing) {
+      return existing;
+    }
+
+    const initialState = { ...DEFAULT_STATE };
+    statesByScope.set(scopeKey, initialState);
+    return initialState;
+  };
+
+  const setState = (
+    partial: Partial<ChatSessionState>,
+    scopeKey = activeScopeKey,
+  ) => {
+    statesByScope.set(scopeKey, {
+      ...getStateForKey(scopeKey),
+      ...partial,
+    });
     emit();
   };
 
-  const invalidatePendingRequest = () => {
-    requestVersion += 1;
+  const getSessionScopeKey = (scope?: ScopeContext | null): string =>
+    getScopeKey(scope) || GLOBAL_SCOPE_KEY;
+
+  const getRequestVersion = (scopeKey: string): number =>
+    requestVersionsByScope.get(scopeKey) ?? 0;
+
+  const invalidatePendingRequest = (scopeKey: string) => {
+    requestVersionsByScope.set(scopeKey, getRequestVersion(scopeKey) + 1);
   };
 
-  const isCurrentRequest = (version: number) => version === requestVersion;
+  const isCurrentRequest = (scopeKey: string, version: number) =>
+    version === getRequestVersion(scopeKey);
+
   const createAbortController = (): AbortControllerLike | null => {
     const AbortControllerCtor = (globalThis as any).AbortController;
     if (typeof AbortControllerCtor !== "function") {
@@ -158,9 +186,10 @@ export function createChatSessionStore(
   const persistAssistantMessage = async (
     thread: Thread,
     message: Message["content"],
+    scopeKey: string,
     version: number,
   ): Promise<void> => {
-    if (!isCurrentRequest(version)) {
+    if (!isCurrentRequest(scopeKey, version)) {
       return;
     }
 
@@ -169,15 +198,19 @@ export function createChatSessionStore(
       content: message,
     });
     if (updated) {
-      setState({ activeThread: updated });
+      setState({ activeThread: updated }, scopeKey);
     }
+  };
+
+  const abortScopeRequest = (scopeKey: string): void => {
+    abortControllersByScope.get(scopeKey)?.abort();
+    abortControllersByScope.set(scopeKey, null);
   };
 
   return {
     cancel() {
-      abortController?.abort();
-      abortController = null;
-      invalidatePendingRequest();
+      abortScopeRequest(activeScopeKey);
+      invalidatePendingRequest(activeScopeKey);
       setState({
         error: null,
         isStreaming: false,
@@ -188,13 +221,14 @@ export function createChatSessionStore(
     },
 
     getSnapshot() {
-      return state;
+      return getStateForKey(activeScopeKey);
     },
 
     async newThread(scope?: ScopeContext | null) {
-      abortController?.abort();
-      abortController = null;
-      invalidatePendingRequest();
+      const scopeKey = getSessionScopeKey(scope);
+      activeScopeKey = scopeKey;
+      abortScopeRequest(scopeKey);
+      invalidatePendingRequest(scopeKey);
       const thread = await deps.createThread(scope || undefined);
       setState({
         activeThread: thread,
@@ -203,14 +237,15 @@ export function createChatSessionStore(
         streamingContent: "",
         streamingReasoningContent: "",
         streamingStatus: "idle",
-      });
+      }, scopeKey);
       return thread;
     },
 
     openThread(thread: Thread) {
-      abortController?.abort();
-      abortController = null;
-      invalidatePendingRequest();
+      const scopeKey = getThreadScopeKey(thread) || activeScopeKey;
+      activeScopeKey = scopeKey;
+      abortScopeRequest(scopeKey);
+      invalidatePendingRequest(scopeKey);
       setState({
         activeThread: thread,
         error: null,
@@ -218,14 +253,17 @@ export function createChatSessionStore(
         streamingContent: "",
         streamingReasoningContent: "",
         streamingStatus: "idle",
-      });
+      }, scopeKey);
     },
 
     reset() {
-      abortController?.abort();
-      abortController = null;
-      invalidatePendingRequest();
-      state = { ...DEFAULT_STATE };
+      for (const scopeKey of abortControllersByScope.keys()) {
+        abortScopeRequest(scopeKey);
+        invalidatePendingRequest(scopeKey);
+      }
+      statesByScope.clear();
+      activeScopeKey = GLOBAL_SCOPE_KEY;
+      statesByScope.set(GLOBAL_SCOPE_KEY, { ...DEFAULT_STATE });
       emit();
     },
 
@@ -235,21 +273,24 @@ export function createChatSessionStore(
       requestOptions?: ChatRequestOptions,
     ) {
       const trimmed = message.trim();
-      if (!trimmed || state.isStreaming) {
+      const scopeKey = getSessionScopeKey(scope);
+      activeScopeKey = scopeKey;
+      const sessionState = getStateForKey(scopeKey);
+      if (!trimmed || sessionState.isStreaming) {
         return;
       }
 
-      setState({ error: null });
+      setState({ error: null }, scopeKey);
       let thread: Thread | null = null;
       let version: number | null = null;
       let shouldPersistFailureMessage = false;
       let assistantMessagePersistenceAttempted = false;
 
       try {
-        thread = state.activeThread;
+        thread = sessionState.activeThread;
         if (!thread || !isThreadInScope(thread, scope)) {
           thread = await deps.createThread(scope || undefined);
-          setState({ activeThread: thread });
+          setState({ activeThread: thread }, scopeKey);
         }
 
         const threadWithUserMessage = await deps.appendMessage(thread.id, {
@@ -262,8 +303,10 @@ export function createChatSessionStore(
         }
 
         thread = threadWithUserMessage;
-        abortController = createAbortController();
-        version = ++requestVersion;
+        const abortController = createAbortController();
+        abortControllersByScope.set(scopeKey, abortController);
+        version = getRequestVersion(scopeKey) + 1;
+        requestVersionsByScope.set(scopeKey, version);
         shouldPersistFailureMessage = true;
         setState({
           activeThread: thread,
@@ -272,7 +315,7 @@ export function createChatSessionStore(
           streamingContent: "",
           streamingReasoningContent: "",
           streamingStatus: "preparing",
-        });
+        }, scopeKey);
 
         const response = await deps.sendChatMessage(
           thread,
@@ -280,11 +323,11 @@ export function createChatSessionStore(
           requestOptions,
           abortController?.signal,
         );
-        if (!isCurrentRequest(version)) {
+        if (!isCurrentRequest(scopeKey, version)) {
           return;
         }
 
-        setState({ streamingStatus: "waiting" });
+        setState({ streamingStatus: "waiting" }, scopeKey);
 
         if (response.evidenceAuditMessage) {
           const auditedThread = await deps.appendMessage(thread.id, {
@@ -293,14 +336,14 @@ export function createChatSessionStore(
           });
           if (auditedThread) {
             thread = auditedThread;
-            setState({ activeThread: auditedThread });
+            setState({ activeThread: auditedThread }, scopeKey);
           }
         }
 
         let fullResponse = "";
         let fullReasoning = "";
         for await (const chunk of response.stream) {
-          if (!isCurrentRequest(version)) {
+          if (!isCurrentRequest(scopeKey, version)) {
             return;
           }
 
@@ -316,20 +359,20 @@ export function createChatSessionStore(
             streamingContent: fullResponse,
             streamingReasoningContent: fullReasoning,
             streamingStatus: normalizedChunk.status || "streaming",
-          });
+          }, scopeKey);
         }
 
         assistantMessagePersistenceAttempted = true;
-        await persistAssistantMessage(thread, fullResponse, version);
+        await persistAssistantMessage(thread, fullResponse, scopeKey, version);
 
-        if (isCurrentRequest(version)) {
-          abortController = null;
+        if (isCurrentRequest(scopeKey, version)) {
+          abortControllersByScope.set(scopeKey, null);
           setState({
             isStreaming: false,
             streamingContent: "",
             streamingReasoningContent: "",
             streamingStatus: "idle",
-          });
+          }, scopeKey);
         }
       } catch (error) {
         const messageText = buildErrorMessage(error);
@@ -341,16 +384,16 @@ export function createChatSessionStore(
             streamingContent: "",
             streamingReasoningContent: "",
             streamingStatus: "idle",
-          });
-          abortController = null;
+          }, scopeKey);
+          abortControllersByScope.set(scopeKey, null);
           return;
         }
 
-        if (!isCurrentRequest(version)) {
+        if (!isCurrentRequest(scopeKey, version)) {
           return;
         }
 
-        setState({ error: messageText });
+        setState({ error: messageText }, scopeKey);
 
         if (
           thread &&
@@ -361,6 +404,7 @@ export function createChatSessionStore(
             await persistAssistantMessage(
               thread,
               `Error: ${messageText}`,
+              scopeKey,
               version,
             );
           } catch (persistError) {
@@ -371,13 +415,13 @@ export function createChatSessionStore(
           }
         }
 
-        abortController = null;
+        abortControllersByScope.set(scopeKey, null);
         setState({
           isStreaming: false,
           streamingContent: "",
           streamingReasoningContent: "",
           streamingStatus: "idle",
-        });
+        }, scopeKey);
       }
     },
 
@@ -389,11 +433,15 @@ export function createChatSessionStore(
     },
 
     async syncScope(scope?: ScopeContext | null) {
-      if (!state.activeThread) {
+      const scopeKey = getSessionScopeKey(scope);
+      activeScopeKey = scopeKey;
+      const sessionState = getStateForKey(scopeKey);
+      if (!sessionState.activeThread) {
+        emit();
         return;
       }
 
-      if (!isThreadInScope(state.activeThread, scope)) {
+      if (!isThreadInScope(sessionState.activeThread, scope)) {
         setState({
           activeThread: null,
           error: null,
@@ -401,7 +449,9 @@ export function createChatSessionStore(
           streamingContent: "",
           streamingReasoningContent: "",
           streamingStatus: "idle",
-        });
+        }, scopeKey);
+      } else {
+        emit();
       }
     },
   };

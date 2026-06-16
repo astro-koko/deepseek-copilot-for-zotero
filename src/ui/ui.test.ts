@@ -65,6 +65,7 @@ class FakeElement {
   className = "";
   textContent = "";
   parentElement: FakeElement | null = null;
+  parentNode: FakeElement | null = null;
   ownerDocument!: FakeDocument;
   children: FakeElement[] = [];
   dataset: Record<string, string> = {};
@@ -118,6 +119,7 @@ class FakeElement {
       node.parentElement.removeChild(node);
     }
     node.parentElement = this;
+    node.parentNode = this;
     if (!this.children.includes(node)) {
       this.children.push(node);
     }
@@ -137,6 +139,7 @@ class FakeElement {
     } else {
       this.children.push(node);
     }
+    node.parentNode = this;
     return child;
   }
 
@@ -145,6 +148,7 @@ class FakeElement {
     if (index >= 0) {
       this.children.splice(index, 1);
       child.parentElement = null;
+      child.parentNode = null;
     }
     return child;
   }
@@ -152,6 +156,7 @@ class FakeElement {
   replaceChildren(...nodes: unknown[]) {
     for (const child of [...this.children]) {
       child.parentElement = null;
+      child.parentNode = null;
     }
     this.children = [];
     nodes.forEach((node) => this.appendChild(node));
@@ -187,6 +192,19 @@ class FakeElement {
     return this.ownerDocument.getElementById(
       selector.slice(1),
     ) as FakeElement | null;
+  }
+
+  closest(selector: string): FakeElement | null {
+    if (selector === '[data-pane-id="ai-assistant-sidebar"]') {
+      let current: FakeElement | null = this;
+      while (current) {
+        if (current.dataset.paneId === "ai-assistant-sidebar") {
+          return current;
+        }
+        current = current.parentElement;
+      }
+    }
+    return null;
   }
 }
 
@@ -1190,5 +1208,94 @@ describe("UIFactory", () => {
     });
 
     expect(setEnabled).toHaveBeenLastCalledWith(true);
+  });
+
+  it("restores the expanded Reader section when switching between PDF tabs after the user opened Deepseek Copliot", async () => {
+    const win = new FakeWindow();
+    mainWindows.push(win);
+    win.Zotero_Tabs.selectedType = "reader";
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+
+    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+    const firstSection = win.document.createElement("section");
+    firstSection.dataset.paneId = "ai-assistant-sidebar";
+    firstSection.removeAttribute("collapsed");
+    const firstBody = win.document.createElement("vbox");
+    firstBody.ownerDocument = win.document;
+    firstSection.appendChild(firstBody);
+
+    sectionConfig.onRender({
+      body: firstBody,
+      tabType: "reader",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const secondSection = win.document.createElement("section");
+    secondSection.dataset.paneId = "ai-assistant-sidebar";
+    secondSection.setAttribute("collapsed", "true");
+    const secondBody = win.document.createElement("vbox");
+    secondBody.ownerDocument = win.document;
+    secondSection.appendChild(secondBody);
+
+    sectionConfig.onItemChange({
+      body: secondBody,
+      setEnabled: vi.fn(),
+      tabType: "reader",
+    });
+
+    expect(secondSection.getAttribute("collapsed")).toBeNull();
+    expect(secondSection.getAttribute("open")).toBe("true");
+  });
+
+  it("remounts the Reader section body on item change when Zotero does not call render again", async () => {
+    const win = new FakeWindow();
+    mainWindows.push(win);
+    win.Zotero_Tabs.selectedType = "reader";
+
+    const reactRoot = {
+      render: vi.fn(),
+      unmount: vi.fn(),
+    };
+    mocks.createRoot.mockReturnValue(reactRoot);
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+
+    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+    const firstSection = win.document.createElement("section");
+    firstSection.dataset.paneId = "ai-assistant-sidebar";
+    const firstBody = win.document.createElement("vbox");
+    firstBody.ownerDocument = win.document;
+    firstSection.appendChild(firstBody);
+
+    sectionConfig.onRender({
+      body: firstBody,
+      tabType: "reader",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const secondSection = win.document.createElement("section");
+    secondSection.dataset.paneId = "ai-assistant-sidebar";
+    const secondBody = win.document.createElement("vbox");
+    secondBody.ownerDocument = win.document;
+    secondSection.appendChild(secondBody);
+
+    sectionConfig.onItemChange({
+      body: secondBody,
+      setEnabled: vi.fn(),
+      tabType: "reader",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mocks.createRoot).toHaveBeenCalledWith(firstBody);
+    expect(mocks.createRoot).toHaveBeenCalledWith(secondBody);
+    expect(reactRoot.unmount).toHaveBeenCalledTimes(1);
+    expect(reactRoot.render).toHaveBeenCalledTimes(2);
   });
 });

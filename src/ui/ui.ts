@@ -27,6 +27,7 @@ interface ItemMessagePaneLike extends HTMLElement {
 
 interface SectionRenderBody {
   appendChild?(node: unknown): unknown;
+  closest?(selector: string): Element | null;
   contains(node: unknown): boolean;
   ownerDocument: Document;
   replaceChildren(...nodes: unknown[]): void;
@@ -56,6 +57,7 @@ const windowLibraryEmptyStateRetryBudget = new WeakMap<
   Window,
   number
 >();
+const windowReaderSectionWasExpanded = new WeakMap<Window, boolean>();
 const BRANDED_SECTION_ICON =
   "chrome://zotero-ai-assistant/content/icons/icon-20.png";
 
@@ -87,6 +89,7 @@ export class UIFactory {
     this.clearScopeRetryTimer(win);
     this.clearLibraryEmptyStateRetryTimer(win);
     windowLibraryEmptyStateRetryBudget.delete(win);
+    windowReaderSectionWasExpanded.delete(win);
     this.renderLibraryEmptyStateHead(win, false);
     this.removeTabSelectionRefreshRegistration(win);
     windowRefreshCleanup.get(win)?.();
@@ -152,6 +155,14 @@ export class UIFactory {
           this.shouldEnableSection(tabType || "", body as SectionRenderBody),
         );
         this.syncSectionScope(body as SectionRenderBody, tabType || "");
+        this.restoreReaderSectionExpansion(
+          body as SectionRenderBody,
+          tabType || "",
+        );
+        this.renderReaderSectionBodyOnItemChange(
+          body as SectionRenderBody,
+          tabType || "",
+        );
         return true;
       },
       onRender: ({ body, tabType }) => {
@@ -213,6 +224,7 @@ export class UIFactory {
     hosts[location] = host;
 
     host.mountPoint.style.display = "flex";
+    this.rememberReaderSectionExpansion(win, body, location);
 
     void this.ensureHostBootstrapped(win, host, location).catch((error) => {
       ztoolkit.log(
@@ -313,7 +325,8 @@ export class UIFactory {
     const initialScope = getCurrentScope();
     this.dispatchScopeChange(eventBus, initialScope, win);
 
-    if (!win || this.resolveSectionLocation(tabType, body) !== "library") {
+    const location = this.resolveSectionLocation(tabType, body);
+    if (!win || (location !== "library" && location !== "reader")) {
       return;
     }
 
@@ -324,8 +337,104 @@ export class UIFactory {
       if (!this.areScopesEquivalent(initialScope, retriedScope)) {
         this.dispatchScopeChange(eventBus, retriedScope, win);
       }
-    }, 100);
+    }, location === "reader" ? 150 : 100);
     windowScopeRetryTimer.set(win, retryTimer);
+  }
+
+  private static renderReaderSectionBodyOnItemChange(
+    body: SectionRenderBody,
+    tabType: string,
+  ): void {
+    if (this.resolveSectionLocation(tabType, body) !== "reader") {
+      return;
+    }
+
+    this.renderSectionBody(body, tabType);
+  }
+
+  private static rememberReaderSectionExpansion(
+    win: Window,
+    body: SectionRenderBody,
+    location: SidebarLocation,
+  ): void {
+    if (location !== "reader") {
+      return;
+    }
+
+    const section = this.findSectionContainer(body);
+    if (!section || this.isSectionCollapsed(section)) {
+      return;
+    }
+
+    windowReaderSectionWasExpanded.set(win, true);
+  }
+
+  private static restoreReaderSectionExpansion(
+    body: SectionRenderBody,
+    tabType: string,
+  ): void {
+    if (this.resolveSectionLocation(tabType, body) !== "reader") {
+      return;
+    }
+
+    const win = body.ownerDocument.defaultView as Window | null;
+    if (!win || !windowReaderSectionWasExpanded.get(win)) {
+      return;
+    }
+
+    const section = this.findSectionContainer(body);
+    if (!section || !this.isSectionCollapsed(section)) {
+      return;
+    }
+
+    section.removeAttribute("collapsed");
+    section.setAttribute("open", "true");
+    section.setAttribute("aria-expanded", "true");
+  }
+
+  private static findSectionContainer(
+    body: SectionRenderBody,
+  ): Element | null {
+    const selectors = [
+      `[data-pane-id="${SECTION_PANE_ID}"]`,
+      `[paneid="${SECTION_PANE_ID}"]`,
+      `[data-paneid="${SECTION_PANE_ID}"]`,
+      `#${SECTION_PANE_ID}`,
+    ];
+
+    for (const selector of selectors) {
+      try {
+        const match = body.closest?.(selector);
+        if (match) {
+          return match;
+        }
+      } catch {
+        // Ignore selector support differences between XUL and HTML elements.
+      }
+    }
+
+    let current = (body as unknown as Element | null)?.parentElement ?? null;
+    while (current) {
+      if (
+        current.id === SECTION_PANE_ID ||
+        current.getAttribute?.("data-pane-id") === SECTION_PANE_ID ||
+        current.getAttribute?.("paneid") === SECTION_PANE_ID ||
+        current.getAttribute?.("data-paneid") === SECTION_PANE_ID
+      ) {
+        return current;
+      }
+      current = current.parentElement;
+    }
+
+    return null;
+  }
+
+  private static isSectionCollapsed(section: Element): boolean {
+    return (
+      section.getAttribute("collapsed") === "true" ||
+      section.getAttribute("aria-expanded") === "false" ||
+      section.getAttribute("open") === "false"
+    );
   }
 
   private static dispatchScopeChange(

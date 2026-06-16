@@ -450,15 +450,20 @@ describe("chatSession", () => {
     });
   });
 
-  it("does not let an aborted request restore the old thread after starting a new one", async () => {
+  it("keeps an in-flight answer tied to its document when switching scopes", async () => {
     const firstScope = makeScope();
     const secondScope = makeScope({
       id: "paper-2",
+      scopeKey: "paper-2",
       itemIds: [2],
       label: "Paper 2",
     });
-    const firstThread = makeThread({ scopeSnapshot: firstScope });
+    const firstThread = makeThread({
+      scopeKey: "paper-1",
+      scopeSnapshot: firstScope,
+    });
     const firstThreadWithUser = makeThread({
+      ...firstThread,
       scopeSnapshot: firstScope,
       messages: [
         {
@@ -470,14 +475,15 @@ describe("chatSession", () => {
       ],
       updatedAt: 2,
     });
-    const abortedThread = makeThread({
+    const completedThread = makeThread({
+      ...firstThreadWithUser,
       scopeSnapshot: firstScope,
       messages: [
         ...firstThreadWithUser.messages,
         {
-          id: "msg-assistant-err",
+          id: "msg-assistant-1",
           role: "assistant",
-          content: "Error: aborted",
+          content: "Answer from paper 1.",
           timestamp: 3,
         },
       ],
@@ -485,8 +491,17 @@ describe("chatSession", () => {
     });
     const secondThread = makeThread({
       id: "thread-2",
+      scopeKey: "paper-2",
       scopeSnapshot: secondScope,
     });
+    let releaseResponse!: () => void;
+    const responseGate = new Promise<void>((resolve) => {
+      releaseResponse = resolve;
+    });
+    async function* delayedResponse() {
+      await responseGate;
+      yield "Answer from paper 1.";
+    }
 
     const createThread = vi
       .fn()
@@ -495,22 +510,11 @@ describe("chatSession", () => {
     const appendMessage = vi
       .fn()
       .mockResolvedValueOnce(firstThreadWithUser)
-      .mockResolvedValueOnce(abortedThread);
-    const sendChatMessage = vi.fn(
-      async (
-        _thread: Thread,
-        _scope: ScopeContext | undefined,
-        _requestOptions: unknown,
-        signal?: AbortSignal,
-      ) =>
-        new Promise<{ abort: () => void; stream: AsyncIterable<string> }>(
-          (_resolve, reject) => {
-            signal?.addEventListener("abort", () =>
-              reject(new Error("aborted")),
-            );
-          },
-        ),
-    );
+      .mockResolvedValueOnce(completedThread);
+    const sendChatMessage = vi.fn().mockResolvedValue({
+      abort: vi.fn(),
+      stream: delayedResponse(),
+    });
 
     const store = createChatSessionStore({
       appendMessage,
@@ -525,10 +529,17 @@ describe("chatSession", () => {
     });
 
     await store.newThread(secondScope);
+    expect(store.getSnapshot().activeThread).toEqual(secondThread);
+    expect(store.getSnapshot().isStreaming).toBe(false);
+
+    releaseResponse();
     await firstSend;
 
     expect(store.getSnapshot().activeThread).toEqual(secondThread);
     expect(store.getSnapshot().isStreaming).toBe(false);
+
+    await store.syncScope(firstScope);
+    expect(store.getSnapshot().activeThread).toEqual(completedThread);
   });
 
   it("stops streaming without appending an abort error message", async () => {
