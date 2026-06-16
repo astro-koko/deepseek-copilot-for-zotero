@@ -4,6 +4,8 @@ import type { ChatStreamChunk } from "./provider/types";
 import {
   appendMessage,
   createThread,
+  getScopeKey,
+  getThreadScopeKey,
   recordScopeTransition,
 } from "./threadController";
 import { type ChatRequestOptions, sendChatMessage } from "./chatEngine";
@@ -60,18 +62,24 @@ interface AbortControllerLike {
   signal?: AbortSignal;
 }
 
-function hasScopeChanged(
-  thread: Thread,
+function isThreadInScope(
+  thread: Thread | null,
   scope: ScopeContext | null | undefined,
 ): boolean {
-  if (!scope) {
+  if (!thread) {
     return false;
   }
 
-  return (
-    thread.scopeSnapshot?.type !== scope.type ||
-    thread.scopeSnapshot?.id !== scope.id
-  );
+  if (!scope) {
+    return true;
+  }
+
+  const scopeKey = getScopeKey(scope);
+  if (!scopeKey) {
+    return true;
+  }
+
+  return getThreadScopeKey(thread) === scopeKey;
 }
 
 function buildErrorMessage(error: unknown): string {
@@ -145,23 +153,6 @@ export function createChatSessionStore(
     }
 
     return new AbortControllerCtor();
-  };
-
-  const ensureScopedThread = async (
-    thread: Thread,
-    scope?: ScopeContext | null,
-  ): Promise<Thread> => {
-    if (!hasScopeChanged(thread, scope)) {
-      return thread;
-    }
-
-    const updated = await deps.recordScopeTransition(thread.id, scope!);
-    if (!updated) {
-      return thread;
-    }
-
-    setState({ activeThread: updated });
-    return updated;
   };
 
   const persistAssistantMessage = async (
@@ -256,12 +247,10 @@ export function createChatSessionStore(
 
       try {
         thread = state.activeThread;
-        if (!thread) {
+        if (!thread || !isThreadInScope(thread, scope)) {
           thread = await deps.createThread(scope || undefined);
           setState({ activeThread: thread });
         }
-
-        thread = await ensureScopedThread(thread, scope);
 
         const threadWithUserMessage = await deps.appendMessage(thread.id, {
           role: "user",
@@ -404,9 +393,15 @@ export function createChatSessionStore(
         return;
       }
 
-      const updated = await ensureScopedThread(state.activeThread, scope);
-      if (updated !== state.activeThread) {
-        setState({ activeThread: updated });
+      if (!isThreadInScope(state.activeThread, scope)) {
+        setState({
+          activeThread: null,
+          error: null,
+          isStreaming: false,
+          streamingContent: "",
+          streamingReasoningContent: "",
+          streamingStatus: "idle",
+        });
       }
     },
   };

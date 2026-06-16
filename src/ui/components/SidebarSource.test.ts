@@ -43,6 +43,19 @@ describe("Sidebar recent thread layout", () => {
     expect(sidebarSource).toContain("sidebar.readerAction.error");
   });
 
+  it("wraps sidebar rendering in an error boundary so React failures are visible", () => {
+    expect(sidebarSource).toContain("class SidebarErrorBoundary");
+    expect(sidebarSource).toContain("componentDidCatch");
+    expect(sidebarSource).toContain("Deepseek Copliot sidebar unavailable");
+    expect(sidebarSource).toContain("<SidebarErrorBoundary>");
+  });
+
+  it("loads recent chats through the current scope before falling back to global history", () => {
+    expect(sidebarSource).toContain("listThreadsForScope");
+    expect(sidebarSource).toContain("findMostRecentThreadForScope");
+    expect(sidebarSource).toContain("scope?.scopeKey");
+  });
+
   it("uses host temp-directory helpers instead of hardcoded /tmp when picker fallback is needed", () => {
     expect(sidebarSource).toContain("PathUtils?.tempDir");
     expect(sidebarSource).toMatch(/OS[\s\S]*Constants[\s\S]*Path[\s\S]*tmpDir/);

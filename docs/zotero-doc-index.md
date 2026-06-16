@@ -8,8 +8,10 @@ For the current project-management baseline, start here first:
 
 - [docs/superpowers/specs/2026-05-31-ds-copilot-host-first-frontend-design.md](/Users/Liang/project/agentpaper_zotero/docs/superpowers/specs/2026-05-31-ds-copilot-host-first-frontend-design.md)
 - [docs/superpowers/specs/2026-06-16-ds-copilot-debug-observability-workflow-design.md](/Users/liang/Project/agentpaper_zotero/docs/superpowers/specs/2026-06-16-ds-copilot-debug-observability-workflow-design.md)
+- [docs/superpowers/specs/2026-06-16-ds-copilot-reader-session-isolation-design.md](/Users/liang/Project/agentpaper_zotero/docs/superpowers/specs/2026-06-16-ds-copilot-reader-session-isolation-design.md)
 - [docs/superpowers/plans/2026-05-31-ds-copilot-host-first-frontend-task-board.md](/Users/Liang/project/agentpaper_zotero/docs/superpowers/plans/2026-05-31-ds-copilot-host-first-frontend-task-board.md)
 - [docs/superpowers/plans/2026-06-16-ds-copilot-debug-observability-task-board.md](/Users/liang/Project/agentpaper_zotero/docs/superpowers/plans/2026-06-16-ds-copilot-debug-observability-task-board.md)
+- [docs/superpowers/plans/2026-06-16-ds-copilot-reader-session-isolation-plan.md](/Users/liang/Project/agentpaper_zotero/docs/superpowers/plans/2026-06-16-ds-copilot-reader-session-isolation-plan.md)
 - [docs/zotero-dev-workbench.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-dev-workbench.md)
 - [docs/zotero-dev-smoke-checklist.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-dev-smoke-checklist.md)
 - [docs/zotero-sidebar-stability-review.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-sidebar-stability-review.md)
@@ -18,6 +20,7 @@ These files define the immediate execution target:
 
 - host-first frontend stabilization
 - privacy-safe debug observability for user issue triage
+- Reader session isolation across multiple active PDF tabs
 - daily-profile acceptance for host surfaces
 - packaged `.xpi` plus restart as the real gate
 

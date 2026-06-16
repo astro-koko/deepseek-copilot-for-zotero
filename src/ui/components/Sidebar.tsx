@@ -28,10 +28,15 @@ import {
   saveSettings,
 } from "../../services/settingsManager";
 import {
-  chatSessionStore,
   type ChatSessionStreamingStatus,
+  chatSessionStore,
 } from "../../services/chatSession";
-import { deleteThread, listThreads } from "../../services/threadController";
+import {
+  deleteThread,
+  findMostRecentThreadForScope,
+  listThreads,
+  listThreadsForScope,
+} from "../../services/threadController";
 import { exportThreadAsMarkdown } from "../../services/threadExport";
 import { deleteThreadAndRefresh } from "../../services/threadActions";
 import { getSidebarTheme } from "../theme";
@@ -39,6 +44,7 @@ import { typography } from "../typography";
 import { isChineseLocale } from "../../utils/locale";
 import { createHostEvent } from "../../utils/domEvents";
 import { debugLog } from "../../utils/debugLog";
+import { isSidebarLocationSelected } from "../sidebarSection";
 
 const BRAND_ICON_SRC =
   "chrome://zotero-ai-assistant/content/icons/deepseek-favicon.png";
@@ -83,18 +89,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [composerFocusNonce, setComposerFocusNonce] = useState(0);
   const [themeRefreshKey, setThemeRefreshKey] = useState(0);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
+  const scopeSyncVersionRef = useRef(0);
   const zh = isChineseLocale();
 
   const syncResolvedScope = () => {
     const currentScope = getCurrentScope();
-    setScope(currentScope);
-    void refreshContextSummary(currentScope);
-    void chatSessionStore.syncScope(currentScope);
+    void syncSidebarScope(currentScope);
   };
 
   const refreshContextSummary = async (nextScope: ScopeContext | null) => {
     const summary = await summarizeScope(nextScope);
     setContextSummary(summary);
+  };
+
+  const loadRecentThreadsForCurrentScope = async (
+    nextScope: ScopeContext | null,
+  ): Promise<Thread[]> => {
+    if (isSupportedChatScope(nextScope)) {
+      const scopedThreads = await listThreadsForScope(nextScope);
+      if (scopedThreads.length > 0) {
+        return scopedThreads;
+      }
+    }
+
+    return listThreads();
+  };
+
+  const syncSidebarScope = async (
+    nextScope: ScopeContext | null,
+  ): Promise<void> => {
+    const version = ++scopeSyncVersionRef.current;
+    setScope(nextScope);
+    void refreshContextSummary(nextScope);
+    await chatSessionStore.syncScope(nextScope);
+
+    if (
+      version !== scopeSyncVersionRef.current ||
+      !isSupportedChatScope(nextScope)
+    ) {
+      return;
+    }
+
+    if (chatSessionStore.getSnapshot().activeThread) {
+      return;
+    }
+
+    const restoredThread = await findMostRecentThreadForScope(nextScope);
+    if (version !== scopeSyncVersionRef.current || !restoredThread) {
+      return;
+    }
+
+    chatSessionStore.openThread(restoredThread);
   };
 
   useEffect(() => {
@@ -141,7 +186,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const loadRecentThreads = async () => {
       try {
-        const nextThreads = await listThreads();
+        const nextThreads = await loadRecentThreadsForCurrentScope(scope);
         if (!disposed) {
           setRecentThreads(nextThreads);
         }
@@ -154,18 +199,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return () => {
       disposed = true;
     };
-  }, [session.activeThread?.id, session.activeThread?.updatedAt]);
+  }, [
+    scope?.id,
+    scope?.scopeKey,
+    session.activeThread?.id,
+    session.activeThread?.updatedAt,
+  ]);
 
   useEffect(() => {
-    const syncScope = (nextScope: ScopeContext | null) => {
-      setScope(nextScope);
-      void refreshContextSummary(nextScope);
-      void chatSessionStore.syncScope(nextScope);
-    };
-
     const handleScopeChange = (event: Event) => {
       const nextScope = (event as CustomEvent).detail as ScopeContext | null;
-      syncScope(nextScope);
+      void syncSidebarScope(nextScope);
     };
 
     eventBus.addEventListener("scopeChange", handleScopeChange);
@@ -176,7 +220,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const handleReaderSelectionAction = (event: Event) => {
       const selectedType = Zotero.getMainWindow()?.Zotero_Tabs?.selectedType;
       const detail = (event as CustomEvent).detail as ReaderActionDetail;
-      if (selectedType !== location) {
+      if (!isSidebarLocationSelected(`${selectedType || ""}`, location)) {
         debugLog.debug("sidebar.readerAction.ignored", {
           action: detail?.action,
           location,
@@ -209,10 +253,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             scopeId: undefined,
             scopeType: undefined,
           };
-      setScope(currentScope);
-      void refreshContextSummary(currentScope);
-
       void (async () => {
+        await syncSidebarScope(currentScope);
+
         if (!isSupportedChatScope(currentScope)) {
           debugLog.warn("sidebar.readerAction.blocked", {
             action: detail.action,
@@ -225,7 +268,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           return;
         }
 
-        await chatSessionStore.syncScope(currentScope);
         setShowRecentChats(false);
 
         if (detail.action === "explain") {
@@ -350,7 +392,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const result = await deleteThreadAndRefresh({
         activeThread: session.activeThread,
         deleteThread,
-        listThreads,
+        listThreads: () => loadRecentThreadsForCurrentScope(scope),
         resetSession: () => chatSessionStore.reset(),
         threadId: thread.id,
       });
@@ -455,14 +497,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     : null;
 
   return (
-    <div
-      key={themeRefreshKey}
-      style={{
-        ...styles.container,
-        background: theme.background,
-        color: theme.text,
-      }}
-    >
+    <SidebarErrorBoundary>
+      <div
+        key={themeRefreshKey}
+        style={{
+          ...styles.container,
+          background: theme.background,
+          color: theme.text,
+        }}
+      >
       <div
         style={{
           ...styles.header,
@@ -902,9 +945,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </section>
         )}
       </div>
-    </div>
+      </div>
+    </SidebarErrorBoundary>
   );
 };
+
+class SidebarErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { message: string | null }
+> {
+  state = { message: null };
+
+  static getDerivedStateFromError(error: unknown) {
+    return {
+      message:
+        error instanceof Error && error.message
+          ? error.message
+          : "Unknown sidebar render failure",
+    };
+  }
+
+  componentDidCatch(error: unknown) {
+    debugLog.error("sidebar.render.error", error, {
+      surface: "sidebar",
+    });
+  }
+
+  render() {
+    if (this.state.message) {
+      return (
+        <div style={styles.errorBoundary}>
+          <div style={styles.errorBoundaryTitle}>
+            Deepseek Copliot sidebar unavailable
+          </div>
+          <div style={styles.errorBoundaryMessage}>{this.state.message}</div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 function getThreadPreview(thread: Thread): string {
   const lastVisibleMessage = [...thread.messages]
@@ -1150,6 +1231,27 @@ const styles: Record<string, React.CSSProperties> = {
   toolbarButtonDisabled: {
     opacity: 0.45,
     cursor: "not-allowed",
+  },
+  errorBoundary: {
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    height: "100%",
+    padding: "12px",
+    background: "#fbf1f1",
+    color: "#7f1d1d",
+    overflow: "auto",
+  },
+  errorBoundaryTitle: {
+    fontSize: typography.headingSm,
+    fontWeight: 700,
+    lineHeight: 1.3,
+  },
+  errorBoundaryMessage: {
+    fontSize: typography.body,
+    lineHeight: 1.45,
+    overflowWrap: "anywhere",
   },
   scopeSection: {
     padding: "8px 10px",

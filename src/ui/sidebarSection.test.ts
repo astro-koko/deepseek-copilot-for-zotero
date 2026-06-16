@@ -7,6 +7,7 @@ import {
   ensureSidebarHostState,
   getLibraryNativePane,
   getReaderNativePane,
+  isSidebarLocationSelected,
   listPaneSiblings,
   resolveSidebarLocation,
   resolveReaderFallbackContainer,
@@ -95,6 +96,14 @@ describe("sidebarSection helpers", () => {
     expect(resolveSidebarLocation("reader-view")).toBe("reader");
     expect(resolveSidebarLocation("note")).toBeNull();
     expect(resolveSidebarLocation("unknown")).toBeNull();
+  });
+
+  it("matches reader-like tab types to the reader sidebar location", () => {
+    expect(isSidebarLocationSelected("reader", "reader")).toBe(true);
+    expect(isSidebarLocationSelected("reader-preview", "reader")).toBe(true);
+    expect(isSidebarLocationSelected("reader-loading", "reader")).toBe(true);
+    expect(isSidebarLocationSelected("library", "reader")).toBe(false);
+    expect(isSidebarLocationSelected("collection", "library")).toBe(true);
   });
 
   it("reparents a persistent host into the active section body only once", () => {

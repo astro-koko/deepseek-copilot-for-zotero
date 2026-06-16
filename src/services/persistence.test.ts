@@ -50,6 +50,7 @@ describe("persistence", () => {
       title: "Thread 1",
       createdAt: 1,
       updatedAt: 2,
+      scopeKey: "paper-1",
       scopeSnapshot: {
         type: "paper",
         id: "paper-1",
@@ -76,6 +77,7 @@ describe("persistence", () => {
         "Thread 1",
         1,
         2,
+        "paper-1",
         JSON.stringify(thread.scopeSnapshot),
         JSON.stringify(thread.messages),
       ],
@@ -87,6 +89,7 @@ describe("persistence", () => {
         title: "Thread 1",
         createdAt: 1,
         updatedAt: 2,
+        scopeKey: "paper-1",
         scopeSnapshot: JSON.stringify(thread.scopeSnapshot),
         messages: JSON.stringify(thread.messages),
       },
@@ -114,6 +117,7 @@ describe("persistence", () => {
           title: "Thread legacy",
           createdAt: 1,
           updatedAt: 2,
+          scopeKey: null,
           scopeSnapshot: null,
           messages: JSON.stringify([
             {
@@ -153,6 +157,7 @@ describe("persistence", () => {
         1,
         2,
         null,
+        null,
         JSON.stringify([
           {
             id: "msg-1",
@@ -175,6 +180,7 @@ describe("persistence", () => {
         title: "Thread 2",
         createdAt: 3,
         updatedAt: 4,
+        scopeKey: null,
         scopeSnapshot: null,
         messages: "[]",
       },
@@ -190,6 +196,37 @@ describe("persistence", () => {
         messages: [],
       },
     ]);
+  });
+
+  it("derives scopeKey for legacy threads that only have a scope snapshot", async () => {
+    const scopeSnapshot = {
+      type: "pdf",
+      id: "pdf-99",
+      label: "Legacy PDF",
+      itemIds: [98],
+      readerAttachmentId: 99,
+    };
+
+    queryAsync
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([
+        {
+          id: "thread-legacy-scope",
+          title: "Legacy",
+          createdAt: 1,
+          updatedAt: 2,
+          scopeKey: null,
+          scopeSnapshot: JSON.stringify(scopeSnapshot),
+          messages: "[]",
+        },
+      ])
+      .mockResolvedValueOnce(undefined);
+
+    await expect(loadThread("thread-legacy-scope")).resolves.toMatchObject({
+      id: "thread-legacy-scope",
+      scopeKey: "pdf-99",
+      scopeSnapshot,
+    });
   });
 
   it("throws when thread persistence fails so callers can surface the real error", async () => {

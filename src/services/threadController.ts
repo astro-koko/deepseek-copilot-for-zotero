@@ -14,6 +14,7 @@ export async function createThread(scope?: ScopeContext): Promise<Thread> {
     title: scope?.label || "New Conversation",
     createdAt: now,
     updatedAt: now,
+    scopeKey: getScopeKey(scope),
     scopeSnapshot: scope,
     messages: [],
   };
@@ -72,6 +73,7 @@ export async function recordScopeTransition(
 
   thread.messages.push(transitionMessage);
   thread.scopeSnapshot = newScope;
+  thread.scopeKey = getScopeKey(newScope);
   thread.updatedAt = Date.now();
 
   await saveThread(thread);
@@ -87,6 +89,66 @@ export async function listThreads(): Promise<Thread[]> {
   return threads.sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+export function getScopeKey(
+  scope?: ScopeContext | null,
+): string | undefined {
+  if (!scope) {
+    return undefined;
+  }
+  return scope.scopeKey || deriveScopeKeyFromSnapshot(scope) || scope.id;
+}
+
+export function getThreadScopeKey(thread: Thread): string | undefined {
+  return (
+    thread.scopeKey ||
+    deriveScopeKeyFromSnapshot(thread.scopeSnapshot) ||
+    thread.scopeSnapshot?.id
+  );
+}
+
+export function threadMatchesScope(
+  thread: Thread,
+  scope?: ScopeContext | null,
+): boolean {
+  const scopeKey = getScopeKey(scope);
+  if (!scopeKey) {
+    return false;
+  }
+  return getThreadScopeKey(thread) === scopeKey;
+}
+
+export async function listThreadsForScope(
+  scope: ScopeContext,
+  limit = 5,
+): Promise<Thread[]> {
+  const threads = await listThreads();
+  return threads.filter((thread) => threadMatchesScope(thread, scope)).slice(0, limit);
+}
+
+export async function findMostRecentThreadForScope(
+  scope: ScopeContext,
+): Promise<Thread | null> {
+  return (await listThreadsForScope(scope, 1))[0] ?? null;
+}
+
 export async function deleteThread(id: string): Promise<boolean> {
   return deletePersistedThread(id);
+}
+
+function deriveScopeKeyFromSnapshot(
+  scope?: ScopeContext | null,
+): string | undefined {
+  if (!scope) {
+    return undefined;
+  }
+  if (scope.scopeKey) {
+    return scope.scopeKey;
+  }
+  if (scope.type === "pdf" && scope.readerAttachmentId) {
+    return `pdf-${scope.readerAttachmentId}`;
+  }
+  if (scope.type === "paper" && scope.itemIds.length === 1) {
+    return `paper-${scope.itemIds[0]}`;
+  }
+  return undefined;
 }

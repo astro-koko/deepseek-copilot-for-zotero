@@ -60,10 +60,11 @@ export function resolveScopeFromReader(reader: ReaderScopeLike | null): ScopeCon
   return {
     type: "pdf",
     id: `pdf-${attachmentId}`,
+    scopeKey: buildDocumentScopeKey("pdf", attachmentId),
     label: label || "Current PDF",
     itemIds: parentItem ? [parentItem.id] : [attachmentId],
     readerAttachmentId: attachmentId,
-    readerPage,
+    ...(readerPage ? { readerPage } : {}),
   };
 }
 
@@ -116,6 +117,7 @@ export function resolveScopeFromLibrary(): ScopeContext | null {
       return {
         type: "paper",
         id: `paper-${item.id}`,
+        scopeKey: buildDocumentScopeKey("paper", item.id),
         label: item.getDisplayTitle(),
         itemIds: [item.id],
       };
@@ -133,6 +135,7 @@ export function resolveScopeFromLibrary(): ScopeContext | null {
       return {
         type: "pdf",
         id: `pdf-${item.id}`,
+        scopeKey: buildDocumentScopeKey("pdf", item.id),
         label: label || "Current PDF",
         itemIds: parentItem ? [parentItem.id] : [item.id],
         readerAttachmentId: item.id,
@@ -233,6 +236,10 @@ function toNumericID(value: unknown): number | null {
   }
 
   return null;
+}
+
+function buildDocumentScopeKey(type: "paper" | "pdf", itemId: number): string {
+  return `${type}-${itemId}`;
 }
 
 function toCollectionRowIndex(value: unknown): number | null {

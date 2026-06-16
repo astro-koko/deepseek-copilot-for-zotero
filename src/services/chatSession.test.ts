@@ -19,6 +19,7 @@ function makeScope(overrides: Partial<ScopeContext> = {}): ScopeContext {
   return {
     type: "paper",
     id: "paper-1",
+    scopeKey: "paper-1",
     label: "Paper 1",
     itemIds: [1],
     ...overrides,
@@ -173,41 +174,133 @@ describe("chatSession", () => {
     });
   });
 
-  it("keeps one active thread while the scope changes between surfaces", async () => {
+  it("clears an active thread when syncing to a different document scope", async () => {
     const initialScope = makeScope();
     const nextScope = makeScope({
       id: "pdf-1",
+      scopeKey: "pdf-1",
       label: "Current PDF",
       type: "pdf",
       readerAttachmentId: 99,
     });
-    const initialThread = makeThread({ scopeSnapshot: initialScope });
-    const transitionedThread = makeThread({
-      id: initialThread.id,
-      scopeSnapshot: nextScope,
-      messages: [
-        {
-          id: "sys-1",
-          role: "system",
-          content: "Context switched to: Current PDF",
-          timestamp: 2,
-        },
-      ],
-      updatedAt: 2,
+    const initialThread = makeThread({
+      scopeKey: "paper-1",
+      scopeSnapshot: initialScope,
     });
+    const recordScopeTransition = vi.fn();
 
     const store = createChatSessionStore({
       appendMessage: vi.fn(),
       createThread: vi.fn().mockResolvedValue(initialThread),
-      recordScopeTransition: vi.fn().mockResolvedValue(transitionedThread),
+      recordScopeTransition,
       sendChatMessage: vi.fn(),
     });
 
     await store.newThread(initialScope);
     await store.syncScope(nextScope);
 
-    expect(store.getSnapshot().activeThread?.id).toBe(initialThread.id);
-    expect(store.getSnapshot().activeThread?.scopeSnapshot).toEqual(nextScope);
+    expect(recordScopeTransition).not.toHaveBeenCalled();
+    expect(store.getSnapshot().activeThread).toBeNull();
+  });
+
+  it("creates a new current-scope thread instead of appending to another document's active thread", async () => {
+    const pdfAScope = makeScope({
+      id: "pdf-10",
+      scopeKey: "pdf-10",
+      label: "PDF A",
+      type: "pdf",
+      itemIds: [9],
+      readerAttachmentId: 10,
+    });
+    const pdfBScope = makeScope({
+      id: "pdf-20",
+      scopeKey: "pdf-20",
+      label: "PDF B",
+      type: "pdf",
+      itemIds: [19],
+      readerAttachmentId: 20,
+    });
+    const pdfAThread = makeThread({
+      id: "thread-pdf-a",
+      scopeKey: "pdf-10",
+      scopeSnapshot: pdfAScope,
+      messages: [
+        {
+          id: "msg-a",
+          role: "user",
+          content: "PDF A question",
+          timestamp: 1,
+        },
+      ],
+    });
+    const pdfBEmptyThread = makeThread({
+      id: "thread-pdf-b",
+      scopeKey: "pdf-20",
+      scopeSnapshot: pdfBScope,
+    });
+    const pdfBThreadWithUser = makeThread({
+      ...pdfBEmptyThread,
+      messages: [
+        {
+          id: "msg-b-user",
+          role: "user",
+          content: "Question for PDF B",
+          timestamp: 2,
+        },
+      ],
+      updatedAt: 2,
+    });
+    const pdfBFinalThread = makeThread({
+      ...pdfBThreadWithUser,
+      messages: [
+        ...pdfBThreadWithUser.messages,
+        {
+          id: "msg-b-assistant",
+          role: "assistant",
+          content: "PDF B answer.",
+          timestamp: 3,
+        },
+      ],
+      updatedAt: 3,
+    });
+    const createThread = vi.fn().mockResolvedValue(pdfBEmptyThread);
+    const appendMessage = vi
+      .fn()
+      .mockResolvedValueOnce(pdfBThreadWithUser)
+      .mockResolvedValueOnce(pdfBFinalThread);
+    const recordScopeTransition = vi.fn();
+    const sendChatMessage = vi.fn().mockResolvedValue({
+      abort: vi.fn(),
+      stream: streamChunks("PDF B answer."),
+    });
+
+    const store = createChatSessionStore({
+      appendMessage,
+      createThread,
+      recordScopeTransition,
+      sendChatMessage,
+    });
+
+    store.openThread(pdfAThread);
+    await store.send("Question for PDF B", pdfBScope);
+
+    expect(recordScopeTransition).not.toHaveBeenCalled();
+    expect(createThread).toHaveBeenCalledWith(pdfBScope);
+    expect(appendMessage).toHaveBeenNthCalledWith(1, "thread-pdf-b", {
+      role: "user",
+      content: "Question for PDF B",
+    });
+    expect(appendMessage).not.toHaveBeenCalledWith(
+      "thread-pdf-a",
+      expect.anything(),
+    );
+    expect(sendChatMessage).toHaveBeenCalledWith(
+      pdfBThreadWithUser,
+      pdfBScope,
+      undefined,
+      expect.any(AbortSignal),
+    );
+    expect(store.getSnapshot().activeThread).toEqual(pdfBFinalThread);
   });
 
   it("creates a thread and sends the very first message in one action", async () => {
