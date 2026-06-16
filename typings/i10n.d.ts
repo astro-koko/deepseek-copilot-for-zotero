@@ -39,8 +39,6 @@ export type FluentMessageId =
   | 'ai-assistant-pref-commands-help'
   | 'ai-assistant-pref-commands-title'
   | 'ai-assistant-pref-custom-presets-add'
-  | 'ai-assistant-pref-custom-presets-advanced'
-  | 'ai-assistant-pref-custom-presets-advanced-help'
   | 'ai-assistant-pref-custom-presets-apply-import'
   | 'ai-assistant-pref-custom-presets-copy-ai-prompt'
   | 'ai-assistant-pref-custom-presets-docs-link'

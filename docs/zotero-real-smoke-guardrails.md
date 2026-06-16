@@ -145,6 +145,18 @@ Two same-class failures in one layer means stop and switch to evidence collectio
 
 Do not jump categories early.
 
+### 6.1. Use the native Add-ons manager for Deepseek Copliot dev imports
+
+Deepseek Copliot development smoke must import the newest local dev, non-stable `.xpi` through Zotero's native Add-ons/Plugins manager via `Install Plugin From File...` / `Install Add-on From File...`.
+
+Do not use Add-on Market / 插件市场 to install or validate Deepseek Copliot. It is a separate marketplace plugin and is not evidence that the locally built development `.xpi` is installed or loaded.
+
+After importing, verify the Add-ons entry or installed XPI manifest version/hash matches the newly built dev package before testing Settings, Library, Reader, or provider behavior. A visible `Deepseek Copliot` Settings pane is not enough evidence that the current build is loaded, because Zotero may still be running an older installed package in the background.
+
+If the package version/hash cannot be proven after import, stop at the install-chain layer. Do not continue into Settings button testing, and do not attribute broken Settings behavior to the new build.
+
+For the Settings `Commands and Prompts` section, record the installed package version/hash before testing any command controls. `Add custom command`, `Restore built-in commands`, JSON validate/preview/apply, and copy prompt are required interactive controls. If they do not respond under the proven latest package, log a Settings-layer bug. The normal Settings UI should show one batch-import JSON editor only; a second visible raw/advanced JSON editor is a UX regression.
+
 ### 7. Never change branding as a temporary smoke shortcut
 
 Typography may inherit Zotero host styling.

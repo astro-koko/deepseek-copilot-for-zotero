@@ -99,7 +99,6 @@ describe("registerPreferencesPane", () => {
   let status: FakeStatusElement;
   let customPresetsField: FakeField;
   let customPresetsEditor: FakeField;
-  let customPresetsPreview: FakeField;
   let customPresetsAddButton: FakeButton;
   let customPresetsResetButton: FakeButton;
   let customPresetsImportEditor: FakeField;
@@ -134,7 +133,6 @@ describe("registerPreferencesPane", () => {
     status = new FakeStatusElement();
     customPresetsField = new FakeField();
     customPresetsEditor = new FakeField();
-    customPresetsPreview = new FakeField();
     customPresetsAddButton = new FakeButton();
     customPresetsResetButton = new FakeButton();
     customPresetsImportEditor = new FakeField();
@@ -181,7 +179,6 @@ describe("registerPreferencesPane", () => {
       "zotero-ai-assistant-pref-status": status,
       "zotero-ai-assistant-pref-custom-presets": customPresetsField,
       "zotero-ai-assistant-pref-custom-presets-editor": customPresetsEditor,
-      "zotero-ai-assistant-pref-custom-presets-preview": customPresetsPreview,
       "zotero-ai-assistant-pref-custom-presets-add": customPresetsAddButton,
       "zotero-ai-assistant-pref-custom-presets-reset": customPresetsResetButton,
       "zotero-ai-assistant-pref-custom-presets-import-editor":
@@ -333,30 +330,7 @@ describe("registerPreferencesPane", () => {
     );
   });
 
-  it("saves valid edits from the advanced JSON editor and refreshes visual cards", async () => {
-    registerPreferencesPane(createWindow(), deps);
-
-    customPresetsPreview.value = JSON.stringify([
-      {
-        id: "future-work",
-        label: "Future Work",
-        promptPrefix: "Suggest next steps",
-      },
-    ]);
-    customPresetsPreview.dispatch("change");
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(customPresetsField.value).toContain('"id":"future-work"');
-    expect(customPresetsEditor.innerHTML).toContain("Future Work");
-    expect(deps.saveSettings).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        customPresets: expect.stringContaining('"id":"future-work"'),
-      }),
-    );
-  });
-
-  it("does not overwrite saved commands when advanced JSON edits are invalid", async () => {
+  it("keeps raw custom command storage internal while still guarding invalid values", async () => {
     const savedPresets = JSON.stringify([
       {
         id: "future-work",
@@ -377,14 +351,14 @@ describe("registerPreferencesPane", () => {
     }));
     registerPreferencesPane(createWindow(), deps);
 
-    customPresetsPreview.value = "[";
-    customPresetsPreview.dispatch("change");
+    customPresetsField.value = "[";
+    customPresetsField.dispatch("change");
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(customPresetsField.value).toBe(savedPresets);
     expect(deps.saveSettings).not.toHaveBeenCalled();
     expect(customPresetsStatus.dataset.variant).toBe("error");
+    expect(status.dataset.variant).toBe("error");
   });
 
   it("previews valid imported command JSON without saving immediately", () => {
@@ -668,6 +642,15 @@ describe("registerPreferencesPane", () => {
     const replacementExportDebugLogButton = new FakeButton();
     const replacementStatus = new FakeStatusElement();
     const replacementCustomPresetsField = new FakeField();
+    const replacementCustomPresetsEditor = new FakeField();
+    const replacementCustomPresetsAddButton = new FakeButton();
+    const replacementCustomPresetsResetButton = new FakeButton();
+    const replacementCustomPresetsImportEditor = new FakeField();
+    const replacementCustomPresetsImportPreview = new FakeField();
+    const replacementCustomPresetsValidateImportButton = new FakeButton();
+    const replacementCustomPresetsApplyImportButton = new FakeButton();
+    const replacementCustomPresetsCopyAiPromptButton = new FakeButton();
+    const replacementCustomPresetsDocsLink = new FakeLink();
     const replacementCustomPresetsStatus = new FakeStatusElement();
     const replacementEvidenceProviderField = new FakeField();
     const replacementTavilyApiKeyField = new FakeField();
@@ -685,6 +668,24 @@ describe("registerPreferencesPane", () => {
         replacementExportDebugLogButton,
       "zotero-ai-assistant-pref-status": replacementStatus,
       "zotero-ai-assistant-pref-custom-presets": replacementCustomPresetsField,
+      "zotero-ai-assistant-pref-custom-presets-editor":
+        replacementCustomPresetsEditor,
+      "zotero-ai-assistant-pref-custom-presets-add":
+        replacementCustomPresetsAddButton,
+      "zotero-ai-assistant-pref-custom-presets-reset":
+        replacementCustomPresetsResetButton,
+      "zotero-ai-assistant-pref-custom-presets-import-editor":
+        replacementCustomPresetsImportEditor,
+      "zotero-ai-assistant-pref-custom-presets-import-preview":
+        replacementCustomPresetsImportPreview,
+      "zotero-ai-assistant-pref-custom-presets-validate-import":
+        replacementCustomPresetsValidateImportButton,
+      "zotero-ai-assistant-pref-custom-presets-apply-import":
+        replacementCustomPresetsApplyImportButton,
+      "zotero-ai-assistant-pref-custom-presets-copy-ai-prompt":
+        replacementCustomPresetsCopyAiPromptButton,
+      "zotero-ai-assistant-pref-custom-presets-docs-link":
+        replacementCustomPresetsDocsLink,
       "zotero-ai-assistant-pref-custom-presets-status":
         replacementCustomPresetsStatus,
       "zotero-ai-assistant-pref-evidence-provider":
@@ -716,6 +717,13 @@ describe("registerPreferencesPane", () => {
     });
     expect(replacementSaveButton.getListenerCount("command")).toBe(1);
     expect(replacementExportDebugLogButton.getListenerCount("command")).toBe(1);
+    expect(replacementCustomPresetsAddButton.getListenerCount("command")).toBe(
+      1,
+    );
+    expect(
+      replacementCustomPresetsValidateImportButton.getListenerCount("command"),
+    ).toBe(1);
+    expect(replacementCustomPresetsDocsLink.getListenerCount("click")).toBe(1);
     expect(replacementDeepSeekLink.getListenerCount("click")).toBe(1);
     expect(replacementTavilyLink.getListenerCount("click")).toBe(1);
   });

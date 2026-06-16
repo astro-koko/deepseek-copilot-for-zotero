@@ -4,7 +4,7 @@
 
 **Goal:** Implement the approved `Commands and Prompts` Settings redesign without adding a persisted stash model.
 
-**Architecture:** Keep the current `customPresets` preference as the storage boundary. Built-ins remain code-defined in `src/services/presets.ts`; Settings persists only user-created commands plus built-in hides/overrides. JSON import is temporary UI state until the user validates, previews, and applies it into the normal command list.
+**Architecture:** Keep the current `customPresets` preference as the storage boundary. Built-ins remain code-defined in `src/services/presets.ts`; Settings persists only user-created commands plus built-in hides/overrides. JSON import is temporary UI state until the user validates, previews, and applies it into the normal command list. The primary Settings path must not show two competing JSON editors: visual command cards plus one batch-import textarea are the normal UX. Raw storage stays internal in this release.
 
 **Tech Stack:** Zotero preferences XHTML, TypeScript DOM handlers in `src/modules/preferencesPane.ts`, settings/preset helpers in `src/services/settingsManager.ts` and `src/services/presets.ts`, Vitest.
 
@@ -116,7 +116,7 @@ Expected: FAIL because the new l10n ids and controls do not exist yet.
 
 - [ ] **Step 4: Update XHTML layout**
 
-In `addon/content/preferences.xhtml`, move the existing custom command block so it appears after the Tavily settings block and before later sections. Add:
+In `addon/content/preferences.xhtml`, move the existing custom command block so it appears after the Tavily settings block and before later sections. Keep the raw storage textarea hidden, not as a second primary JSON editor. Add:
 
 ```xml
 <description
@@ -126,7 +126,7 @@ In `addon/content/preferences.xhtml`, move the existing custom command block so 
 <description data-l10n-id="ai-assistant-pref-commands-help" />
 ```
 
-Keep the hidden storage textarea `zotero-ai-assistant-pref-custom-presets`. Add import controls:
+Keep the storage textarea `zotero-ai-assistant-pref-custom-presets` hidden from the normal path. Add the single primary import controls:
 
 ```xml
 <html:details id="zotero-ai-assistant-pref-custom-presets-import">
@@ -371,7 +371,6 @@ Add these test variables and wire them into `createWindow()`:
 
 ```ts
 let customPresetsEditor: FakeField;
-let customPresetsPreview: FakeField;
 let customPresetsAddButton: FakeButton;
 let customPresetsResetButton: FakeButton;
 let customPresetsImportEditor: FakeField;
@@ -386,7 +385,6 @@ Element ids:
 
 ```ts
 "zotero-ai-assistant-pref-custom-presets-editor": customPresetsEditor,
-"zotero-ai-assistant-pref-custom-presets-preview": customPresetsPreview,
 "zotero-ai-assistant-pref-custom-presets-add": customPresetsAddButton,
 "zotero-ai-assistant-pref-custom-presets-reset": customPresetsResetButton,
 "zotero-ai-assistant-pref-custom-presets-import-editor": customPresetsImportEditor,
@@ -860,12 +858,15 @@ Expected: PASS.
 
 Before final completion, report that packaged real Zotero smoke still needs:
 
+- import the newest local dev, non-stable XPI through Zotero's native Add-ons manager with `Install Plugin From File...`, never through Add-on Market / 插件市场
+- verify the installed Add-ons entry or installed XPI manifest version/hash matches the newly built dev XPI before testing Settings
 - Settings opens
 - `Commands and Prompts` appears below web verification
 - manual command save/reopen persists
 - import JSON validate/preview/apply persists
 - invalid JSON does not overwrite saved commands
 - hide and restore one built-in works
+- only one primary JSON textarea is visible; no Advanced JSON/raw storage editor is shown in Settings
 - cold restart preserves command state
 - Library and Reader right-side pane discovery surfaces are unchanged
 

@@ -21,10 +21,22 @@ Affected Zotero surfaces:
 The current Settings pane exposes custom slash command configuration in a way
 that is too developer-shaped for normal Zotero users. The visible controls for
 `Add custom command` and `Restore built-in commands` can become ineffective, and
-the advanced JSON area is a blank read-only preview that cannot help users
-recover. The current interaction also mixes read-only built-in command cards and
-user-authored configuration in one DOM read/write path, which makes restore,
-hide, and add behavior fragile.
+the advanced JSON area can appear as a blank/black field that users cannot edit
+or use to recover. The current interaction also mixes read-only built-in command
+cards and user-authored configuration in one DOM read/write path, which makes
+restore, hide, and add behavior fragile.
+
+The current user-visible state also shows a concrete UX regression: the custom
+command area can present two JSON input boxes, which makes it unclear which one
+is the real setting. For this release, broken buttons and duplicate JSON editors
+are not acceptable rough edges; they are direct acceptance failures for the
+Settings product experience.
+
+Real GUI observations must be interpreted carefully: if Zotero has not first
+imported and loaded the newest local dev XPI, button failures in this section
+may reflect an older installed plugin rather than the latest source code. The
+install-chain version/hash checkpoint is therefore part of this issue, not
+optional setup.
 
 Users need a simple way to create several reusable reading commands without
 manually filling many fields one by one. At the same time, Deepseek Copliot
@@ -40,6 +52,10 @@ should not grow a complex command-management framework or a separate hidden
 - A large JSON schema inside Zotero Settings would overwhelm the normal path.
   The plugin should provide a compact import box and link to GitHub for the full
   schema and examples.
+- Two visible JSON textareas make the product feel like a developer console and
+  leave users unsure which one is authoritative. The primary flow should expose
+  visual command cards plus one batch-import textarea. This release should not
+  expose a second raw storage JSON editor in Settings.
 - AI-generated JSON is useful only if the plugin validates it before saving.
   The import path must preview the resulting command cards and require an
   explicit apply step.
@@ -81,6 +97,8 @@ should not grow a complex command-management framework or a separate hidden
 - Do not introduce remote telemetry or remote command syncing.
 - Do not copy Beaver's implementation or React architecture.
 - Do not change Deepseek Copliot branding or icons.
+- Do not expose two parallel JSON editing surfaces in the primary Settings
+  flow.
 
 ## User Workflow
 
@@ -110,6 +128,14 @@ should not grow a complex command-management framework or a separate hidden
 8. User clicks `Apply import`.
 9. Imported commands appear in `My commands` and are saved through the normal
    command preference path.
+
+### Raw JSON Boundary
+
+The normal user should not see two JSON editors. Raw command storage remains an
+internal preference, while user recovery and batch creation go through the same
+validated import flow plus the GitHub examples page. A future diagnostics-only
+raw storage view would need its own issue and must not be introduced as part of
+this settings simplification.
 
 ### Restore Built-ins Path
 
@@ -230,6 +256,14 @@ to be stronger defaults for research reading. Prompts should:
 The command set should remain small. Do not add many new built-ins as part of
 this issue.
 
+### Real Installed-Version Check
+
+Before using GUI evidence for the command buttons, the smoke pass must import
+the latest local dev XPI through Zotero's native Add-ons manager and verify the
+installed version/hash. Do not use Add-on Market / 插件市场. Do not treat the
+presence of the Deepseek Copliot Settings pane as proof that the newest code is
+loaded.
+
 ## Files Expected To Change
 
 - `addon/content/preferences.xhtml`
@@ -261,8 +295,8 @@ this issue.
 - Applying preview converts imported commands into normal user commands.
 - Invalid import JSON does not overwrite saved settings and shows an inline
   error.
-- Advanced JSON import/export is usable as a recovery path, not a blank read-only
-  area.
+- The primary Settings flow shows only one JSON input for batch import.
+- No second raw storage JSON editor is visible in the primary Settings flow.
 - The Settings pane links to GitHub documentation for full examples.
 - The copyable AI-generation prompt does not end with `.` or `。`.
 - Built-in prompts are rewritten with clearer research-reading defaults.
@@ -306,13 +340,23 @@ change complete.
 
 Minimum real Zotero evidence:
 
+- The latest local dev XPI was imported through Zotero's native Add-ons manager,
+  not Add-on Market / 插件市场.
+- The Add-ons entry or installed XPI manifest version/hash matches the built dev
+  XPI before Settings behavior is tested.
+- If the installed version/hash is stale or cannot be proven, stop at the
+  install-chain layer and do not interpret visible Settings behavior as the
+  latest build.
 - Settings pane opens.
 - `Commands and Prompts` appears below web verification.
+- `Add custom command`, restore built-ins, JSON validate/preview/apply, copy AI
+  prompt, and save controls are clickable and produce visible state changes.
 - Add a command manually, save, reopen Settings, and confirm it persists.
 - Paste valid JSON, validate and preview, apply import, save, reopen Settings,
   and confirm imported commands persist.
 - Paste invalid JSON and confirm saved commands are not overwritten.
 - Hide and restore one built-in command.
+- Confirm the command section does not present two competing JSON editors.
 - Restart Zotero and confirm manual/imported/restored command state persists.
 - Confirm the Library and Reader right-side pane discovery surfaces are not
   changed by this settings work.

@@ -65,22 +65,36 @@ describe("preferences.xhtml", () => {
     );
   });
 
-  it("keeps the advanced JSON editor editable for recovery and batch edits", () => {
-    const previewId =
-      'id="zotero-ai-assistant-pref-custom-presets-preview"';
-    const previewIdIndex = preferencesSource.indexOf(previewId);
-    const previewStart = preferencesSource.lastIndexOf(
-      "<html:textarea",
-      previewIdIndex,
+  it("loads the live pane through the configured Zotero addon instance", () => {
+    expect(preferencesSource).toContain(
+      "Zotero.ZoteroAIAssistant.hooks.onPrefsEvent",
     );
-    const previewEnd = preferencesSource.indexOf(
-      "</html:textarea>",
-      previewIdIndex,
-    );
-    const previewEditor = preferencesSource.slice(previewStart, previewEnd);
+    expect(preferencesSource).not.toContain("Zotero.__addonInstance__");
+  });
 
-    expect(previewEditor).toBeTruthy();
-    expect(previewEditor).not.toContain('readonly="readonly"');
+  it("keeps raw custom command storage hidden instead of showing two JSON editors", () => {
+    const storageId = 'id="zotero-ai-assistant-pref-custom-presets"';
+    const storageIdIndex = preferencesSource.indexOf(storageId);
+    const storageStart = preferencesSource.lastIndexOf(
+      "<html:textarea",
+      storageIdIndex,
+    );
+    const storageEnd = preferencesSource.indexOf(
+      "</html:textarea>",
+      storageIdIndex,
+    );
+    const storageEditor = preferencesSource.slice(storageStart, storageEnd);
+
+    expect(storageEditor).toContain("display: none");
+    expect(preferencesSource).toContain(
+      'id="zotero-ai-assistant-pref-custom-presets-import-editor"',
+    );
+    expect(preferencesSource).not.toContain(
+      'id="zotero-ai-assistant-pref-custom-presets-preview"',
+    );
+    expect(preferencesSource).not.toContain(
+      'data-l10n-id="ai-assistant-pref-custom-presets-advanced"',
+    );
   });
 
   it("uses an explicit select control for choosing the evidence provider", () => {

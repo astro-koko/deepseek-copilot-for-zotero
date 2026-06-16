@@ -91,23 +91,26 @@ Treat the next smoke run as an evidence-collection pass, not a vibe check. Captu
 1. Run `npm run check`.
 2. If you want to inspect the packaged path only, `npm run smoke:xpi` is the shorter preflight.
 3. Run `npm start` only if you need a rapid iteration loop before packaged install.
-4. Install the built `.xpi` through Zotero's plugin manager.
-5. In Zotero, confirm `Deepseek Copliot` appears in the plugin/add-ons list with the new icon.
-6. Open Zotero Settings and confirm the `Deepseek Copliot` pane exists.
-7. Confirm the settings pane already has a usable API key state from the dev-profile preload, or enter a real API key for packaged smoke.
-8. Select a real library item and confirm the Deepseek Copliot native right-pane host appears, is visibly correct, and still uses the Deepseek Copliot branded icon rather than a generic Zotero document icon.
-9. Open a real PDF Reader tab and confirm the Deepseek Copliot Reader host appears, uses the active tab scope, and keeps the same branded Deepseek Copliot entry icon in the right-side surface.
-10. Open Zotero Settings and verify the DeepSeek `API key`, evidence provider, and optional Tavily key can be edited, saved, and persisted when you reopen the pane.
-11. If `Tavily` is selected, run the built-in Tavily validation button and record the result.
-12. In Reader, select text and confirm the popup shows `Explain` and `Ask...`.
-13. Right-click selected Reader text and confirm `Explain with Deepseek Copliot` and `Ask Deepseek Copliot...` appear.
-14. Trigger `Explain` once and confirm the sidebar opens and enters the send flow.
-15. Trigger `Ask...` once and confirm the sidebar opens and pre-fills a draft without auto-send.
-16. Type a manual message in Reader and verify whether `Send` creates a visible active thread.
-17. Restart Zotero and re-check plugin list, settings pane, Library host, Reader host, and Reader handoff.
-18. Treat any top-toolbar-only discovery, including a truncated `D...` artifact, as a release-blocking surface regression.
-19. For public release smoke, confirm the clean profile starts without prefilled API keys and without restored test threads before entering any temporary credentials.
-20. If a packaged icon change does not show up after reinstall, clear the profile-level add-on startup cache such as `addonStartup.json.lz4`, cold-restart Zotero, and then re-check the Library and Reader surfaces before changing code again.
+4. Install the newest local dev, non-stable `.xpi` through Zotero's native plugin manager with `Install Plugin From File...`; do not use Add-on Market / 插件市场 for Deepseek Copliot validation.
+5. Confirm the installed Add-ons entry or installed XPI manifest version/hash matches the newly built dev package before testing Settings or host behavior.
+6. In Zotero, confirm `Deepseek Copliot` appears in the plugin/add-ons list with the new icon.
+7. Open Zotero Settings and confirm the `Deepseek Copliot` pane exists.
+8. Confirm the settings pane already has a usable API key state from the dev-profile preload, or enter a real API key for packaged smoke.
+9. Select a real library item and confirm the Deepseek Copliot native right-pane host appears, is visibly correct, and still uses the Deepseek Copliot branded icon rather than a generic Zotero document icon.
+10. Open a real PDF Reader tab and confirm the Deepseek Copliot Reader host appears, uses the active tab scope, and keeps the same branded Deepseek Copliot entry icon in the right-side surface.
+11. Open Zotero Settings and verify the DeepSeek `API key`, evidence provider, and optional Tavily key can be edited, saved, and persisted when you reopen the pane.
+12. If `Tavily` is selected, run the built-in Tavily validation button and record the result.
+13. In Reader, select text and confirm the popup shows `Explain` and `Ask...`.
+14. Right-click selected Reader text and confirm `Explain with Deepseek Copliot` and `Ask Deepseek Copliot...` appear.
+15. Trigger `Explain` once and confirm the sidebar opens and enters the send flow.
+16. Trigger `Ask...` once and confirm the sidebar opens and pre-fills a draft without auto-send.
+17. Type a manual message in Reader and verify whether `Send` creates a visible active thread.
+18. Restart Zotero and re-check plugin list, settings pane, Library host, Reader host, and Reader handoff.
+19. Treat any top-toolbar-only discovery, including a truncated `D...` artifact, as a release-blocking surface regression.
+20. For public release smoke, confirm the clean profile starts without prefilled API keys and without restored test threads before entering any temporary credentials.
+21. If a packaged icon change does not show up after reinstall, clear the profile-level add-on startup cache such as `addonStartup.json.lz4`, cold-restart Zotero, and then re-check the Library and Reader surfaces before changing code again.
+
+For `Commands and Prompts` validation, do not start from a currently visible Settings pane unless step 5 has just proven the newest dev XPI is loaded. Test the command controls as product requirements: add custom command, restore built-ins, JSON validate/preview/apply, invalid JSON protection, copy AI-generation prompt, GitHub examples link, and save/reopen persistence. The Settings UI should expose one user-facing JSON editor for batch import, not a second advanced/raw JSON editor.
 
 ## Runtime evidence
 

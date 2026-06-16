@@ -1,7 +1,7 @@
 <vbox
   id="zotero-ai-assistant-prefs"
   onload="
-    Zotero.__addonInstance__.hooks.onPrefsEvent('load', {
+    Zotero.ZoteroAIAssistant.hooks.onPrefsEvent('load', {
       window: this.ownerDocument.defaultView,
     })
   "
@@ -303,31 +303,6 @@
             margin-top: 8px;
           "
         ></html:div>
-      </html:details>
-      <html:details>
-        <html:summary
-          data-l10n-id="ai-assistant-pref-custom-presets-advanced"
-          style="cursor: pointer; user-select: none"
-        >
-          Advanced JSON
-        </html:summary>
-        <description
-          data-l10n-id="ai-assistant-pref-custom-presets-advanced-help"
-        />
-        <html:textarea
-          id="zotero-ai-assistant-pref-custom-presets-preview"
-          spellcheck="false"
-          style="
-            min-height: 140px;
-            width: 100%;
-            box-sizing: border-box;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 12px;
-            padding: 8px;
-            border-radius: 6px;
-            margin-top: 6px;
-          "
-        ></html:textarea>
       </html:details>
       <description
         id="zotero-ai-assistant-pref-custom-presets-status"

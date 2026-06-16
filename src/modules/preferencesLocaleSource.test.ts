@@ -52,6 +52,15 @@ describe("preferences locale copy", () => {
     );
   });
 
+  it("does not expose advanced JSON as a second primary editor", () => {
+    expect(enPreferences).not.toContain(
+      "ai-assistant-pref-custom-presets-advanced",
+    );
+    expect(zhPreferences).not.toContain(
+      "ai-assistant-pref-custom-presets-advanced",
+    );
+  });
+
   it("makes the default web verification path explicitly keyless", () => {
     expect(enPreferences).toContain(
       "ai-assistant-pref-evidence-provider-builtin = Default web verification (recommended, no API key)",

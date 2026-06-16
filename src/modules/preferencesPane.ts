@@ -74,8 +74,6 @@ const CUSTOM_PRESETS_ID = "zotero-ai-assistant-pref-custom-presets";
 const CUSTOM_PRESETS_ADD_ID = "zotero-ai-assistant-pref-custom-presets-add";
 const CUSTOM_PRESETS_EDITOR_ID =
   "zotero-ai-assistant-pref-custom-presets-editor";
-const CUSTOM_PRESETS_PREVIEW_ID =
-  "zotero-ai-assistant-pref-custom-presets-preview";
 const CUSTOM_PRESETS_RESET_ID =
   "zotero-ai-assistant-pref-custom-presets-reset";
 const CUSTOM_PRESETS_STATUS_ID =
@@ -349,16 +347,9 @@ export function registerPreferencesPane(
     const parsed = parseCustomPresets(value);
     if (!parsed.error) {
       renderCustomPresetEditor(doc, parseEditableCustomPresets(value));
-      updateCustomPresetsPreview(doc, value);
     }
     persist({ syncCustomPresetsFromEditor: false });
   });
-  bindTriggeredFieldEvents(
-    doc,
-    CUSTOM_PRESETS_PREVIEW_ID,
-    ["change", "input"],
-    () => syncAdvancedCustomPresetsJson(doc, persist),
-  );
   bindButtonActivation(doc, CUSTOM_PRESETS_ADD_ID, () => {
     addCustomPresetCard(doc);
     persist();
@@ -417,7 +408,6 @@ function hydrateForm(
       doc,
       parseEditableCustomPresets(settings.customPresets),
     );
-    updateCustomPresetsPreview(doc, settings.customPresets);
     updateCustomPresetsStatus(doc, settings.customPresets);
   }
   if (evidenceProviderField) {
@@ -717,7 +707,6 @@ function bindCustomPresetEditorEvents(doc: PreferencesDocument): void {
     syncCustomPresetStorageField(doc);
     const customPresetsField = getField(doc, CUSTOM_PRESETS_ID);
     updateCustomPresetsStatus(doc, customPresetsField?.value || "");
-    updateCustomPresetsPreview(doc, customPresetsField?.value || "");
   };
 
   const fields = container.querySelectorAll(
@@ -782,24 +771,6 @@ function addCustomPresetCard(doc: PreferencesDocument): void {
   const presets = readEditablePresetsFromDom(doc);
   presets.push(createEmptyEditableCustomPreset(presets.length));
   renderCustomPresetEditor(doc, presets);
-}
-
-function syncAdvancedCustomPresetsJson(
-  doc: PreferencesDocument,
-  persist: (options?: { syncCustomPresetsFromEditor?: boolean }) => void,
-): void {
-  const advancedField = getField(doc, CUSTOM_PRESETS_PREVIEW_ID);
-  const value = advancedField?.value || "";
-  const parsed = parseCustomPresets(value);
-  if (parsed.error) {
-    setStatusText(getCustomPresetsStatusElement(doc), parsed.error, "error");
-    return;
-  }
-
-  setCustomPresetStorageField(doc, value);
-  renderCustomPresetEditor(doc, parseEditableCustomPresets(value));
-  updateCustomPresetsStatus(doc, value);
-  persist({ syncCustomPresetsFromEditor: false });
 }
 
 function restoreBuiltInPresets(doc: PreferencesDocument): void {
@@ -1000,19 +971,6 @@ function setCustomPresetStorageField(
   }
 
   field.value = serialized;
-  updateCustomPresetsPreview(doc, serialized);
-}
-
-function updateCustomPresetsPreview(
-  doc: PreferencesDocument,
-  customPresetsValue: string,
-): void {
-  const preview = getField(doc, CUSTOM_PRESETS_PREVIEW_ID);
-  if (!preview) {
-    return;
-  }
-
-  preview.value = customPresetsValue;
 }
 
 function escapeHtml(value: string): string {
