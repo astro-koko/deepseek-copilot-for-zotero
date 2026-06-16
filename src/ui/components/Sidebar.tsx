@@ -200,6 +200,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       const prompt = buildReaderActionDraft(detail);
       const currentScope = mergeReaderActionScope(getCurrentScope(), detail);
+      const currentScopeDebug = currentScope
+        ? {
+            scopeId: currentScope.id,
+            scopeType: currentScope.type,
+          }
+        : {
+            scopeId: undefined,
+            scopeType: undefined,
+          };
       setScope(currentScope);
       void refreshContextSummary(currentScope);
 
@@ -208,8 +217,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           debugLog.warn("sidebar.readerAction.blocked", {
             action: detail.action,
             reason: "unsupported-scope",
-            scopeId: currentScope?.id,
-            scopeType: currentScope?.type,
+            scopeId: currentScopeDebug.scopeId,
+            scopeType: currentScopeDebug.scopeType,
             surface: "sidebar",
             traceId: detail.traceId,
           });

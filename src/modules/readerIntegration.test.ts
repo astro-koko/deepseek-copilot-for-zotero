@@ -88,7 +88,7 @@ describe("readerIntegration", () => {
     const customEventCtor = class HostCustomEvent<T> extends Event {
       detail: T;
 
-      constructor(type: string, init: CustomEventInit<T>) {
+      constructor(type: string, init: CustomEventInit) {
         super(type);
         this.detail = init.detail as T;
       }

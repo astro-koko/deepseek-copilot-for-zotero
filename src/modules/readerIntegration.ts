@@ -120,7 +120,7 @@ function onRenderTextSelectionPopup(event: ReaderSelectionPopupEvent): void {
     return;
   }
 
-  const page = (annotation.pageIndex ?? 0) + 1;
+  const page = (annotation?.pageIndex ?? 0) + 1;
   const readerItemID = reader?.itemID;
   if (!readerItemID) {
     debugLog.warn("reader.popup.skip", {
@@ -204,7 +204,8 @@ function onCreateViewContextMenu(event: ReaderViewContextMenuEvent): void {
     surface: "reader",
   });
 
-  append(
+  const appendMenuItems = append as unknown as (...items: unknown[]) => void;
+  appendMenuItems(
     {
       label: zh ? "用 Deepseek Copliot 解释" : "Explain with Deepseek Copliot",
       disabled: !hasSelection,
