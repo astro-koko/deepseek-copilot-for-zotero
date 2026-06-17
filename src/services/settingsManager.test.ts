@@ -366,6 +366,7 @@ describe("settingsManager", () => {
         id: "summarize",
         label: "Summarize",
         promptPrefix: "Please summarize this paper.",
+        slashCommand: "summarize",
         showInSidebar: false,
         scopeHint: ["paper", "pdf"],
       },
@@ -418,6 +419,43 @@ describe("settingsManager", () => {
     ]);
     expect(merged[0]).toMatchObject({
       label: "Future Work Updated",
+    });
+  });
+
+  it("normalizes a visible slash command separate from the stable id", () => {
+    const parsed = parseEditableCustomPresets(
+      JSON.stringify([
+        {
+          id: "future-work",
+          slashCommand: "未来工作",
+          label: "未来工作",
+          promptPrefix: "请总结后续值得推进的问题",
+        },
+      ]),
+    );
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]).toMatchObject({
+      id: "future-work",
+      slashCommand: "未来工作",
+    });
+  });
+
+  it("migrates legacy editable records that do not have slashCommand", () => {
+    const parsed = parseEditableCustomPresets(
+      JSON.stringify([
+        {
+          id: "legacy-summary",
+          label: "旧总结",
+          promptPrefix: "旧提示词",
+        },
+      ]),
+    );
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]).toMatchObject({
+      id: "legacy-summary",
+      slashCommand: "legacy-summary",
     });
   });
 

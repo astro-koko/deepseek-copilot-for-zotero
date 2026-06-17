@@ -71,6 +71,7 @@ export type CustomCommandPreset = Partial<CommandPreset> & {
   hidden?: boolean;
   id?: string;
   mode?: "append" | "replace";
+  slashCommand?: string;
   showInSidebar?: boolean;
 };
 
@@ -88,6 +89,7 @@ export interface EditableCustomCommandPreset {
   id: string;
   label: string;
   promptPrefix: string;
+  slashCommand: string;
   showInSidebar: boolean;
   scopeHint: ScopeType[];
 }
@@ -183,11 +185,14 @@ export function parseCustomPresets(value: string): CustomPresetsParseResult {
     }
 
     const source = rawPreset as Record<string, unknown>;
+    const rawId = String(source.id || "").trim();
     const label = String(source.label || "").trim();
     const promptPrefix = String(
       source.promptPrefix || source.prompt || "",
     ).trim();
-    const rawId = String(source.id || "").trim();
+    const slashCommand = String(
+      source.slashCommand || source.command || rawId || "",
+    ).trim();
     if (!rawId && !label) {
       continue;
     }
@@ -220,6 +225,11 @@ export function parseCustomPresets(value: string): CustomPresetsParseResult {
     if (promptPrefix) {
       preset.promptPrefix = promptPrefix;
     }
+    if (slashCommand) {
+      preset.slashCommand = slashCommand;
+    } else {
+      preset.slashCommand = id;
+    }
     if (source.scopeHint !== undefined || source.scopes !== undefined) {
       preset.scopeHint = normalizeScopeHints(source.scopeHint ?? source.scopes);
     }
@@ -249,6 +259,7 @@ export function toEditableCustomPreset(
     id: preset.id,
     label: String(preset.label || "").trim(),
     promptPrefix: String(preset.promptPrefix || "").trim(),
+    slashCommand: String(preset.slashCommand || preset.id || "").trim(),
     showInSidebar: Boolean(preset.showInSidebar),
     scopeHint: (preset.scopeHint || ["paper", "pdf"]) as ScopeType[],
   };
@@ -267,6 +278,7 @@ export function createEmptyEditableCustomPreset(
     id: `custom-action-${index + 1}`,
     label: "",
     promptPrefix: "",
+    slashCommand: `custom-action-${index + 1}`,
     showInSidebar: false,
     scopeHint: ["paper", "pdf"],
   };
@@ -296,6 +308,7 @@ export function stringifyEditableCustomPresets(
         id,
         label: String(preset.label || "").trim(),
         promptPrefix: String(preset.promptPrefix || "").trim(),
+        slashCommand: String(preset.slashCommand || id).trim(),
         showInSidebar: Boolean(preset.showInSidebar),
         scopeHint: preset.scopeHint?.length
           ? preset.scopeHint

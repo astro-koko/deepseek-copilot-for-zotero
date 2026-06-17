@@ -17,7 +17,7 @@
     "prefsPrefix": "extensions.zotero.zotero-ai-assistant"
   },
   "scripts": {
-    "start": "zotero-plugin serve",
+    "start": "node scripts/dev-serve.mjs",
     "build": "node scripts/scaffold-build.mjs && tsc --noEmit",
     "check": "npm run privacy:check && npm test && npm run build && npm run verify:xpi",
     "privacy:check": "node scripts/privacy-check.mjs",

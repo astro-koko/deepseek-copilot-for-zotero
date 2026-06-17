@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  addCustomSlashCard,
+  commitSlashCardEdit,
+  createSlashSettingsState,
   registerPreferencesPane,
+  restoreBuiltInSlashCard,
+  serializeSlashSettingsState,
+  validateSlashCardDraft,
   type PreferencesPaneDeps,
 } from "./preferencesPane";
 import { EventBus } from "../utils/eventBus";
-import { debugLog } from "../utils/debugLog";
+import { getSidebarPresetsForScope } from "../services/presets";
 
 class FakeEventTarget {
   listeners = new Map<string, Set<(...args: any[]) => void>>();
@@ -38,16 +44,16 @@ class FakeEventTarget {
 class FakeField extends FakeEventTarget {
   value = "";
   disabled = false;
-  innerHTML = "";
   textContent = "";
   style = { display: "" };
-  querySelectorAll = vi.fn(() => [] as unknown as NodeListOf<Element>);
-  querySelector = vi.fn(() => null as Element | null);
+  children: FakeField[] = [];
+  attributes: Record<string, string> = {};
 
   setAttribute(name: string, value: string) {
     if (name === "disabled") {
       this.disabled = true;
     }
+    this.attributes[name] = value;
     (this as unknown as Record<string, string>)[name] = value;
   }
 
@@ -55,7 +61,42 @@ class FakeField extends FakeEventTarget {
     if (name === "disabled") {
       this.disabled = false;
     }
+    delete this.attributes[name];
     delete (this as unknown as Record<string, string>)[name];
+  }
+
+  getAttribute(name: string) {
+    return this.attributes[name] ?? null;
+  }
+
+  appendChild(child: FakeField) {
+    this.children.push(child);
+    return child;
+  }
+
+  replaceChildren(...nodes: FakeField[]) {
+    this.children = [...nodes];
+  }
+
+  querySelectorAll(selector: string) {
+    const results: FakeField[] = [];
+    const attrMatch = selector.match(/^\[([^=\]]+)(?:="([^"]*)")?\]$/);
+    const walk = (node: FakeField) => {
+      if (attrMatch) {
+        const [, attr, expected] = attrMatch;
+        const actual = node.getAttribute(attr);
+        if (actual !== null && (expected === undefined || actual === expected)) {
+          results.push(node);
+        }
+      }
+      node.children.forEach(walk);
+    };
+    this.children.forEach(walk);
+    return results as unknown as NodeListOf<Element>;
+  }
+
+  querySelector(selector: string) {
+    return (this.querySelectorAll(selector)[0] as Element | undefined) ?? null;
   }
 }
 
@@ -74,6 +115,31 @@ class FakeRootElement {
   dataset: Record<string, string> = {};
 }
 
+class FakeContainer {
+  innerHTML = "";
+  children: FakeField[] = [];
+  textContent = "";
+
+  appendChild(child: FakeField) {
+    this.children.push(child);
+    return child;
+  }
+
+  replaceChildren(...nodes: FakeField[]) {
+    this.children = [...nodes];
+  }
+
+  querySelectorAll(selector: string) {
+    const root = new FakeField();
+    root.children = this.children;
+    return root.querySelectorAll(selector);
+  }
+
+  querySelector(selector: string) {
+    return (this.querySelectorAll(selector)[0] as Element | undefined) ?? null;
+  }
+}
+
 class FakeDocument {
   l10n = {
     formatValue: vi.fn(async (id: string) => `l10n:${id}`),
@@ -84,11 +150,231 @@ class FakeDocument {
   getElementById(id: string) {
     return (this.elements[id] as HTMLElement | null) ?? null;
   }
+
+  createElementNS(_namespace: string, tag: string) {
+    const field = new FakeField();
+    field.setAttribute("data-tag", tag);
+    return field as unknown as HTMLElement;
+  }
 }
 
 class FakeWindow {
   constructor(public document: FakeDocument) {}
 }
+
+describe("slash settings state", () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("creates built-in cards with Chinese-first slash defaults in zh locales", () => {
+    vi.stubGlobal("Zotero", {
+      Prefs: {
+        get: vi.fn((key: string) =>
+          key === "intl.locale.requested" ? "zh-CN" : "",
+        ),
+      },
+    });
+
+    const state = createSlashSettingsState("");
+    const summarize = state.builtins.find((card) => card.id === "summarize");
+
+    expect(summarize).toMatchObject({
+      slashCommand: "总结",
+      title: "总结论文",
+    });
+  });
+
+  it("keeps custom commands separate from built-ins", () => {
+    const state = createSlashSettingsState(
+      JSON.stringify([
+        {
+          id: "summarize",
+          label: "总结实验",
+          promptPrefix: "重点总结实验设计和结果",
+          slashCommand: "总结实验",
+        },
+        {
+          id: "future-work",
+          label: "未来工作",
+          promptPrefix: "提出三个下一步研究方向",
+          slashCommand: "未来工作",
+        },
+      ]),
+    );
+
+    expect(state.builtins.find((card) => card.id === "summarize")).toMatchObject(
+      {
+        title: "总结实验",
+      },
+    );
+    expect(state.custom).toHaveLength(1);
+    expect(state.custom[0]).toMatchObject({
+      id: "future-work",
+      slashCommand: "未来工作",
+      title: "未来工作",
+    });
+  });
+
+  it("serializes only built-in overrides and custom cards", () => {
+    const state = createSlashSettingsState("");
+    const editedState = {
+      ...state,
+      builtins: state.builtins.map((card) =>
+        card.id === "summarize"
+          ? { ...card, title: "总结实验", slashCommand: "总结实验" }
+          : card,
+      ),
+      custom: [
+        {
+          id: "future-work",
+          isNew: false,
+          kind: "custom" as const,
+          promptPrefix: "提出三个下一步研究方向",
+          slashCommand: "未来工作",
+          title: "未来工作",
+        },
+      ],
+    };
+
+    const serialized = serializeSlashSettingsState(editedState);
+
+    expect(serialized).toContain('"id": "summarize"');
+    expect(serialized).toContain('"id": "future-work"');
+    expect(serialized).not.toContain('"id": "explain"');
+  });
+
+  it("adds custom cards until the configured cap", () => {
+    let state = createSlashSettingsState("");
+    for (let index = 0; index < 12; index += 1) {
+      state = addCustomSlashCard(state);
+    }
+
+    expect(state.custom).toHaveLength(10);
+    expect(state.custom.every((card) => card.kind === "custom")).toBe(true);
+  });
+
+  it("validates duplicate slash tokens across built-in and custom cards", () => {
+    const state = createSlashSettingsState("");
+    const duplicate = validateSlashCardDraft(state, {
+      id: "future-work",
+      kind: "custom",
+      promptPrefix: "提出下一步研究方向",
+      slashCommand: "summarize",
+      title: "未来工作",
+    });
+
+    expect(duplicate).toBe("This slash token is already in use");
+  });
+
+  it("discards a blank new custom card when the user blurs away", () => {
+    let state = addCustomSlashCard(createSlashSettingsState(""));
+    const blankId = state.custom[0]?.id;
+    if (!blankId) {
+      throw new Error("Expected a blank custom card");
+    }
+
+    const result = commitSlashCardEdit(
+      state,
+      { id: blankId, kind: "custom" },
+      {
+        promptPrefix: "",
+        slashCommand: "",
+        title: "",
+      },
+    );
+
+    expect(result.saved).toBe(false);
+    expect(result.state.custom).toHaveLength(0);
+  });
+
+  it("keeps invalid cards in place with inline errors instead of saving", () => {
+    let state = addCustomSlashCard(createSlashSettingsState(""));
+    const cardId = state.custom[0]?.id;
+    if (!cardId) {
+      throw new Error("Expected a blank custom card");
+    }
+
+    state = commitSlashCardEdit(
+      state,
+      { id: cardId, kind: "custom" },
+      {
+        promptPrefix: "提出三个下一步研究方向",
+        slashCommand: "two words",
+        title: "未来工作",
+      },
+    ).state;
+
+    expect(state.custom[0]?.error).toBe(
+      "Slash token must be a single token without spaces",
+    );
+    expect(serializeSlashSettingsState(state)).toBe("");
+  });
+
+  it("restores edited built-ins back to code-defined defaults", () => {
+    const state = createSlashSettingsState(
+      JSON.stringify([
+        {
+          id: "summarize",
+          label: "总结实验",
+          promptPrefix: "重点总结实验设计和结果",
+          slashCommand: "总结实验",
+        },
+      ]),
+    );
+
+    const restored = restoreBuiltInSlashCard(state, "summarize");
+    const summarize = restored.builtins.find((card) => card.id === "summarize");
+
+    expect(summarize?.title).not.toBe("总结实验");
+    expect(serializeSlashSettingsState(restored)).toBe("");
+  });
+
+  it("saves valid built-in edits as overrides", () => {
+    const state = createSlashSettingsState("");
+    const result = commitSlashCardEdit(
+      state,
+      { id: "summarize", kind: "builtin" },
+      {
+        promptPrefix: "Focus on experiments and results.",
+        slashCommand: "summary-lite",
+        title: "Summary Lite",
+      },
+    );
+
+    expect(result.saved).toBe(true);
+    expect(serializeSlashSettingsState(result.state)).toContain(
+      '"id": "summarize"',
+    );
+  });
+
+  it("keeps sidebar recommendations fixed even when slash state serializes custom cards", () => {
+    let state = createSlashSettingsState("");
+    state = addCustomSlashCard(state);
+    const cardId = state.custom[0]?.id;
+    if (!cardId) {
+      throw new Error("Expected a custom card");
+    }
+
+    const committed = commitSlashCardEdit(
+      state,
+      { id: cardId, kind: "custom" },
+      {
+        promptPrefix: "Suggest three concrete next studies.",
+        slashCommand: "future-work",
+        title: "Future Work",
+      },
+    );
+
+    const serialized = serializeSlashSettingsState(committed.state);
+    expect(getSidebarPresetsForScope("paper", serialized).map((preset) => preset.id)).toEqual([
+      "summarize",
+      "explain",
+      "core-contribution",
+      "limitations",
+    ]);
+  });
+});
 
 describe("registerPreferencesPane", () => {
   let root: FakeRootElement;
@@ -98,16 +384,10 @@ describe("registerPreferencesPane", () => {
   let exportDebugLogButton: FakeButton;
   let status: FakeStatusElement;
   let customPresetsField: FakeField;
-  let customPresetsEditor: FakeField;
-  let customPresetsAddButton: FakeButton;
-  let customPresetsResetButton: FakeButton;
-  let customPresetsImportEditor: FakeField;
-  let customPresetsImportPreview: FakeField;
-  let customPresetsValidateImportButton: FakeButton;
-  let customPresetsApplyImportButton: FakeButton;
-  let customPresetsCopyAiPromptButton: FakeButton;
-  let customPresetsDocsLink: FakeLink;
-  let customPresetsStatus: FakeStatusElement;
+  let slashBuiltins: FakeContainer;
+  let slashCustom: FakeContainer;
+  let slashAddButton: FakeButton;
+  let slashLimitStatus: FakeStatusElement;
   let evidenceProviderField: FakeField;
   let tavilyApiKeyField: FakeField;
   let tavilyValidateButton: FakeButton;
@@ -132,16 +412,10 @@ describe("registerPreferencesPane", () => {
     exportDebugLogButton = new FakeButton();
     status = new FakeStatusElement();
     customPresetsField = new FakeField();
-    customPresetsEditor = new FakeField();
-    customPresetsAddButton = new FakeButton();
-    customPresetsResetButton = new FakeButton();
-    customPresetsImportEditor = new FakeField();
-    customPresetsImportPreview = new FakeField();
-    customPresetsValidateImportButton = new FakeButton();
-    customPresetsApplyImportButton = new FakeButton();
-    customPresetsCopyAiPromptButton = new FakeButton();
-    customPresetsDocsLink = new FakeLink();
-    customPresetsStatus = new FakeStatusElement();
+    slashBuiltins = new FakeContainer();
+    slashCustom = new FakeContainer();
+    slashAddButton = new FakeButton();
+    slashLimitStatus = new FakeStatusElement();
     evidenceProviderField = new FakeField();
     tavilyApiKeyField = new FakeField();
     tavilyValidateButton = new FakeButton();
@@ -178,22 +452,10 @@ describe("registerPreferencesPane", () => {
       "zotero-ai-assistant-pref-export-debug-log": exportDebugLogButton,
       "zotero-ai-assistant-pref-status": status,
       "zotero-ai-assistant-pref-custom-presets": customPresetsField,
-      "zotero-ai-assistant-pref-custom-presets-editor": customPresetsEditor,
-      "zotero-ai-assistant-pref-custom-presets-add": customPresetsAddButton,
-      "zotero-ai-assistant-pref-custom-presets-reset": customPresetsResetButton,
-      "zotero-ai-assistant-pref-custom-presets-import-editor":
-        customPresetsImportEditor,
-      "zotero-ai-assistant-pref-custom-presets-import-preview":
-        customPresetsImportPreview,
-      "zotero-ai-assistant-pref-custom-presets-validate-import":
-        customPresetsValidateImportButton,
-      "zotero-ai-assistant-pref-custom-presets-apply-import":
-        customPresetsApplyImportButton,
-      "zotero-ai-assistant-pref-custom-presets-copy-ai-prompt":
-        customPresetsCopyAiPromptButton,
-      "zotero-ai-assistant-pref-custom-presets-docs-link":
-        customPresetsDocsLink,
-      "zotero-ai-assistant-pref-custom-presets-status": customPresetsStatus,
+      "zotero-ai-assistant-pref-slash-builtins": slashBuiltins,
+      "zotero-ai-assistant-pref-slash-custom": slashCustom,
+      "zotero-ai-assistant-pref-slash-add": slashAddButton,
+      "zotero-ai-assistant-pref-slash-limit-status": slashLimitStatus,
       "zotero-ai-assistant-pref-evidence-provider": evidenceProviderField,
       "zotero-ai-assistant-pref-tavily-api-key": tavilyApiKeyField,
       "zotero-ai-assistant-pref-tavily-validate": tavilyValidateButton,
@@ -208,22 +470,25 @@ describe("registerPreferencesPane", () => {
     ) as unknown as Window;
   }
 
-  it("hydrates field values from settings on load", () => {
+  it("hydrates API, slash storage, and evidence provider values on load", () => {
     registerPreferencesPane(createWindow(), deps);
 
     expect(deps.getSettings).toHaveBeenCalledTimes(1);
     expect(apiKeyField.value).toBe("sk-test");
     expect(customPresetsField.value).toBe("");
     expect(evidenceProviderField.value).toBe("mcp-web-search");
+    expect(slashBuiltins.querySelectorAll('[data-slash-card="true"]').length).toBeGreaterThan(0);
+    expect(
+      slashBuiltins.querySelector('[data-slash-field="title"]'),
+    ).toBeTruthy();
   });
 
   it("binds listeners only once when the pane is reopened", () => {
     const win = createWindow();
+    registerPreferencesPane(win, deps);
+    registerPreferencesPane(win, deps);
 
-    registerPreferencesPane(win, deps);
     apiKeyField.value = "sk-updated";
-    evidenceProviderField.value = "tavily";
-    registerPreferencesPane(win, deps);
     apiKeyField.dispatch("change");
 
     expect(apiKeyField.getListenerCount("change")).toBe(1);
@@ -233,8 +498,6 @@ describe("registerPreferencesPane", () => {
     expect(evidenceProviderField.getListenerCount("change")).toBe(1);
     expect(evidenceProviderField.getListenerCount("command")).toBe(1);
     expect(tavilyValidateButton.getListenerCount("command")).toBe(1);
-    expect(deepSeekLink.getListenerCount("click")).toBe(1);
-    expect(tavilyLink.getListenerCount("click")).toBe(1);
     expect(deps.saveSettings).toHaveBeenCalledTimes(1);
   });
 
@@ -242,10 +505,8 @@ describe("registerPreferencesPane", () => {
     (Zotero as any).launchURL = vi.fn();
     registerPreferencesPane(createWindow(), deps);
 
-    const deepSeekEvent = { preventDefault: vi.fn() };
-    const tavilyEvent = { preventDefault: vi.fn() };
-    deepSeekLink.dispatch("click", deepSeekEvent);
-    tavilyLink.dispatch("click", tavilyEvent);
+    deepSeekLink.dispatch("click", { preventDefault: vi.fn() });
+    tavilyLink.dispatch("click", { preventDefault: vi.fn() });
 
     expect((Zotero as any).launchURL).toHaveBeenNthCalledWith(
       1,
@@ -255,13 +516,10 @@ describe("registerPreferencesPane", () => {
       2,
       "https://app.tavily.com/",
     );
-    expect(deepSeekEvent.preventDefault).toHaveBeenCalledTimes(1);
-    expect(tavilyEvent.preventDefault).toHaveBeenCalledTimes(1);
   });
 
-  it("saves normalized values on change and reports success", async () => {
+  it("saves normalized values on API key change and reports success", async () => {
     registerPreferencesPane(createWindow(), deps);
-
     apiKeyField.value = "sk-next";
 
     apiKeyField.dispatch("change");
@@ -278,454 +536,37 @@ describe("registerPreferencesPane", () => {
     expect(status.dataset.variant).toBe("success");
   });
 
-  it("persists user-facing settings while internal defaults remain elsewhere", () => {
+  it("shows slash limit help and keeps add enabled while under the cap", () => {
     registerPreferencesPane(createWindow(), deps);
 
-    apiKeyField.value = "sk-internal-defaults";
-    saveButton.dispatch("command");
-
-    expect(deps.saveSettings).toHaveBeenLastCalledWith({
-      apiKey: "sk-internal-defaults",
-      customPresets: "",
-      evidenceProviderMode: "mcp-web-search",
-      tavilyApiKey: "",
-    });
-  });
-
-  it("persists custom command JSON and reports the parsed count", async () => {
-    registerPreferencesPane(createWindow(), deps);
-
-    const customPresets =
-      '[{"id":"future-work","label":"Future Work","promptPrefix":"Suggest next steps.","aliases":["future"]}]';
-    customPresetsField.value = customPresets;
-    customPresetsField.dispatch("change");
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(deps.saveSettings).toHaveBeenLastCalledWith({
-      apiKey: "sk-test",
-      customPresets,
-      evidenceProviderMode: "mcp-web-search",
-      tavilyApiKey: "",
-    });
-    expect(customPresetsStatus.textContent).toBe(
-      "Loaded 1 custom commands",
+    expect(slashLimitStatus.textContent).toBe(
+      "You can add up to 10 custom commands",
     );
-    expect(customPresetsStatus.dataset.variant).toBe("success");
+    expect(slashAddButton.disabled).toBe(false);
   });
 
-  it("does not persist invalid custom command JSON", async () => {
+  it("adds only one custom slash card when Zotero fires command then click", async () => {
     registerPreferencesPane(createWindow(), deps);
 
-    customPresetsField.value = "[";
-    customPresetsField.dispatch("change");
+    slashAddButton.dispatch("command");
+    slashAddButton.dispatch("click");
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(deps.saveSettings).not.toHaveBeenCalled();
-    expect(customPresetsStatus.dataset.variant).toBe("error");
-    expect(status.dataset.variant).toBe("error");
-    expect(status.textContent).toContain(
-      "Custom commands JSON is invalid; not saved",
-    );
+    expect(slashCustom.querySelectorAll('[data-slash-card="true"]').length).toBe(1);
   });
 
-  it("keeps raw custom command storage internal while still guarding invalid values", async () => {
-    const savedPresets = JSON.stringify([
-      {
-        id: "future-work",
-        label: "Future Work",
-        promptPrefix: "Suggest next steps",
-      },
-    ]);
-    deps.getSettings = vi.fn(() => ({
-      apiKey: "sk-test",
-      baseURL: "https://api.deepseek.com",
-      customPresets: savedPresets,
-      model: "deepseek-v4-pro",
-      maxContextBudget: 8192,
-      keyboardShortcut: "I",
-      evidenceEnabled: false,
-      evidenceProviderMode: "mcp-web-search" as const,
-      tavilyApiKey: "",
-    }));
+  it("adds only one custom slash card when Zotero fires click after command on a later tick", async () => {
     registerPreferencesPane(createWindow(), deps);
 
-    customPresetsField.value = "[";
-    customPresetsField.dispatch("change");
+    slashAddButton.dispatch("command");
+    await Promise.resolve();
+    await Promise.resolve();
+    slashAddButton.dispatch("click");
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(deps.saveSettings).not.toHaveBeenCalled();
-    expect(customPresetsStatus.dataset.variant).toBe("error");
-    expect(status.dataset.variant).toBe("error");
-  });
-
-  it("previews valid imported command JSON without saving immediately", () => {
-    registerPreferencesPane(createWindow(), deps);
-
-    customPresetsImportEditor.value = JSON.stringify([
-      {
-        id: "replication-risk",
-        label: "Replication Risk",
-        promptPrefix: "Assess replication risks",
-        aliases: ["replication"],
-      },
-    ]);
-    customPresetsValidateImportButton.dispatch("command");
-
-    expect(deps.saveSettings).not.toHaveBeenCalled();
-    expect(customPresetsImportPreview.innerHTML).toContain("Replication Risk");
-    expect(customPresetsApplyImportButton.disabled).toBe(false);
-    expect(customPresetsStatus.dataset.variant).toBe("success");
-  });
-
-  it("applies imported commands through the normal custom preset storage", () => {
-    registerPreferencesPane(createWindow(), deps);
-
-    customPresetsImportEditor.value = JSON.stringify([
-      {
-        id: "replication-risk",
-        label: "Replication Risk",
-        promptPrefix: "Assess replication risks",
-      },
-    ]);
-    customPresetsValidateImportButton.dispatch("command");
-    customPresetsApplyImportButton.dispatch("command");
-
-    expect(deps.saveSettings).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        customPresets: expect.stringContaining('"id": "replication-risk"'),
-      }),
-    );
-  });
-
-  it("keeps saved commands untouched when imported JSON is invalid", () => {
-    registerPreferencesPane(createWindow(), deps);
-
-    customPresetsImportEditor.value = "[";
-    customPresetsValidateImportButton.dispatch("command");
-
-    expect(deps.saveSettings).not.toHaveBeenCalled();
-    expect(customPresetsApplyImportButton.disabled).toBe(true);
-    expect(customPresetsStatus.dataset.variant).toBe("error");
-  });
-
-  it("copies the AI generation prompt without terminal punctuation", async () => {
-    const writeText = vi.fn(async (_text: string) => undefined);
-    vi.stubGlobal("navigator", {
-      clipboard: { writeText },
-    });
-    registerPreferencesPane(createWindow(), deps);
-
-    customPresetsCopyAiPromptButton.dispatch("command");
-    await Promise.resolve();
-
-    expect(writeText).toHaveBeenCalledTimes(1);
-    const prompt = writeText.mock.calls[0]?.[0] ?? "";
-    expect(prompt.endsWith(".")).toBe(false);
-    expect(prompt.endsWith("。")).toBe(false);
-  });
-
-  it("opens the command JSON documentation link through Zotero.launchURL", () => {
-    (Zotero as any).launchURL = vi.fn();
-    registerPreferencesPane(createWindow(), deps);
-
-    customPresetsDocsLink.dispatch("click", { preventDefault: vi.fn() });
-
-    expect((Zotero as any).launchURL).toHaveBeenCalledWith(
-      "https://github.com/astro-koko/deepseek-copilot-for-zotero/blob/main/docs/custom-commands.md",
-    );
-  });
-
-  it("restores built-in commands without deleting user-created commands", () => {
-    deps.getSettings = vi.fn(() => ({
-      apiKey: "sk-test",
-      baseURL: "https://api.deepseek.com",
-      customPresets: JSON.stringify([
-        {
-          id: "summarize",
-          hidden: true,
-        },
-        {
-          id: "future-work",
-          label: "Future Work",
-          promptPrefix: "Suggest next steps",
-        },
-      ]),
-      model: "deepseek-v4-pro",
-      maxContextBudget: 8192,
-      keyboardShortcut: "I",
-      evidenceEnabled: false,
-      evidenceProviderMode: "mcp-web-search" as const,
-      tavilyApiKey: "",
-    }));
-    registerPreferencesPane(createWindow(), deps);
-
-    customPresetsResetButton.dispatch("command");
-
-    expect(deps.saveSettings).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        customPresets: expect.stringContaining('"id": "future-work"'),
-      }),
-    );
-    expect(deps.saveSettings).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        customPresets: expect.not.stringContaining('"id": "summarize"'),
-      }),
-    );
-  });
-
-  it("runs validation with unsaved values and reports errors inline", async () => {
-    deps.validateSettings = vi.fn(async () => ({
-      valid: false,
-      error: "Invalid API key",
-    }));
-    registerPreferencesPane(createWindow(), deps);
-
-    apiKeyField.value = "sk-bad";
-    validateButton.dispatch("command");
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(deps.validateSettings).toHaveBeenCalledWith({
-      apiKey: "sk-bad",
-      customPresets: "",
-      evidenceProviderMode: "mcp-web-search",
-      tavilyApiKey: "",
-    });
-    expect(status.textContent).toBe("Invalid API key");
-    expect(status.dataset.variant).toBe("error");
-    expect(Zotero.alert as any).toHaveBeenCalledWith(
-      expect.anything(),
-      "Deepseek Copliot Validation Failed",
-      "Invalid API key",
-    );
-  });
-
-  it("shows a validating status before reporting validation success", async () => {
-    let resolveValidation:
-      | ((value: { valid: boolean; error?: string }) => void)
-      | null = null;
-    deps.validateSettings = vi.fn(
-      () =>
-        new Promise<{ valid: boolean; error?: string }>((resolve) => {
-          resolveValidation = resolve;
-        }),
-    );
-    registerPreferencesPane(createWindow(), deps);
-
-    apiKeyField.value = "sk-validating";
-    validateButton.dispatch("command");
-    await Promise.resolve();
-
-    expect(status.dataset.variant).toBe("success");
-    expect(status.textContent).toBe("Validating connection...");
-
-    if (!resolveValidation) {
-      throw new Error("Expected validation promise resolver to be captured");
-    }
-    const finishValidation: (value: {
-      valid: boolean;
-      error?: string;
-    }) => void = resolveValidation;
-    finishValidation({ valid: true });
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(status.textContent).toBe("DeepSeek connection looks good");
-    expect(status.dataset.variant).toBe("success");
-    expect(Zotero.alert as any).toHaveBeenCalledWith(
-      expect.anything(),
-      "Deepseek Copliot",
-      "DeepSeek connection looks good",
-    );
-  });
-
-  it("uses zh-CN validation copy when Zotero is running in Chinese", async () => {
-    (Zotero.Prefs.get as any).mockImplementation((key: string) =>
-      key === "intl.locale.requested" ? "zh-CN" : "",
-    );
-    registerPreferencesPane(createWindow(), deps);
-
-    validateButton.dispatch("command");
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(status.textContent).toBe("DeepSeek 连接正常");
-    expect(Zotero.alert as any).toHaveBeenCalledWith(
-      expect.anything(),
-      "Deepseek Copliot",
-      "DeepSeek 连接正常",
-    );
-  });
-
-  it("persists settings from XUL command events and broadcasts the change", () => {
-    const eventSpy = vi.fn();
-    EventBus.getInstance().addEventListener("settingsChange", eventSpy);
-    registerPreferencesPane(createWindow(), deps);
-
-    apiKeyField.value = "sk-command";
-    saveButton.dispatch("command");
-
-    expect(deps.saveSettings).toHaveBeenLastCalledWith({
-      apiKey: "sk-command",
-      customPresets: "",
-      evidenceProviderMode: "mcp-web-search",
-      tavilyApiKey: "",
-    });
-    expect(eventSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it("responds to click events from preference buttons in the live Zotero pane", async () => {
-    registerPreferencesPane(createWindow(), deps);
-
-    apiKeyField.value = "sk-click";
-    saveButton.dispatch("click");
-    validateButton.dispatch("click");
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(deps.saveSettings).toHaveBeenLastCalledWith({
-      apiKey: "sk-click",
-      customPresets: "",
-      evidenceProviderMode: "mcp-web-search",
-      tavilyApiKey: "",
-    });
-    expect(deps.validateSettings).toHaveBeenLastCalledWith({
-      apiKey: "sk-click",
-      customPresets: "",
-      evidenceProviderMode: "mcp-web-search",
-      tavilyApiKey: "",
-    });
-  });
-
-  it("exports the structured debug log from the preferences pane", async () => {
-    vi.stubGlobal("PathUtils", { tempDir: "/tmp" });
-    registerPreferencesPane(createWindow(), deps);
-    debugLog.info("settings.test-marker", { surface: "settings" });
-
-    exportDebugLogButton.dispatch("command");
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(deps.exportDebugLog).toHaveBeenCalledWith(
-      expect.stringMatching(/deepseek-copliot-debug-\d+\.jsonl$/),
-    );
-    expect(status.dataset.variant).toBe("success");
-    expect(status.textContent).toContain("Debug log exported to");
-  });
-
-  it("reports debug log export failures inline", async () => {
-    vi.stubGlobal("PathUtils", { tempDir: "/tmp" });
-    deps.exportDebugLog = vi.fn(async () => {
-      throw new Error("no writable path");
-    });
-    registerPreferencesPane(createWindow(), deps);
-
-    exportDebugLogButton.dispatch("click");
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(status.dataset.variant).toBe("error");
-    expect(status.textContent).toBe("Debug log export failed: no writable path");
-  });
-
-  it("rebinds listeners when Zotero recreates the field nodes under the same root", () => {
-    const win = createWindow();
-    registerPreferencesPane(win, deps);
-
-    const replacementApiKeyField = new FakeField();
-    const replacementSaveButton = new FakeButton();
-    const replacementValidateButton = new FakeButton();
-    const replacementExportDebugLogButton = new FakeButton();
-    const replacementStatus = new FakeStatusElement();
-    const replacementCustomPresetsField = new FakeField();
-    const replacementCustomPresetsEditor = new FakeField();
-    const replacementCustomPresetsAddButton = new FakeButton();
-    const replacementCustomPresetsResetButton = new FakeButton();
-    const replacementCustomPresetsImportEditor = new FakeField();
-    const replacementCustomPresetsImportPreview = new FakeField();
-    const replacementCustomPresetsValidateImportButton = new FakeButton();
-    const replacementCustomPresetsApplyImportButton = new FakeButton();
-    const replacementCustomPresetsCopyAiPromptButton = new FakeButton();
-    const replacementCustomPresetsDocsLink = new FakeLink();
-    const replacementCustomPresetsStatus = new FakeStatusElement();
-    const replacementEvidenceProviderField = new FakeField();
-    const replacementTavilyApiKeyField = new FakeField();
-    const replacementTavilyValidateButton = new FakeButton();
-    const replacementTavilyStatus = new FakeStatusElement();
-    const replacementTavilySettingsRow = new FakeField();
-    const replacementDeepSeekLink = new FakeLink();
-    const replacementTavilyLink = new FakeLink();
-    const replacementDocument = new FakeDocument({
-      "zotero-ai-assistant-prefs": root,
-      "zotero-ai-assistant-pref-api-key": replacementApiKeyField,
-      "zotero-ai-assistant-pref-save": replacementSaveButton,
-      "zotero-ai-assistant-pref-validate": replacementValidateButton,
-      "zotero-ai-assistant-pref-export-debug-log":
-        replacementExportDebugLogButton,
-      "zotero-ai-assistant-pref-status": replacementStatus,
-      "zotero-ai-assistant-pref-custom-presets": replacementCustomPresetsField,
-      "zotero-ai-assistant-pref-custom-presets-editor":
-        replacementCustomPresetsEditor,
-      "zotero-ai-assistant-pref-custom-presets-add":
-        replacementCustomPresetsAddButton,
-      "zotero-ai-assistant-pref-custom-presets-reset":
-        replacementCustomPresetsResetButton,
-      "zotero-ai-assistant-pref-custom-presets-import-editor":
-        replacementCustomPresetsImportEditor,
-      "zotero-ai-assistant-pref-custom-presets-import-preview":
-        replacementCustomPresetsImportPreview,
-      "zotero-ai-assistant-pref-custom-presets-validate-import":
-        replacementCustomPresetsValidateImportButton,
-      "zotero-ai-assistant-pref-custom-presets-apply-import":
-        replacementCustomPresetsApplyImportButton,
-      "zotero-ai-assistant-pref-custom-presets-copy-ai-prompt":
-        replacementCustomPresetsCopyAiPromptButton,
-      "zotero-ai-assistant-pref-custom-presets-docs-link":
-        replacementCustomPresetsDocsLink,
-      "zotero-ai-assistant-pref-custom-presets-status":
-        replacementCustomPresetsStatus,
-      "zotero-ai-assistant-pref-evidence-provider":
-        replacementEvidenceProviderField,
-      "zotero-ai-assistant-pref-tavily-api-key": replacementTavilyApiKeyField,
-      "zotero-ai-assistant-pref-tavily-validate":
-        replacementTavilyValidateButton,
-      "zotero-ai-assistant-pref-tavily-status": replacementTavilyStatus,
-      "zotero-ai-assistant-pref-tavily-settings": replacementTavilySettingsRow,
-      "zotero-ai-assistant-pref-api-key-link": replacementDeepSeekLink,
-      "zotero-ai-assistant-pref-tavily-link": replacementTavilyLink,
-    });
-
-    registerPreferencesPane(
-      new FakeWindow(
-        replacementDocument as unknown as FakeDocument,
-      ) as unknown as Window,
-      deps,
-    );
-
-    replacementApiKeyField.value = "sk-recreated";
-    replacementSaveButton.dispatch("command");
-
-    expect(deps.saveSettings).toHaveBeenLastCalledWith({
-      apiKey: "sk-recreated",
-      customPresets: "",
-      evidenceProviderMode: "mcp-web-search",
-      tavilyApiKey: "",
-    });
-    expect(replacementSaveButton.getListenerCount("command")).toBe(1);
-    expect(replacementExportDebugLogButton.getListenerCount("command")).toBe(1);
-    expect(replacementCustomPresetsAddButton.getListenerCount("command")).toBe(
-      1,
-    );
-    expect(
-      replacementCustomPresetsValidateImportButton.getListenerCount("command"),
-    ).toBe(1);
-    expect(replacementCustomPresetsDocsLink.getListenerCount("click")).toBe(1);
-    expect(replacementDeepSeekLink.getListenerCount("click")).toBe(1);
-    expect(replacementTavilyLink.getListenerCount("click")).toBe(1);
+    expect(slashCustom.querySelectorAll('[data-slash-card="true"]').length).toBe(1);
   });
 
   it("shows the Tavily settings only when the Tavily provider is selected", async () => {
@@ -766,20 +607,40 @@ describe("registerPreferencesPane", () => {
     expect(tavilyStatus.textContent).toBe("Tavily connection looks good");
   });
 
-  it("reacts to radiogroup command events from the live preferences pane", async () => {
+  it("runs validation with unsaved values and reports errors inline", async () => {
+    deps.validateSettings = vi.fn(async () => ({
+      valid: false,
+      error: "Invalid API key",
+    }));
     registerPreferencesPane(createWindow(), deps);
 
-    evidenceProviderField.value = "tavily";
-    evidenceProviderField.dispatch("command");
+    apiKeyField.value = "sk-bad";
+    validateButton.dispatch("command");
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(tavilySettingsRow.style.display).toBe("");
-    expect(deps.saveSettings).toHaveBeenLastCalledWith({
-      apiKey: "sk-test",
+    expect(deps.validateSettings).toHaveBeenCalledWith({
+      apiKey: "sk-bad",
       customPresets: "",
-      evidenceProviderMode: "tavily",
+      evidenceProviderMode: "mcp-web-search",
       tavilyApiKey: "",
     });
+    expect(status.textContent).toBe("Invalid API key");
+    expect(status.dataset.variant).toBe("error");
+  });
+
+  it("exports the structured debug log from the preferences pane", async () => {
+    vi.stubGlobal("PathUtils", { tempDir: "/tmp" });
+    registerPreferencesPane(createWindow(), deps);
+
+    exportDebugLogButton.dispatch("command");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(deps.exportDebugLog).toHaveBeenCalledWith(
+      expect.stringMatching(/deepseek-copliot-debug-\d+\.jsonl$/),
+    );
+    expect(status.dataset.variant).toBe("success");
+    expect(status.textContent).toContain("Debug log exported to");
   });
 });

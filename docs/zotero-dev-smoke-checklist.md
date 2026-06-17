@@ -110,7 +110,7 @@ Treat the next smoke run as an evidence-collection pass, not a vibe check. Captu
 20. For public release smoke, confirm the clean profile starts without prefilled API keys and without restored test threads before entering any temporary credentials.
 21. If a packaged icon change does not show up after reinstall, clear the profile-level add-on startup cache such as `addonStartup.json.lz4`, cold-restart Zotero, and then re-check the Library and Reader surfaces before changing code again.
 
-For `Commands and Prompts` validation, do not start from a currently visible Settings pane unless step 5 has just proven the newest dev XPI is loaded. Test the command controls as product requirements: add custom command, restore built-ins, JSON validate/preview/apply, invalid JSON protection, copy AI-generation prompt, GitHub examples link, and save/reopen persistence. The Settings UI should expose one user-facing JSON editor for batch import, not a second advanced/raw JSON editor.
+For `Commands and Prompts` validation, do not start from a currently visible Settings pane unless step 5 has just proven the newest dev XPI is loaded. Treat the slash card editor as the product requirement: built-in cards must render under `默认命令`, custom cards must render under `我的命令`, `新增命令` must create a blank editable card, leaving a valid card must auto-save, leaving an empty new card must discard it, duplicate slash tokens must show inline validation without silent save, `恢复默认` must remove a built-in override, and save/reopen plus packaged-restart persistence must keep the edited title/slash/prompt values. The normal Settings UI must not expose JSON import, preview, raw-storage, copy-prompt, or GitHub JSON-example actions.
 
 ## Runtime evidence
 

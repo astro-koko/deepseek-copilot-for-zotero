@@ -1,27 +1,17 @@
 import {
-  buildCustomCommandAIPrompt,
-  createEmptyEditableCustomPreset,
   DEFAULT_EVIDENCE_PROVIDER_MODE,
-  mergeEditableCustomPresets,
-  parseEditableCustomPresets,
-  type PersistedSettings,
-  stringifyEditableCustomPresets,
   getSettings,
   parseCustomPresets,
   saveSettings,
-  type EditableCustomCommandPreset,
+  type PersistedSettings,
   validateEvidenceSettings,
   validateSettings,
 } from "../services/settingsManager";
+import { getAllPresets } from "../services/presets";
 import { createHostEvent } from "../utils/domEvents";
 import { createTraceId, debugLog, exportDebugLog } from "../utils/debugLog";
 import { EventBus } from "../utils/eventBus";
 import { isChineseLocale } from "../utils/locale";
-import { getAllPresets, getPresetSlashCommand } from "../services/presets";
-
-type PreferencesWindow = Window & {
-  document: PreferencesDocument;
-};
 
 type PreferencesDocument = Document & {
   l10n?: {
@@ -32,9 +22,9 @@ type PreferencesDocument = Document & {
 type PreferencesRootElement = HTMLElement;
 
 interface PreferencesFieldElement extends HTMLElement {
-  value: string;
-  disabled?: boolean;
   checked?: boolean;
+  disabled?: boolean;
+  value: string;
   __aiAssistantListeners?: Map<string, EventListener>;
 }
 
@@ -48,12 +38,34 @@ interface PreferencesStatusElement extends HTMLElement {
   };
 }
 
+interface PreferencesContainerElement extends HTMLElement {
+  appendChild(node: unknown): unknown;
+  replaceChildren?: (...nodes: unknown[]) => void;
+  querySelector?: (selector: string) => Element | null;
+  querySelectorAll?: (selector: string) => NodeListOf<Element>;
+}
+
 export interface PreferencesPaneDeps {
   exportDebugLog: typeof exportDebugLog;
   getSettings: typeof getSettings;
   saveSettings: typeof saveSettings;
   validateSettings: typeof validateSettings;
   validateEvidenceSettings: typeof validateEvidenceSettings;
+}
+
+export interface SlashCardDraft {
+  error?: string | null;
+  id: string;
+  isNew?: boolean;
+  kind: "builtin" | "custom";
+  promptPrefix: string;
+  slashCommand: string;
+  title: string;
+}
+
+export interface SlashSettingsState {
+  builtins: SlashCardDraft[];
+  custom: SlashCardDraft[];
 }
 
 const ROOT_ID = "zotero-ai-assistant-prefs";
@@ -71,37 +83,309 @@ const TAVILY_VALIDATE_BUTTON_ID = "zotero-ai-assistant-pref-tavily-validate";
 const TAVILY_STATUS_ID = "zotero-ai-assistant-pref-tavily-status";
 const TAVILY_SETTINGS_ID = "zotero-ai-assistant-pref-tavily-settings";
 const CUSTOM_PRESETS_ID = "zotero-ai-assistant-pref-custom-presets";
-const CUSTOM_PRESETS_ADD_ID = "zotero-ai-assistant-pref-custom-presets-add";
-const CUSTOM_PRESETS_EDITOR_ID =
-  "zotero-ai-assistant-pref-custom-presets-editor";
-const CUSTOM_PRESETS_RESET_ID =
-  "zotero-ai-assistant-pref-custom-presets-reset";
-const CUSTOM_PRESETS_STATUS_ID =
-  "zotero-ai-assistant-pref-custom-presets-status";
-const CUSTOM_PRESETS_IMPORT_EDITOR_ID =
-  "zotero-ai-assistant-pref-custom-presets-import-editor";
-const CUSTOM_PRESETS_IMPORT_PREVIEW_ID =
-  "zotero-ai-assistant-pref-custom-presets-import-preview";
-const CUSTOM_PRESETS_VALIDATE_IMPORT_ID =
-  "zotero-ai-assistant-pref-custom-presets-validate-import";
-const CUSTOM_PRESETS_APPLY_IMPORT_ID =
-  "zotero-ai-assistant-pref-custom-presets-apply-import";
-const CUSTOM_PRESETS_COPY_AI_PROMPT_ID =
-  "zotero-ai-assistant-pref-custom-presets-copy-ai-prompt";
-const CUSTOM_PRESETS_DOCS_LINK_ID =
-  "zotero-ai-assistant-pref-custom-presets-docs-link";
-const CUSTOM_COMMANDS_DOCS_URL =
-  "https://github.com/astro-koko/deepseek-copilot-for-zotero/blob/main/docs/custom-commands.md";
+const SLASH_BUILTINS_ID = "zotero-ai-assistant-pref-slash-builtins";
+const SLASH_CUSTOM_ID = "zotero-ai-assistant-pref-slash-custom";
+const SLASH_ADD_ID = "zotero-ai-assistant-pref-slash-add";
+const SLASH_LIMIT_STATUS_ID = "zotero-ai-assistant-pref-slash-limit-status";
+
+const MAX_CUSTOM_SLASH_COMMANDS = 10;
+const BUTTON_ACTIVATION_DEDUPE_WINDOW_MS = 300;
+const HTML_NS = "http://www.w3.org/1999/xhtml";
 
 export const DEEPSEEK_PLATFORM_URL = "https://platform.deepseek.com/";
 export const TAVILY_APP_URL = "https://app.tavily.com/";
 
-interface CustomPresetImportState {
-  presets: EditableCustomCommandPreset[];
+interface BuiltInCardDefault extends SlashCardDraft {
+  kind: "builtin";
 }
 
-function createCustomPresetImportState(): CustomPresetImportState {
-  return { presets: [] };
+function getBuiltInDefaults(): BuiltInCardDefault[] {
+  return getAllPresets("").map((preset) => ({
+    id: preset.id,
+    kind: "builtin" as const,
+    promptPrefix: preset.promptPrefix,
+    slashCommand: preset.slashCommand?.trim() || preset.id,
+    title: preset.label,
+  }));
+}
+
+function getBuiltInDefaultMap(): Map<string, BuiltInCardDefault> {
+  return new Map(getBuiltInDefaults().map((card) => [card.id, card]));
+}
+
+function normalizeToken(value: string): string {
+  return value.trim().replace(/^\/+/, "");
+}
+
+function isBlankCard(card: Pick<SlashCardDraft, "promptPrefix" | "slashCommand" | "title">): boolean {
+  return !card.title.trim() && !normalizeToken(card.slashCommand) && !card.promptPrefix.trim();
+}
+
+function copyForState(card: SlashCardDraft): SlashCardDraft {
+  return {
+    error: card.error ?? null,
+    id: card.id,
+    isNew: Boolean(card.isNew),
+    kind: card.kind,
+    promptPrefix: card.promptPrefix,
+    slashCommand: card.slashCommand,
+    title: card.title,
+  };
+}
+
+function createCustomCardId(existing: SlashCardDraft[]): string {
+  const taken = new Set(existing.map((card) => card.id));
+  let index = existing.length + 1;
+  while (taken.has(`custom-action-${index}`)) {
+    index += 1;
+  }
+  return `custom-action-${index}`;
+}
+
+function getValidationCopy(zh: boolean) {
+  return {
+    duplicateSlash: zh ? "这个简写已经在使用中了" : "This slash token is already in use",
+    invalidSlash:
+      zh ? "简写不能包含空格，且不需要重复输入 /" : "Slash token must be a single token without spaces",
+    promptRequired: zh ? "提示词不能为空" : "Prompt text is required",
+    titleRequired: zh ? "标题不能为空" : "Title is required",
+  };
+}
+
+export function createSlashSettingsState(
+  customPresetsValue: string,
+): SlashSettingsState {
+  const builtInDefaults = getBuiltInDefaults();
+  const builtInIds = new Set(builtInDefaults.map((card) => card.id));
+  const mergedBuiltIns = new Map(
+    getAllPresets(customPresetsValue)
+      .filter((preset) => builtInIds.has(preset.id))
+      .map((preset) => [
+        preset.id,
+        {
+          id: preset.id,
+          kind: "builtin" as const,
+          promptPrefix: preset.promptPrefix,
+          slashCommand: preset.slashCommand?.trim() || preset.id,
+          title: preset.label,
+        },
+      ]),
+  );
+  const parsedCustom = parseCustomPresets(customPresetsValue).presets;
+
+  return {
+    builtins: builtInDefaults.map((card) =>
+      copyForState(mergedBuiltIns.get(card.id) || card),
+    ),
+    custom: parsedCustom
+      .filter((preset) => !builtInIds.has(preset.id))
+      .map((preset) => ({
+        id: preset.id,
+        isNew: false,
+        kind: "custom" as const,
+        promptPrefix: String(preset.promptPrefix || "").trim(),
+        slashCommand: String(preset.slashCommand || preset.id || "").trim(),
+        title: String(preset.label || "").trim(),
+      })),
+  };
+}
+
+export function serializeSlashSettingsState(
+  state: SlashSettingsState,
+): string {
+  const defaults = getBuiltInDefaultMap();
+  const serializedBuiltins = state.builtins
+    .map((card) => {
+      if (card.error) {
+        return null;
+      }
+      const base = defaults.get(card.id);
+      if (!base) {
+        return null;
+      }
+
+      const normalized = {
+        id: card.id,
+        label: card.title.trim(),
+        promptPrefix: card.promptPrefix.trim(),
+        slashCommand: normalizeToken(card.slashCommand),
+      };
+      const unchanged =
+        normalized.label === base.title.trim() &&
+        normalized.promptPrefix === base.promptPrefix.trim() &&
+        normalized.slashCommand === normalizeToken(base.slashCommand);
+      return unchanged ? null : normalized;
+    })
+    .filter(Boolean);
+  const serializedCustom = state.custom
+    .filter((card) => !card.error && !isBlankCard(card))
+    .map((card) => ({
+      id: card.id,
+      label: card.title.trim(),
+      promptPrefix: card.promptPrefix.trim(),
+      slashCommand: normalizeToken(card.slashCommand),
+    }));
+
+  const serialized = [...serializedBuiltins, ...serializedCustom];
+  return serialized.length > 0 ? JSON.stringify(serialized, null, 2) : "";
+}
+
+export function addCustomSlashCard(
+  state: SlashSettingsState,
+): SlashSettingsState {
+  if (state.custom.length >= MAX_CUSTOM_SLASH_COMMANDS) {
+    return state;
+  }
+
+  return {
+    ...state,
+    custom: [
+      ...state.custom.map(copyForState),
+      {
+        id: createCustomCardId(state.custom),
+        isNew: true,
+        kind: "custom",
+        promptPrefix: "",
+        slashCommand: "",
+        title: "",
+      },
+    ],
+  };
+}
+
+export function restoreBuiltInSlashCard(
+  state: SlashSettingsState,
+  id: string,
+): SlashSettingsState {
+  const defaults = getBuiltInDefaultMap();
+  const restored = defaults.get(id);
+  if (!restored) {
+    return state;
+  }
+
+  return {
+    ...state,
+    builtins: state.builtins.map((card) =>
+      card.id === id ? copyForState(restored) : copyForState(card),
+    ),
+  };
+}
+
+export function validateSlashCardDraft(
+  state: SlashSettingsState,
+  draft: SlashCardDraft,
+  zh = isChineseLocale(),
+): string | null {
+  const copy = getValidationCopy(zh);
+  if (!draft.title.trim()) {
+    return copy.titleRequired;
+  }
+
+  const normalizedSlash = normalizeToken(draft.slashCommand);
+  if (!normalizedSlash || /\s/.test(normalizedSlash)) {
+    return copy.invalidSlash;
+  }
+
+  if (!draft.promptPrefix.trim()) {
+    return copy.promptRequired;
+  }
+
+  const duplicate = [...state.builtins, ...state.custom]
+    .filter((card) => !(card.kind === draft.kind && card.id === draft.id))
+    .some(
+      (card) =>
+        normalizeToken(card.slashCommand).toLowerCase() ===
+        normalizedSlash.toLowerCase(),
+    );
+  if (duplicate) {
+    return copy.duplicateSlash;
+  }
+
+  return null;
+}
+
+function replaceCard(
+  cards: SlashCardDraft[],
+  nextCard: SlashCardDraft,
+): SlashCardDraft[] {
+  return cards.map((card) =>
+    card.id === nextCard.id && card.kind === nextCard.kind
+      ? copyForState(nextCard)
+      : copyForState(card),
+  );
+}
+
+export function commitSlashCardEdit(
+  state: SlashSettingsState,
+  target: Pick<SlashCardDraft, "id" | "kind">,
+  updates: Pick<SlashCardDraft, "promptPrefix" | "slashCommand" | "title">,
+  zh = isChineseLocale(),
+): {
+  saved: boolean;
+  state: SlashSettingsState;
+} {
+  const collection =
+    target.kind === "builtin" ? state.builtins : state.custom;
+  const current = collection.find(
+    (card) => card.id === target.id && card.kind === target.kind,
+  );
+  if (!current) {
+    return { saved: false, state };
+  }
+
+  const nextCard: SlashCardDraft = {
+    ...copyForState(current),
+    error: null,
+    promptPrefix: updates.promptPrefix,
+    slashCommand: normalizeToken(updates.slashCommand),
+    title: updates.title,
+  };
+
+  if (nextCard.kind === "custom" && nextCard.isNew && isBlankCard(nextCard)) {
+    return {
+      saved: false,
+      state: {
+        ...state,
+        custom: state.custom
+          .filter((card) => card.id !== nextCard.id)
+          .map(copyForState),
+      },
+    };
+  }
+
+  const error = validateSlashCardDraft(state, nextCard, zh);
+  if (error) {
+    nextCard.error = error;
+    return {
+      saved: false,
+      state:
+        nextCard.kind === "builtin"
+          ? {
+              ...state,
+              builtins: replaceCard(state.builtins, nextCard),
+            }
+          : {
+              ...state,
+              custom: replaceCard(state.custom, nextCard),
+            },
+    };
+  }
+
+  nextCard.error = null;
+  nextCard.isNew = false;
+  return {
+    saved: true,
+    state:
+      nextCard.kind === "builtin"
+        ? {
+            ...state,
+            builtins: replaceCard(state.builtins, nextCard),
+          }
+        : {
+            ...state,
+            custom: replaceCard(state.custom, nextCard),
+          },
+  };
 }
 
 export function registerPreferencesPane(
@@ -120,19 +404,13 @@ export function registerPreferencesPane(
     return;
   }
 
-  debugLog.info("settings.pane.load", {
-    surface: "settings",
-  });
-  hydrateForm(doc, deps.getSettings());
-  const importState = createCustomPresetImportState();
+  const settings = deps.getSettings();
+  let slashState = createSlashSettingsState(settings.customPresets);
+  debugLog.info("settings.pane.load", { surface: "settings" });
+  hydrateForm(doc, settings, slashState);
 
-  const persist = (
-    options: { syncCustomPresetsFromEditor?: boolean } = {},
-  ) => {
+  const persist = () => {
     const traceId = createTraceId("settings-save");
-    if (options.syncCustomPresetsFromEditor !== false) {
-      syncCustomPresetStorageField(doc);
-    }
     const values = readFormValues(doc);
     debugLog.info("settings.save.start", {
       evidenceProviderMode: values.evidenceProviderMode,
@@ -141,15 +419,14 @@ export function registerPreferencesPane(
       surface: "settings",
       traceId,
     });
+
     const customPresetsResult = parseCustomPresets(values.customPresets || "");
     if (customPresetsResult.error) {
-      const zh = isChineseLocale();
-      updateCustomPresetsStatus(doc, values.customPresets || "");
       setStatusText(
         getStatusElement(doc),
-        zh
-          ? `自定义命令 JSON 无效，未保存：${customPresetsResult.error}`
-          : `Custom commands JSON is invalid; not saved: ${customPresetsResult.error}`,
+        isChineseLocale()
+          ? `自定义命令保存失败：${customPresetsResult.error}`
+          : `Could not save slash commands: ${customPresetsResult.error}`,
         "error",
       );
       debugLog.warn("settings.save.blocked", {
@@ -162,35 +439,14 @@ export function registerPreferencesPane(
 
     deps.saveSettings(values);
     applyEvidenceProviderVisibility(doc, values.evidenceProviderMode);
-    updateCustomPresetsStatus(doc, values.customPresets || "");
     EventBus.getInstance().dispatchEvent(
       createHostEvent("settingsChange", win),
     );
-    const formatter = doc.l10n?.formatValue;
-    const status = getStatusElement(doc);
-    if (!status) {
-      return;
-    }
-
-    status.dataset.variant = "success";
     debugLog.info("settings.save.success", {
       surface: "settings",
       traceId,
     });
-    if (!formatter) {
-      status.textContent = "ai-assistant-pref-status-saved";
-      return;
-    }
-
-    const formatted = formatter("ai-assistant-pref-status-saved");
-    if (typeof (formatted as Promise<string>)?.then === "function") {
-      void Promise.resolve(formatted).then((value) => {
-        status.textContent = String(value);
-      });
-      return;
-    }
-
-    status.textContent = String(formatted);
+    setLocalizedStatus(doc, "ai-assistant-pref-status-saved", "success");
   };
 
   const validate = async () => {
@@ -220,7 +476,7 @@ export function registerPreferencesPane(
       );
       showValidationDialog(
         win,
-        zh ? "Deepseek Copliot" : "Deepseek Copliot",
+        "Deepseek Copliot",
         zh ? "DeepSeek 连接正常" : "DeepSeek connection looks good",
       );
       return;
@@ -294,17 +550,12 @@ export function registerPreferencesPane(
       surface: "settings",
       traceId,
     });
-
     if (!outputPath) {
-      const message = zh
-        ? "无法确定调试日志导出路径"
-        : "Could not determine a debug log export path";
-      setStatusText(status, message, "error");
-      debugLog.warn("settings.debugLog.export.error", {
-        reason: "missing-output-path",
-        surface: "settings",
-        traceId,
-      });
+      setStatusText(
+        status,
+        zh ? "无法确定调试日志导出路径" : "Could not determine a debug log export path",
+        "error",
+      );
       return;
     }
 
@@ -340,33 +591,34 @@ export function registerPreferencesPane(
     }
   };
 
+  const rerenderSlash = () => {
+    renderSlashSettings(doc, slashState);
+    syncSlashStorageField(doc, slashState);
+    bindSlashCardInteractions(doc, () => slashState, (nextState, shouldSave) => {
+      slashState = nextState;
+      rerenderSlash();
+      if (shouldSave) {
+        persist();
+      }
+    });
+  };
+
   bindFieldEvent(doc, API_KEY_ID, "change", () => persist());
   bindFieldEvent(doc, CUSTOM_PRESETS_ID, "change", () => {
-    const field = getField(doc, CUSTOM_PRESETS_ID);
-    const value = field?.value || "";
-    const parsed = parseCustomPresets(value);
-    if (!parsed.error) {
-      renderCustomPresetEditor(doc, parseEditableCustomPresets(value));
+    const raw = getField(doc, CUSTOM_PRESETS_ID)?.value || "";
+    const parsed = parseCustomPresets(raw);
+    if (parsed.error) {
+      setStatusText(
+        getStatusElement(doc),
+        parsed.error,
+        "error",
+      );
+      return;
     }
-    persist({ syncCustomPresetsFromEditor: false });
-  });
-  bindButtonActivation(doc, CUSTOM_PRESETS_ADD_ID, () => {
-    addCustomPresetCard(doc);
+
+    slashState = createSlashSettingsState(raw);
+    rerenderSlash();
     persist();
-  });
-  bindButtonActivation(doc, CUSTOM_PRESETS_RESET_ID, () => {
-    restoreBuiltInPresets(doc);
-    persist({ syncCustomPresetsFromEditor: false });
-  });
-  bindButtonActivation(doc, CUSTOM_PRESETS_VALIDATE_IMPORT_ID, () => {
-    validateCustomPresetImport(doc, importState);
-  });
-  bindButtonActivation(doc, CUSTOM_PRESETS_APPLY_IMPORT_ID, () => {
-    applyCustomPresetImport(doc, importState);
-    persist({ syncCustomPresetsFromEditor: false });
-  });
-  bindButtonActivation(doc, CUSTOM_PRESETS_COPY_AI_PROMPT_ID, () => {
-    void copyCustomCommandAIPrompt(doc);
   });
   bindTriggeredFieldEvents(
     doc,
@@ -377,7 +629,14 @@ export function registerPreferencesPane(
   bindFieldEvent(doc, TAVILY_API_KEY_ID, "change", () => persist());
   bindExternalLink(doc, API_KEY_LINK_ID, DEEPSEEK_PLATFORM_URL);
   bindExternalLink(doc, TAVILY_LINK_ID, TAVILY_APP_URL);
-  bindExternalLink(doc, CUSTOM_PRESETS_DOCS_LINK_ID, CUSTOM_COMMANDS_DOCS_URL);
+  bindButtonActivation(doc, SLASH_ADD_ID, () => {
+    const next = addCustomSlashCard(slashState);
+    if (next === slashState) {
+      return;
+    }
+    slashState = next;
+    rerenderSlash();
+  });
   bindButtonActivation(doc, SAVE_BUTTON_ID, () => persist());
   bindButtonActivation(doc, VALIDATE_BUTTON_ID, () => {
     void validate();
@@ -388,11 +647,13 @@ export function registerPreferencesPane(
   bindButtonActivation(doc, TAVILY_VALIDATE_BUTTON_ID, () => {
     void validateEvidence();
   });
+  rerenderSlash();
 }
 
 function hydrateForm(
   doc: PreferencesDocument,
   settings: ReturnType<typeof getSettings>,
+  slashState: SlashSettingsState,
 ): void {
   const apiKeyField = getField(doc, API_KEY_ID);
   const customPresetsField = getField(doc, CUSTOM_PRESETS_ID);
@@ -403,12 +664,7 @@ function hydrateForm(
     apiKeyField.value = settings.apiKey;
   }
   if (customPresetsField) {
-    customPresetsField.value = settings.customPresets;
-    renderCustomPresetEditor(
-      doc,
-      parseEditableCustomPresets(settings.customPresets),
-    );
-    updateCustomPresetsStatus(doc, settings.customPresets);
+    customPresetsField.value = serializeSlashSettingsState(slashState);
   }
   if (evidenceProviderField) {
     evidenceProviderField.value = settings.evidenceProviderMode;
@@ -417,6 +673,416 @@ function hydrateForm(
     tavilyApiKeyField.value = settings.tavilyApiKey;
   }
   applyEvidenceProviderVisibility(doc, settings.evidenceProviderMode);
+}
+
+function renderSlashSettings(
+  doc: PreferencesDocument,
+  state: SlashSettingsState,
+): void {
+  const builtins = doc.getElementById(SLASH_BUILTINS_ID) as
+    | PreferencesContainerElement
+    | null;
+  const custom = doc.getElementById(SLASH_CUSTOM_ID) as
+    | PreferencesContainerElement
+    | null;
+  if (!builtins || !custom) {
+    return;
+  }
+
+  const zh = isChineseLocale();
+  replaceContainerChildren(
+    builtins,
+    createSlashSectionElement(doc, {
+      cards: state.builtins,
+      emptyText: "",
+      kind: "builtin",
+      title: zh ? "默认命令" : "Built-in commands",
+      zh,
+    }),
+  );
+  replaceContainerChildren(
+    custom,
+    createSlashSectionElement(doc, {
+      cards: state.custom,
+      emptyText: zh ? "还没有自定义命令" : "No custom commands yet",
+      kind: "custom",
+      title: zh ? "我的命令" : "My commands",
+      zh,
+    }),
+  );
+  updateSlashLimitStatus(doc, state);
+}
+
+function createSlashSectionElement(
+  doc: PreferencesDocument,
+  {
+    cards,
+    emptyText,
+    kind,
+    title,
+    zh,
+  }: {
+    cards: SlashCardDraft[];
+    emptyText: string;
+    kind: "builtin" | "custom";
+    title: string;
+    zh: boolean;
+  },
+): HTMLElement {
+  const section = createHtmlElement(doc, "section", {
+    style: "display: flex; flex-direction: column; gap: 10px;",
+  });
+  const header = createHtmlElement(doc, "div", {
+    style: "display: flex; flex-direction: column; gap: 4px;",
+  });
+  const heading = createHtmlElement(doc, "strong", { text: title });
+  const description = createHtmlElement(doc, "span", {
+    style: "opacity: 0.78;",
+    text:
+      kind === "builtin"
+        ? zh
+          ? "直接修改标题、简写和提示词，恢复默认会撤销你对该命令的改动。"
+          : "Edit the title, slash token, and prompt text directly. Restore default removes your saved override."
+        : zh
+          ? "新增自己的命令，离开编辑框后会自动保存；空白新卡片会自动丢弃。"
+          : "Add your own commands here. Leaving a card saves it automatically, and blank new cards are discarded.",
+  });
+  header.appendChild(heading);
+  header.appendChild(description);
+  section.appendChild(header);
+
+  const body = createHtmlElement(doc, "div", {
+    style: "display: flex; flex-direction: column; gap: 10px;",
+  });
+
+  if (cards.length === 0) {
+    body.appendChild(
+      createHtmlElement(doc, "div", {
+        style:
+          "border: 1px dashed rgba(0,0,0,0.18); border-radius: 8px; padding: 12px; color: rgba(0,0,0,0.62);",
+        text: emptyText,
+      }),
+    );
+  } else {
+    cards.forEach((card) => {
+      body.appendChild(createSlashCardElement(doc, card, zh));
+    });
+  }
+
+  section.appendChild(body);
+  return section;
+}
+
+function createSlashCardElement(
+  doc: PreferencesDocument,
+  card: SlashCardDraft,
+  zh: boolean,
+): HTMLElement {
+  const cardElement = createHtmlElement(doc, "div", {
+    attributes: {
+      "data-slash-card": "true",
+      "data-slash-card-id": card.id,
+      "data-slash-card-kind": card.kind,
+    },
+    style:
+      "border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: rgba(127, 127, 127, 0.08);",
+  });
+
+  const header = createHtmlElement(doc, "div", {
+    style:
+      "display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap;",
+  });
+  header.appendChild(
+    createHtmlElement(doc, "strong", {
+      text:
+        card.kind === "builtin"
+          ? zh
+            ? "默认命令"
+            : "Built-in command"
+          : zh
+            ? "自定义命令"
+            : "Custom command",
+    }),
+  );
+  header.appendChild(
+    createHtmlElement(doc, "button", {
+      attributes: {
+        type: "button",
+        "data-slash-action": card.kind === "builtin" ? "restore" : "delete",
+        "data-slash-card-id": card.id,
+        "data-slash-card-kind": card.kind,
+      },
+      text:
+        card.kind === "builtin"
+          ? zh
+            ? "恢复默认"
+            : "Restore default"
+          : zh
+            ? "删除命令"
+            : "Delete command",
+    }),
+  );
+  cardElement.appendChild(header);
+
+  cardElement.appendChild(
+    createSlashFieldElement(doc, {
+      label: zh ? "标题" : "Title",
+      name: "title",
+      value: card.title,
+    }),
+  );
+  cardElement.appendChild(
+    createSlashFieldElement(doc, {
+      label: zh ? "简写" : "Slash token",
+      name: "slashCommand",
+      value: card.slashCommand,
+    }),
+  );
+  cardElement.appendChild(
+    createSlashFieldElement(doc, {
+      label: zh ? "提示词" : "Prompt text",
+      multiline: true,
+      name: "promptPrefix",
+      value: card.promptPrefix,
+    }),
+  );
+
+  if (card.error) {
+    cardElement.appendChild(
+      createHtmlElement(doc, "div", {
+        attributes: { "data-slash-error": "true" },
+        style: "color: #b42318; font-size: 12px;",
+        text: card.error,
+      }),
+    );
+  }
+
+  return cardElement;
+}
+
+function createSlashFieldElement(
+  doc: PreferencesDocument,
+  {
+    label,
+    multiline,
+    name,
+    value,
+  }: {
+    label: string;
+    multiline?: boolean;
+    name: "promptPrefix" | "slashCommand" | "title";
+    value: string;
+  },
+): HTMLElement {
+  const wrapper = createHtmlElement(doc, "label", {
+    style: "display: flex; flex-direction: column; gap: 4px;",
+  });
+  wrapper.appendChild(createHtmlElement(doc, "span", { text: label }));
+
+  if (multiline) {
+    const textarea = createHtmlElement(doc, "textarea", {
+      attributes: { "data-slash-field": name },
+      style: "min-height: 84px;",
+      value,
+    });
+    wrapper.appendChild(textarea);
+    return wrapper;
+  }
+
+  const input = createHtmlElement(doc, "input", {
+    attributes: { "data-slash-field": name },
+    value,
+  });
+  wrapper.appendChild(input);
+  return wrapper;
+}
+
+function createHtmlElement<K extends keyof HTMLElementTagNameMap>(
+  doc: PreferencesDocument,
+  tag: K,
+  options: {
+    attributes?: Record<string, string>;
+    style?: string;
+    text?: string;
+    value?: string;
+  } = {},
+): HTMLElementTagNameMap[K] {
+  const element = doc.createElementNS(HTML_NS, tag) as HTMLElementTagNameMap[K];
+  if (options.style) {
+    element.setAttribute("style", options.style);
+  }
+  Object.entries(options.attributes || {}).forEach(([key, value]) => {
+    element.setAttribute(key, value);
+  });
+  if (typeof options.text === "string") {
+    element.textContent = options.text;
+  }
+  if (typeof options.value === "string") {
+    (element as unknown as PreferencesFieldElement).value = options.value;
+  }
+  return element;
+}
+
+function replaceContainerChildren(
+  container: PreferencesContainerElement,
+  child: HTMLElement,
+): void {
+  if (typeof container.replaceChildren === "function") {
+    container.replaceChildren(child);
+    return;
+  }
+
+  container.textContent = "";
+  container.appendChild(child);
+}
+
+function renderSlashSectionMarkup({
+  cards,
+  emptyText,
+  kind,
+  title,
+  zh,
+}: {
+  cards: SlashCardDraft[];
+  emptyText: string;
+  kind: "builtin" | "custom";
+  title: string;
+  zh: boolean;
+}): string {
+  void cards;
+  void emptyText;
+  void kind;
+  void title;
+  void zh;
+  return "";
+}
+
+function bindSlashCardInteractions(
+  doc: PreferencesDocument,
+  getState: () => SlashSettingsState,
+  setState: (state: SlashSettingsState, shouldSave: boolean) => void,
+): void {
+  const containers = [
+    doc.getElementById(SLASH_BUILTINS_ID),
+    doc.getElementById(SLASH_CUSTOM_ID),
+  ].filter(Boolean) as Array<
+    HTMLElement & {
+      querySelectorAll?: (selector: string) => NodeListOf<Element>;
+    }
+  >;
+
+  for (const container of containers) {
+    if (typeof container.querySelectorAll !== "function") {
+      continue;
+    }
+
+    const cards = container.querySelectorAll(
+      "[data-slash-card]",
+    ) as NodeListOf<HTMLElement>;
+    cards.forEach((card: HTMLElement) => {
+      card.addEventListener("focusout", (event: Event) => {
+        const nextTarget = (event as FocusEvent).relatedTarget as
+          | Node
+          | null
+          | undefined;
+        if (nextTarget && typeof card.contains === "function" && card.contains(nextTarget)) {
+          return;
+        }
+
+        const kind = (card.getAttribute("data-slash-card-kind") ||
+          "custom") as SlashCardDraft["kind"];
+        const id = card.getAttribute("data-slash-card-id") || "";
+        if (!id) {
+          return;
+        }
+        const result = commitSlashCardEdit(
+          getState(),
+          { id, kind },
+          readSlashCardValues(card),
+        );
+        setState(result.state, result.saved || (kind === "custom" && !getState().custom.some((item) => item.id === id) && !result.state.custom.some((item) => item.id === id)));
+      });
+    });
+
+    const actions = container.querySelectorAll(
+      "[data-slash-action]",
+    ) as NodeListOf<HTMLElement>;
+    actions.forEach((button: HTMLElement) => {
+      button.addEventListener("click", () => {
+        const action = button.getAttribute("data-slash-action");
+        const kind = (button.getAttribute("data-slash-card-kind") ||
+          "custom") as SlashCardDraft["kind"];
+        const id = button.getAttribute("data-slash-card-id") || "";
+        if (!id) {
+          return;
+        }
+
+        if (action === "restore" && kind === "builtin") {
+          setState(restoreBuiltInSlashCard(getState(), id), true);
+          return;
+        }
+
+        if (action === "delete" && kind === "custom") {
+          setState(
+            {
+              ...getState(),
+              custom: getState().custom
+                .filter((card) => card.id !== id)
+                .map(copyForState),
+            },
+            true,
+          );
+        }
+      });
+    });
+  }
+}
+
+function readSlashCardValues(
+  card: HTMLElement & {
+    querySelector?: (selector: string) => Element | null;
+  },
+): Pick<SlashCardDraft, "promptPrefix" | "slashCommand" | "title"> {
+  const readValue = (name: string) =>
+    (
+      card.querySelector?.(
+        `[data-slash-field="${name}"]`,
+      ) as PreferencesFieldElement | null
+    )?.value || "";
+
+  return {
+    promptPrefix: readValue("promptPrefix"),
+    slashCommand: readValue("slashCommand"),
+    title: readValue("title"),
+  };
+}
+
+function syncSlashStorageField(
+  doc: PreferencesDocument,
+  slashState: SlashSettingsState,
+): void {
+  const field = getField(doc, CUSTOM_PRESETS_ID);
+  if (!field) {
+    return;
+  }
+
+  field.value = serializeSlashSettingsState(slashState);
+}
+
+function updateSlashLimitStatus(
+  doc: PreferencesDocument,
+  state: SlashSettingsState,
+): void {
+  const status = doc.getElementById(SLASH_LIMIT_STATUS_ID) as
+    | PreferencesStatusElement
+    | null;
+  const addButton = getField(doc, SLASH_ADD_ID);
+  if (status) {
+    status.textContent = isChineseLocale()
+      ? "最多只能添加 10 个自定义命令"
+      : "You can add up to 10 custom commands";
+  }
+  setDisabled(addButton, state.custom.length >= MAX_CUSTOM_SLASH_COMMANDS);
 }
 
 function readFormValues(doc: PreferencesDocument): Partial<PersistedSettings> {
@@ -434,551 +1100,6 @@ function readFormValues(doc: PreferencesDocument): Partial<PersistedSettings> {
         : DEFAULT_EVIDENCE_PROVIDER_MODE,
     tavilyApiKey: tavilyApiKeyField?.value?.trim?.() ?? "",
   };
-}
-
-function updateCustomPresetsStatus(
-  doc: PreferencesDocument,
-  customPresetsValue: string,
-): void {
-  const status = doc.getElementById(
-    CUSTOM_PRESETS_STATUS_ID,
-  ) as PreferencesStatusElement | null;
-  if (!status) {
-    return;
-  }
-
-  const zh = isChineseLocale();
-  const parsed = parseCustomPresets(customPresetsValue);
-  if (parsed.error) {
-    setStatusText(status, parsed.error, "error");
-    return;
-  }
-
-  if (!customPresetsValue.trim()) {
-    setStatusText(
-      status,
-      zh ? "还没有自定义命令" : "No custom commands yet",
-      "success",
-    );
-    return;
-  }
-
-  setStatusText(
-    status,
-    zh
-      ? `已读取 ${parsed.presets.length} 个自定义命令`
-      : `Loaded ${parsed.presets.length} custom commands`,
-    "success",
-  );
-}
-
-function renderCustomPresetEditor(
-  doc: PreferencesDocument,
-  presets: EditableCustomCommandPreset[],
-): void {
-  const container = doc.getElementById(CUSTOM_PRESETS_EDITOR_ID) as
-    | HTMLElement
-    | null;
-  if (!container) {
-    return;
-  }
-
-  const zh = isChineseLocale();
-  const rows = presets.length > 0 ? presets : [];
-  const builtInPresets = getAllPresets().map((preset) => ({
-    aliasesText: preset.aliases.join(", "),
-    description: preset.description,
-    enabled: false,
-    evidenceHint: Boolean(preset.evidenceHint),
-    group: preset.group,
-    hidden: false,
-    id: preset.id,
-    label: preset.label,
-    promptPrefix: preset.promptPrefix,
-    showInSidebar: Boolean(preset.showInSidebar),
-    scopeHint: preset.scopeHint || ["paper", "pdf"],
-  }));
-  const builtInPresetIds = new Set(builtInPresets.map((preset) => preset.id));
-  const storedRows = rows.filter((preset) => preset.enabled || preset.hidden);
-  const builtInCards = builtInPresets.map(
-    (preset) => storedRows.find((row) => row.id === preset.id) || preset,
-  );
-  const customCards = storedRows.filter(
-    (preset) => !builtInPresetIds.has(preset.id),
-  );
-
-  container.innerHTML = [
-    renderCustomPresetSectionMarkup({
-      cards: builtInCards,
-      description: zh
-        ? "管理内置 slash 命令。你可以直接复制后编辑、隐藏命令，或固定到首页推荐位。"
-        : "Manage the built-in slash commands. You can customize, hide, or pin them to the home panel.",
-      emptyState: "",
-      isBuiltInSection: true,
-      title: zh ? "内置命令" : "Built-in commands",
-      zh,
-    }),
-    renderCustomPresetSectionMarkup({
-      cards: customCards,
-      description: zh
-        ? "添加你自己的 slash 命令。新增后可直接修改标题、提示词和首页展示。"
-        : "Add your own slash commands here. New commands can be edited directly and pinned to the home panel.",
-      emptyState: zh
-        ? "还没有自定义命令，点击“添加自定义命令”开始。"
-        : "No custom commands yet. Use Add custom command to create one.",
-      isBuiltInSection: false,
-      title: zh ? "自定义命令" : "Custom commands",
-      zh,
-    }),
-  ].join("");
-
-  bindCustomPresetEditorEvents(doc);
-}
-
-function renderCustomPresetSectionMarkup({
-  cards,
-  description,
-  emptyState,
-  isBuiltInSection,
-  title,
-  zh,
-}: {
-  cards: EditableCustomCommandPreset[];
-  description: string;
-  emptyState: string;
-  isBuiltInSection: boolean;
-  title: string;
-  zh: boolean;
-}): string {
-  const content = cards.length
-    ? cards
-        .map((preset, index) =>
-          renderCustomPresetCardMarkup({
-            index,
-            isBuiltIn: isBuiltInSection,
-            preset,
-            zh,
-          }),
-        )
-        .join("")
-    : `<div style="border: 1px dashed rgba(0,0,0,0.18); border-radius: 8px; padding: 12px; color: rgba(0,0,0,0.62);">${escapeHtml(
-        emptyState,
-      )}</div>`;
-
-  return `
-    <section style="display: flex; flex-direction: column; gap: 10px;">
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <strong>${escapeHtml(title)}</strong>
-        <span style="opacity: 0.78;">${escapeHtml(description)}</span>
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 10px;">
-        ${content}
-      </div>
-    </section>
-  `;
-}
-
-function renderCustomPresetCardMarkup({
-  index,
-  isBuiltIn,
-  preset,
-  zh,
-}: {
-  index: number;
-  isBuiltIn: boolean;
-  preset: EditableCustomCommandPreset;
-  zh: boolean;
-}): string {
-  const editable = Boolean(preset.enabled || preset.hidden);
-  const scopes = new Set(preset.scopeHint);
-  const slash = getPresetSlashCommand({ id: preset.id });
-  const escapedPrompt = escapeHtml(preset.promptPrefix);
-  const escapedAliases = escapeHtml(preset.aliasesText);
-  const escapedDescription = escapeHtml(preset.description);
-  const escapedGroup = escapeHtml(preset.group);
-  const escapedId = escapeHtml(preset.id);
-  const escapedLabel = escapeHtml(preset.label);
-  const statusBadges = buildPresetStatusBadges({ editable, isBuiltIn, preset, zh });
-  return `
-    <div data-custom-preset-card="${index}" data-custom-preset-built-in="${isBuiltIn ? "true" : "false"}" style="border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: ${preset.hidden ? "rgba(0,0,0,0.02)" : "#fff"};">
-      <div style="display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap;">
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-          <strong>${isBuiltIn ? (zh ? "内置命令" : "Built-in command") : zh ? "自定义命令" : "Custom command"}</strong>
-          <span style="opacity: 0.72;">/${escapeHtml(slash)}</span>
-        </div>
-        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-          ${statusBadges}
-        </div>
-      </div>
-      <input type="hidden" data-custom-preset-field="group" data-custom-preset-index="${index}" value="${escapedGroup}" />
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <label style="display: flex; flex-direction: column; gap: 4px; flex: 1 1 160px;">
-          <span>${zh ? "命令 ID" : "Command ID"}</span>
-          <input data-custom-preset-field="id" data-custom-preset-index="${index}" value="${escapedId}" ${editable ? "" : 'readonly="readonly"'} />
-        </label>
-        <label style="display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px;">
-          <span>${zh ? "显示标题" : "Label"}</span>
-          <input data-custom-preset-field="label" data-custom-preset-index="${index}" value="${escapedLabel}" ${editable ? "" : 'readonly="readonly"'} />
-        </label>
-      </div>
-      <label style="display: flex; flex-direction: column; gap: 4px;">
-        <span>${zh ? "提示词模板" : "Prompt template"}</span>
-        <textarea data-custom-preset-field="promptPrefix" data-custom-preset-index="${index}" style="min-height: 84px;" ${editable ? "" : 'readonly="readonly"'}>${escapedPrompt}</textarea>
-      </label>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <label style="display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px;">
-          <span>${zh ? "说明文案" : "Description"}</span>
-          <input data-custom-preset-field="description" data-custom-preset-index="${index}" value="${escapedDescription}" ${editable ? "" : 'readonly="readonly"'} />
-        </label>
-        <label style="display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px;">
-          <span>${zh ? "别名（逗号分隔）" : "Aliases (comma separated)"}</span>
-          <input data-custom-preset-field="aliasesText" data-custom-preset-index="${index}" value="${escapedAliases}" ${editable ? "" : 'readonly="readonly"'} />
-        </label>
-      </div>
-      <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-        <label><input type="checkbox" data-custom-preset-field="scope-paper" data-custom-preset-index="${index}" ${scopes.has("paper") ? "checked" : ""} ${editable ? "" : 'disabled="disabled"'} /> ${zh ? "论文" : "Paper"}</label>
-        <label><input type="checkbox" data-custom-preset-field="scope-pdf" data-custom-preset-index="${index}" ${scopes.has("pdf") ? "checked" : ""} ${editable ? "" : 'disabled="disabled"'} /> PDF</label>
-        <label><input type="checkbox" data-custom-preset-field="scope-collection" data-custom-preset-index="${index}" ${scopes.has("collection") ? "checked" : ""} ${editable ? "" : 'disabled="disabled"'} /> ${zh ? "分类" : "Collection"}</label>
-        <label><input type="checkbox" data-custom-preset-field="scope-manual-selection" data-custom-preset-index="${index}" ${scopes.has("manual-selection") ? "checked" : ""} ${editable ? "" : 'disabled="disabled"'} /> ${zh ? "选中文本" : "Selection"}</label>
-      </div>
-      <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-        <label><input type="checkbox" data-custom-preset-field="evidenceHint" data-custom-preset-index="${index}" ${preset.evidenceHint ? "checked" : ""} ${editable ? "" : 'disabled="disabled"'} /> ${zh ? "默认开启查证倾向" : "Evidence-oriented"}</label>
-        <label><input type="checkbox" data-custom-preset-field="showInSidebar" data-custom-preset-index="${index}" ${preset.showInSidebar ? "checked" : ""} ${editable ? "" : 'disabled="disabled"'} /> ${zh ? "显示在首页推荐位" : "Show on home panel"}</label>
-        ${
-          editable
-            ? `<label><input type="checkbox" data-custom-preset-field="enabled" data-custom-preset-index="${index}" ${preset.hidden ? "" : 'checked="checked"'} /> ${
-                zh ? "启用此命令" : "Enable command"
-              }</label>
-        <button type="button" data-custom-preset-action="remove" data-custom-preset-index="${index}">${preset.hidden ? (zh ? "恢复内置命令" : "Restore built-in command") : isBuiltIn ? (zh ? "恢复默认配置" : "Reset to built-in") : zh ? "删除自定义命令" : "Delete custom command"}</button>`
-            : `<button type="button" data-custom-preset-action="copy" data-custom-preset-index="${index}">${
-                zh ? "复制后编辑" : "Customize"
-              }</button>
-        <button type="button" data-custom-preset-action="hide-default" data-custom-preset-index="${index}">${
-                zh ? "隐藏此内置命令" : "Hide built-in command"
-              }</button>`
-        }
-      </div>
-    </div>
-  `;
-}
-
-function buildPresetStatusBadges({
-  editable,
-  isBuiltIn,
-  preset,
-  zh,
-}: {
-  editable: boolean;
-  isBuiltIn: boolean;
-  preset: EditableCustomCommandPreset;
-  zh: boolean;
-}): string {
-  const badges: string[] = [];
-  if (isBuiltIn) {
-    badges.push(renderPresetBadge(zh ? "内置" : "Built-in"));
-  } else {
-    badges.push(renderPresetBadge(zh ? "自定义" : "Custom"));
-  }
-  if (editable && !Boolean(preset.hidden)) {
-    badges.push(renderPresetBadge(zh ? "可编辑" : "Editable"));
-  }
-  if (Boolean(preset.hidden)) {
-    badges.push(renderPresetBadge(zh ? "已隐藏" : "Hidden"));
-  }
-  if (Boolean(preset.showInSidebar)) {
-    badges.push(renderPresetBadge(zh ? "首页推荐位" : "Home panel"));
-  }
-  return badges.join("");
-}
-
-function renderPresetBadge(label: string): string {
-  return `<span style="display: inline-flex; align-items: center; border: 1px solid rgba(0,0,0,0.14); border-radius: 999px; padding: 2px 8px; font-size: 11px; opacity: 0.82;">${escapeHtml(
-    label,
-  )}</span>`;
-}
-
-function bindCustomPresetEditorEvents(doc: PreferencesDocument): void {
-  const container = doc.getElementById(CUSTOM_PRESETS_EDITOR_ID);
-  if (!container) {
-    return;
-  }
-
-  const persistFromEditor = () => {
-    syncCustomPresetStorageField(doc);
-    const customPresetsField = getField(doc, CUSTOM_PRESETS_ID);
-    updateCustomPresetsStatus(doc, customPresetsField?.value || "");
-  };
-
-  const fields = container.querySelectorAll(
-    "[data-custom-preset-field]",
-  ) as NodeListOf<HTMLElement>;
-  fields.forEach((field: HTMLElement) => {
-    field.addEventListener("change", persistFromEditor);
-    field.addEventListener("input", persistFromEditor);
-  });
-
-  const actionButtons = container.querySelectorAll(
-    "[data-custom-preset-action]",
-  ) as NodeListOf<HTMLElement>;
-  actionButtons.forEach((button: HTMLElement) => {
-    button.addEventListener("click", () => {
-      const index = Number(button.getAttribute("data-custom-preset-index"));
-      const presets = readEditablePresetsFromDom(doc);
-      const action = button.getAttribute("data-custom-preset-action");
-      if (action === "copy") {
-        const source = presets[index];
-        const next = {
-          ...source,
-          enabled: true,
-          hidden: false,
-        };
-        const existingIndex = presets.findIndex(
-          (preset, presetIndex) =>
-            preset.enabled && preset.id === next.id && presetIndex !== index,
-        );
-        if (existingIndex >= 0) {
-          presets[existingIndex] = next;
-        } else {
-          presets.push(next);
-        }
-      } else if (action === "hide-default") {
-        const source = presets[index];
-        const next = {
-          ...source,
-          enabled: true,
-          hidden: true,
-          showInSidebar: false,
-        };
-        const existingIndex = presets.findIndex(
-          (preset, presetIndex) =>
-            preset.id === next.id && presetIndex !== index,
-        );
-        if (existingIndex >= 0) {
-          presets[existingIndex] = next;
-        } else {
-          presets.push(next);
-        }
-      } else {
-        presets.splice(index, 1);
-      }
-      renderCustomPresetEditor(doc, presets);
-      persistFromEditor();
-    });
-  });
-}
-
-function addCustomPresetCard(doc: PreferencesDocument): void {
-  const presets = readEditablePresetsFromDom(doc);
-  presets.push(createEmptyEditableCustomPreset(presets.length));
-  renderCustomPresetEditor(doc, presets);
-}
-
-function restoreBuiltInPresets(doc: PreferencesDocument): void {
-  const builtInPresetIds = new Set(getAllPresets().map((preset) => preset.id));
-  const remainingCustomPresets = parseEditableCustomPresets(
-    getField(doc, CUSTOM_PRESETS_ID)?.value || "",
-  ).filter((preset) => !builtInPresetIds.has(preset.id));
-  renderCustomPresetEditor(doc, remainingCustomPresets);
-  setCustomPresetStorageField(
-    doc,
-    stringifyEditableCustomPresets(remainingCustomPresets),
-  );
-}
-
-function validateCustomPresetImport(
-  doc: PreferencesDocument,
-  state: CustomPresetImportState,
-): void {
-  const field = getField(doc, CUSTOM_PRESETS_IMPORT_EDITOR_ID);
-  const preview = doc.getElementById(CUSTOM_PRESETS_IMPORT_PREVIEW_ID) as
-    | HTMLElement
-    | null;
-  const applyButton = getField(doc, CUSTOM_PRESETS_APPLY_IMPORT_ID);
-  const value = field?.value || "";
-  const parsed = parseCustomPresets(value);
-  if (parsed.error) {
-    state.presets = [];
-    if (preview) {
-      preview.innerHTML = "";
-    }
-    setDisabled(applyButton, true);
-    setStatusText(getCustomPresetsStatusElement(doc), parsed.error, "error");
-    return;
-  }
-
-  state.presets = parseEditableCustomPresets(value);
-  if (preview) {
-    preview.innerHTML = state.presets
-      .map((preset, index) =>
-        renderCustomPresetCardMarkup({
-          index,
-          isBuiltIn: false,
-          preset,
-          zh: isChineseLocale(),
-        }),
-      )
-      .join("");
-  }
-  setDisabled(applyButton, state.presets.length === 0);
-  const zh = isChineseLocale();
-  setStatusText(
-    getCustomPresetsStatusElement(doc),
-    zh
-      ? `已预览 ${state.presets.length} 个命令`
-      : `Previewing ${state.presets.length} commands`,
-    "success",
-  );
-}
-
-function applyCustomPresetImport(
-  doc: PreferencesDocument,
-  state: CustomPresetImportState,
-): void {
-  if (state.presets.length === 0) {
-    return;
-  }
-
-  const merged = mergeEditableCustomPresets(
-    readEditablePresetsFromDom(doc),
-    state.presets,
-  );
-  state.presets = [];
-  renderCustomPresetEditor(doc, merged);
-  setCustomPresetStorageField(doc, stringifyEditableCustomPresets(merged));
-  setDisabled(getField(doc, CUSTOM_PRESETS_APPLY_IMPORT_ID), true);
-}
-
-async function copyCustomCommandAIPrompt(
-  doc: PreferencesDocument,
-): Promise<void> {
-  const prompt = buildCustomCommandAIPrompt();
-  const clipboard = (
-    (globalThis as {
-      navigator?: {
-        clipboard?: { writeText?: (text: string) => Promise<void> };
-      };
-    }).navigator as
-      | { clipboard?: { writeText?: (text: string) => Promise<void> } }
-      | undefined
-  )?.clipboard;
-  if (typeof clipboard?.writeText !== "function") {
-    setStatusText(
-      getCustomPresetsStatusElement(doc),
-      isChineseLocale()
-        ? "当前环境无法写入剪贴板"
-        : "Clipboard is not available",
-      "error",
-    );
-    return;
-  }
-
-  await clipboard.writeText(prompt);
-  setStatusText(
-    getCustomPresetsStatusElement(doc),
-    isChineseLocale() ? "AI 生成提示词已复制" : "AI generation prompt copied",
-    "success",
-  );
-}
-
-function readEditablePresetsFromDom(
-  doc: PreferencesDocument,
-): EditableCustomCommandPreset[] {
-  const container = doc.getElementById(CUSTOM_PRESETS_EDITOR_ID);
-  if (!container) {
-    return [];
-  }
-
-  const cards = Array.from(
-    container.querySelectorAll("[data-custom-preset-card]"),
-  ) as HTMLElement[];
-
-  return cards
-    .map((card, index) => {
-      const isBuiltIn =
-        card.getAttribute("data-custom-preset-built-in") === "true";
-      const enabledField = card.querySelector(
-        '[data-custom-preset-field="enabled"]',
-      ) as PreferencesFieldElement | null;
-      if (isBuiltIn && !enabledField) {
-        return null;
-      }
-
-      const readValue = (name: string) =>
-        (
-          card.querySelector(
-            `[data-custom-preset-field="${name}"]`,
-          ) as PreferencesFieldElement | null
-        )?.value || "";
-      const readChecked = (name: string) =>
-        Boolean(
-          (
-            card.querySelector(
-              `[data-custom-preset-field="${name}"]`,
-            ) as PreferencesFieldElement | null
-          )?.checked,
-        );
-
-      const scopeHint = [
-        readChecked("scope-paper") ? "paper" : null,
-        readChecked("scope-pdf") ? "pdf" : null,
-        readChecked("scope-collection") ? "collection" : null,
-        readChecked("scope-manual-selection") ? "manual-selection" : null,
-      ].filter(Boolean) as EditableCustomCommandPreset["scopeHint"];
-
-      return {
-        aliasesText: readValue("aliasesText"),
-        description: readValue("description"),
-        enabled: enabledField ? readChecked("enabled") : true,
-        evidenceHint: readChecked("evidenceHint"),
-        group:
-          (readValue("group") as EditableCustomCommandPreset["group"]) ||
-          "reading",
-        hidden: enabledField ? !readChecked("enabled") : false,
-        id: readValue("id") || `custom-action-${index + 1}`,
-        label: readValue("label"),
-        promptPrefix: readValue("promptPrefix"),
-        showInSidebar: readChecked("showInSidebar"),
-        scopeHint: scopeHint.length > 0 ? scopeHint : ["paper", "pdf"],
-      };
-    })
-    .filter(Boolean) as EditableCustomCommandPreset[];
-}
-
-function syncCustomPresetStorageField(doc: PreferencesDocument): void {
-  const container = doc.getElementById(CUSTOM_PRESETS_EDITOR_ID) as
-    | (HTMLElement & {
-        querySelectorAll?: (selector: string) => NodeListOf<Element>;
-      })
-    | null;
-  const field = getField(doc, CUSTOM_PRESETS_ID);
-  if (!field || !container?.querySelectorAll) {
-    return;
-  }
-
-  setCustomPresetStorageField(
-    doc,
-    stringifyEditableCustomPresets(readEditablePresetsFromDom(doc)),
-  );
-}
-
-function setCustomPresetStorageField(
-  doc: PreferencesDocument,
-  serialized: string,
-): void {
-  const field = getField(doc, CUSTOM_PRESETS_ID);
-  if (!field) {
-    return;
-  }
-
-  field.value = serialized;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;");
 }
 
 function applyEvidenceProviderVisibility(
@@ -1000,11 +1121,11 @@ function getField(
   id: string,
 ):
   | (PreferencesFieldElement & {
+      addEventListener(type: string, listener: (...args: any[]) => void): void;
       removeEventListener?(
         type: string,
         listener: (...args: any[]) => void,
       ): void;
-      addEventListener(type: string, listener: (...args: any[]) => void): void;
     })
   | null {
   return doc.getElementById(id) as any;
@@ -1015,11 +1136,11 @@ function getInteractiveElement(
   id: string,
 ):
   | (PreferencesInteractiveElement & {
+      addEventListener(type: string, listener: (...args: any[]) => void): void;
       removeEventListener?(
         type: string,
         listener: (...args: any[]) => void,
       ): void;
-      addEventListener(type: string, listener: (...args: any[]) => void): void;
     })
   | null {
   return doc.getElementById(id) as any;
@@ -1093,24 +1214,30 @@ function bindButtonActivation(
   id: string,
   listener: () => void,
 ): void {
-  let scheduledClickToken = 0;
-  const invokeFromClick = () => {
-    const token = ++scheduledClickToken;
-    void Promise.resolve().then(() => {
-      if (token !== scheduledClickToken) {
-        return;
+  let lastActivation:
+    | {
+        at: number;
+        type: "click" | "command";
       }
-      scheduledClickToken = 0;
-      listener();
-    });
-  };
-  const invokeFromCommand = () => {
-    scheduledClickToken = 0;
+    | null = null;
+
+  const invokeFrom = (type: "click" | "command") => {
+    const now = Date.now();
+    if (
+      lastActivation &&
+      lastActivation.type !== type &&
+      now - lastActivation.at <= BUTTON_ACTIVATION_DEDUPE_WINDOW_MS
+    ) {
+      lastActivation = null;
+      return;
+    }
+
+    lastActivation = { at: now, type };
     listener();
   };
 
-  bindFieldEvent(doc, id, "command", invokeFromCommand);
-  bindFieldEvent(doc, id, "click", invokeFromClick);
+  bindFieldEvent(doc, id, "command", () => invokeFrom("command"));
+  bindFieldEvent(doc, id, "click", () => invokeFrom("click"));
 }
 
 function bindExternalLink(
@@ -1141,6 +1268,28 @@ export function openPreferencesLink(
   launchURL(href);
 }
 
+function setLocalizedStatus(
+  doc: PreferencesDocument,
+  l10nId: string,
+  variant: "success" | "error",
+): void {
+  const status = getStatusElement(doc);
+  if (!status) {
+    return;
+  }
+
+  status.dataset.variant = variant;
+  const formatted = doc.l10n?.formatValue?.(l10nId);
+  if (typeof (formatted as Promise<string>)?.then === "function") {
+    void Promise.resolve(formatted).then((value) => {
+      status.textContent = String(value);
+    });
+    return;
+  }
+
+  status.textContent = formatted ? String(formatted) : l10nId;
+}
+
 function setStatusText(
   status: PreferencesStatusElement | null,
   value: string,
@@ -1156,8 +1305,8 @@ function setStatusText(
 
 function setDisabled(
   field: (PreferencesFieldElement & {
-    setAttribute?: (name: string, value: string) => void;
     removeAttribute?: (name: string) => void;
+    setAttribute?: (name: string, value: string) => void;
   }) | null,
   disabled: boolean,
 ): void {
@@ -1168,7 +1317,6 @@ function setDisabled(
   field.disabled = disabled;
   if (disabled) {
     field.setAttribute?.("disabled", "disabled");
-    field.disabled = true;
   } else {
     field.removeAttribute?.("disabled");
     field.disabled = false;
@@ -1189,14 +1337,6 @@ function getEvidenceStatusElement(
   ) as PreferencesStatusElement | null;
 }
 
-function getCustomPresetsStatusElement(
-  doc: PreferencesDocument,
-): PreferencesStatusElement | null {
-  return doc.getElementById(
-    CUSTOM_PRESETS_STATUS_ID,
-  ) as PreferencesStatusElement | null;
-}
-
 function showValidationDialog(
   win: Window,
   title: string,
@@ -1205,7 +1345,8 @@ function showValidationDialog(
   try {
     Zotero.alert(win, title, message);
   } catch (error) {
-    ztoolkit.log("Failed to show validation dialog:", error);
+    const toolkit = globalThis as { ztoolkit?: { log?: (...args: any[]) => void } };
+    toolkit.ztoolkit?.log?.("Failed to show validation dialog:", error);
   }
 }
 

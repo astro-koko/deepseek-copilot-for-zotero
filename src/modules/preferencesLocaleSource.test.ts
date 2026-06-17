@@ -4,24 +4,6 @@ import zhPreferences from "../../addon/locale/zh-CN/preferences.ftl?raw";
 import { describe, expect, it } from "vitest";
 
 describe("preferences locale copy", () => {
-  it("documents the custom suggested action JSON editor", () => {
-    expect(enPreferences).toContain(
-      "ai-assistant-pref-custom-presets-title = Custom commands",
-    );
-    expect(zhPreferences).toContain(
-      "ai-assistant-pref-custom-presets-title = 自定义命令",
-    );
-  });
-
-  it("labels the visual command manager explicitly", () => {
-    expect(enPreferences).toContain(
-      "ai-assistant-pref-custom-presets-visual-title = Visual command manager",
-    );
-    expect(zhPreferences).toContain(
-      "ai-assistant-pref-custom-presets-visual-title = 可视化命令管理",
-    );
-  });
-
   it("labels the commands and prompts section independently", () => {
     expect(enPreferences).toContain(
       "ai-assistant-pref-commands-title = Commands and Prompts",
@@ -31,33 +13,45 @@ describe("preferences locale copy", () => {
     );
   });
 
-  it("labels command import and documentation actions", () => {
+  it("adds dedicated slash section labels", () => {
     expect(enPreferences).toContain(
+      "ai-assistant-pref-slash-title = Slash Commands",
+    );
+    expect(zhPreferences).toContain(
+      "ai-assistant-pref-slash-title = Slash 命令",
+    );
+    expect(enPreferences).toContain(
+      "ai-assistant-pref-slash-builtins-title = Built-in commands",
+    );
+    expect(zhPreferences).toContain(
+      "ai-assistant-pref-slash-builtins-title = 默认命令",
+    );
+    expect(enPreferences).toContain(
+      "ai-assistant-pref-slash-custom-title = My commands",
+    );
+    expect(zhPreferences).toContain(
+      "ai-assistant-pref-slash-custom-title = 我的命令",
+    );
+    expect(enPreferences).not.toContain(
       "ai-assistant-pref-custom-presets-import = Import from JSON",
     );
-    expect(zhPreferences).toContain(
+    expect(zhPreferences).not.toContain(
       "ai-assistant-pref-custom-presets-import = 从 JSON 导入",
-    );
-    expect(enPreferences).toContain(
-      "ai-assistant-pref-custom-presets-copy-ai-prompt = Copy AI prompt",
-    );
-    expect(zhPreferences).toContain(
-      "ai-assistant-pref-custom-presets-copy-ai-prompt = 复制 AI 生成提示词",
-    );
-    expect(enPreferences).toContain(
-      "ai-assistant-pref-custom-presets-docs-link = View JSON examples on GitHub",
-    );
-    expect(zhPreferences).toContain(
-      "ai-assistant-pref-custom-presets-docs-link = 在 GitHub 查看 JSON 示例",
     );
   });
 
-  it("does not expose advanced JSON as a second primary editor", () => {
-    expect(enPreferences).not.toContain(
-      "ai-assistant-pref-custom-presets-advanced",
+  it("labels custom slash add and limit copy", () => {
+    expect(enPreferences).toContain(
+      "ai-assistant-pref-slash-add = Add command",
     );
-    expect(zhPreferences).not.toContain(
-      "ai-assistant-pref-custom-presets-advanced",
+    expect(zhPreferences).toContain(
+      "ai-assistant-pref-slash-add = 新增命令",
+    );
+    expect(enPreferences).toContain(
+      "ai-assistant-pref-slash-limit = You can add up to 10 custom commands",
+    );
+    expect(zhPreferences).toContain(
+      "ai-assistant-pref-slash-limit = 最多只能添加 10 个自定义命令",
     );
   });
 

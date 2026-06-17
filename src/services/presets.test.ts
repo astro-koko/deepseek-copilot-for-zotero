@@ -4,6 +4,7 @@ import {
   applyPreset,
   expandSlashCommandInput,
   filterPresets,
+  getPresetSlashCommand,
   getSidebarPresetsForScope,
   getPresetsForScope,
 } from "./presets";
@@ -101,6 +102,44 @@ describe("presets", () => {
     expect(prompt).toContain("重点关注实验结果");
   });
 
+  it("localizes built-in visible slash tokens for the Chinese locale", () => {
+    vi.stubGlobal("Zotero", {
+      Prefs: {
+        get: vi.fn((key: string) =>
+          key === "intl.locale.requested" ? "zh-CN" : "",
+        ),
+      },
+    });
+
+    const summarize = getPresetsForScope("paper").find(
+      (preset) => preset.id === "summarize",
+    );
+
+    expect(summarize?.label).toBe("总结论文");
+    expect(getPresetSlashCommand(summarize!)).toBe("总结");
+  });
+
+  it("uses visible slash tokens instead of only internal ids", () => {
+    const customPresets = JSON.stringify([
+      {
+        id: "future-work",
+        slashCommand: "未来工作",
+        label: "未来工作",
+        promptPrefix: "请提出 3 个可执行的后续研究方向。",
+        scopeHint: ["paper", "pdf"],
+      },
+    ]);
+
+    const prompt = expandSlashCommandInput(
+      "/未来工作 重点考虑实验部分",
+      "paper",
+      customPresets,
+    );
+
+    expect(prompt).toContain("请提出 3 个可执行的后续研究方向。");
+    expect(prompt).toContain("重点考虑实验部分");
+  });
+
   it("uses stronger built-in prompts that separate evidence from inference", () => {
     const summarize = getPresetsForScope("paper").find(
       (preset) => preset.id === "summarize",
@@ -123,7 +162,7 @@ describe("presets", () => {
     ]);
   });
 
-  it("removes hidden built-in commands from both slash and sidebar catalogs", () => {
+  it("keeps built-in commands visible when legacy hidden tombstones exist", () => {
     const customPresets = JSON.stringify([
       {
         id: "summarize",
@@ -133,11 +172,33 @@ describe("presets", () => {
 
     expect(
       getPresetsForScope("paper", customPresets).map((preset) => preset.id),
-    ).not.toContain("summarize");
-    expect(
-      getSidebarPresetsForScope("paper", customPresets).map(
-        (preset) => preset.id,
-      ),
-    ).not.toContain("summarize");
+    ).toContain("summarize");
+    expect(getSidebarPresetsForScope("paper", customPresets).map((preset) => preset.id))
+      .toContain("summarize");
+  });
+
+  it("keeps sidebar recommendations fixed even when saved commands request custom home slots", () => {
+    const customPresets = JSON.stringify([
+      {
+        id: "summarize",
+        label: "Summarize Experiments",
+        promptPrefix: "Focus on experiment design and results.",
+        showInSidebar: false,
+      },
+      {
+        id: "future-work",
+        label: "Future Work",
+        promptPrefix: "Suggest three concrete next studies.",
+        slashCommand: "future-work",
+        showInSidebar: true,
+      },
+    ]);
+
+    expect(getSidebarPresetsForScope("paper", customPresets).map((preset) => preset.id)).toEqual([
+      "summarize",
+      "explain",
+      "core-contribution",
+      "limitations",
+    ]);
   });
 });

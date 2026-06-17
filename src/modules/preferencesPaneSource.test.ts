@@ -19,22 +19,13 @@ describe("preferences.xhtml", () => {
     );
   });
 
-  it("keeps model tuning internal while exposing custom suggested actions", () => {
+  it("keeps model tuning internal while exposing hidden structured slash storage", () => {
     expect(preferencesSource).not.toContain("zotero-ai-assistant-pref-model");
     expect(preferencesSource).not.toContain(
       "zotero-ai-assistant-pref-max-context",
     );
     expect(preferencesSource).toContain(
       'id="zotero-ai-assistant-pref-custom-presets"',
-    );
-  });
-
-  it("includes a visual command manager above the custom command editor", () => {
-    expect(preferencesSource).toContain(
-      'data-l10n-id="ai-assistant-pref-custom-presets-visual-title"',
-    );
-    expect(preferencesSource).toContain(
-      'data-l10n-id="ai-assistant-pref-custom-presets-visual-help"',
     );
   });
 
@@ -50,17 +41,26 @@ describe("preferences.xhtml", () => {
     expect(commandsIndex).toBeGreaterThan(evidenceIndex);
   });
 
-  it("includes JSON import, preview, and command docs controls", () => {
+  it("renders a dedicated slash section without JSON command controls", () => {
     expect(preferencesSource).toContain(
+      'data-l10n-id="ai-assistant-pref-slash-title"',
+    );
+    expect(preferencesSource).toContain(
+      'id="zotero-ai-assistant-pref-slash-builtins"',
+    );
+    expect(preferencesSource).toContain(
+      'id="zotero-ai-assistant-pref-slash-custom"',
+    );
+    expect(preferencesSource).toContain(
+      'id="zotero-ai-assistant-pref-slash-add"',
+    );
+    expect(preferencesSource).not.toContain(
       'id="zotero-ai-assistant-pref-custom-presets-import"',
     );
-    expect(preferencesSource).toContain(
-      'id="zotero-ai-assistant-pref-custom-presets-import-preview"',
-    );
-    expect(preferencesSource).toContain(
+    expect(preferencesSource).not.toContain(
       'id="zotero-ai-assistant-pref-custom-presets-copy-ai-prompt"',
     );
-    expect(preferencesSource).toContain(
+    expect(preferencesSource).not.toContain(
       'id="zotero-ai-assistant-pref-custom-presets-docs-link"',
     );
   });
@@ -72,7 +72,7 @@ describe("preferences.xhtml", () => {
     expect(preferencesSource).not.toContain("Zotero.__addonInstance__");
   });
 
-  it("keeps raw custom command storage hidden instead of showing two JSON editors", () => {
+  it("keeps raw slash storage hidden instead of exposing a JSON editor", () => {
     const storageId = 'id="zotero-ai-assistant-pref-custom-presets"';
     const storageIdIndex = preferencesSource.indexOf(storageId);
     const storageStart = preferencesSource.lastIndexOf(
@@ -86,14 +86,8 @@ describe("preferences.xhtml", () => {
     const storageEditor = preferencesSource.slice(storageStart, storageEnd);
 
     expect(storageEditor).toContain("display: none");
-    expect(preferencesSource).toContain(
+    expect(preferencesSource).not.toContain(
       'id="zotero-ai-assistant-pref-custom-presets-import-editor"',
-    );
-    expect(preferencesSource).not.toContain(
-      'id="zotero-ai-assistant-pref-custom-presets-preview"',
-    );
-    expect(preferencesSource).not.toContain(
-      'data-l10n-id="ai-assistant-pref-custom-presets-advanced"',
     );
   });
 

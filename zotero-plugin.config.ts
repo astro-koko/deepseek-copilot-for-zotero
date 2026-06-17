@@ -58,6 +58,7 @@ export default defineConfig({
     // Keep dev-only bootstrap here so the built addon never reads from .env.
     // Do not inject plugin prefs into the user's daily profile during proxy-mode runs.
     // On macOS we still need the explicit flag to avoid falling back to another profile.
+    devtools: false,
     startArgs: devStartArgs,
     prefs: devProfilePrefs,
     asProxy: true,
