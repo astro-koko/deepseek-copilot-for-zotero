@@ -55,6 +55,13 @@ export function resolveSidebarLocation(tabType: string): SidebarLocation | null 
   return null;
 }
 
+export function isSidebarLocationSelected(
+  tabType: string,
+  location: SidebarLocation,
+): boolean {
+  return resolveSidebarLocation(tabType) === location;
+}
+
 export function attachSidebarHost(
   body: SidebarBodyLike,
   host: SidebarSurfaceHost | unknown,

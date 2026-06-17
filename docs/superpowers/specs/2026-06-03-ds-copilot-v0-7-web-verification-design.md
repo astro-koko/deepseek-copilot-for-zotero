@@ -1,4 +1,4 @@
-# DS Copilot v0.7 Web Verification Design
+# Deepseek Copliot v0.7 Web Verification Design
 
 ## Scope
 

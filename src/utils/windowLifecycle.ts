@@ -1,9 +1,9 @@
-type WindowWithEventBus = {
+type EventBusWindowLike = {
   __aiAssistantEventBus?: EventTarget;
 };
 
 export function createWindowEventDispatcher<
-  TWindow extends WindowWithEventBus,
+  TWindow extends EventBusWindowLike,
   TDetail = unknown,
 >(eventName: string) {
   const windows = new Set<TWindow>();

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zotero Native Plugin Install"
+  short_description: "Native Deepseek Copliot dev XPI import and overwrite flow"
+  default_prompt: "Use $zotero-native-plugin-install when installing, overwriting, or verifying a local Deepseek Copliot dev XPI through Zotero's native Install Plugin From File flow."

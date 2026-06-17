@@ -1,4 +1,5 @@
 import React from "react";
+import { createHostCustomEvent } from "../utils/domEvents";
 import { EventBus } from "../utils/eventBus";
 import { getLocaleID } from "../utils/locale";
 import { Sidebar } from "./components/Sidebar";
@@ -15,27 +16,6 @@ import {
 import { registerSidebarRefreshHandler } from "./sidebarRuntime";
 import { typography } from "./typography";
 
-interface AIAssistantWindow extends Window {
-  __aiAssistantEventBus?: EventTarget;
-  __aiAssistantTabObserverId?: string | null;
-  MozXULElement?: {
-    insertFTLIfNeeded?: (path: string) => void;
-  };
-  ZoteroPane?: {
-    getSelectedItems?: () => unknown[];
-    itemPane?: {
-      collapsed?: boolean;
-    };
-  };
-  ZoteroContextPane?: {
-    collapsed?: boolean;
-    togglePane?: () => void;
-  };
-  Zotero_Tabs?: {
-    selectedType?: string;
-  };
-}
-
 interface ItemMessagePaneLike extends HTMLElement {
   renderCustomHead?(
     callback?: (args: {
@@ -47,6 +27,7 @@ interface ItemMessagePaneLike extends HTMLElement {
 
 interface SectionRenderBody {
   appendChild?(node: unknown): unknown;
+  closest?(selector: string): Element | null;
   contains(node: unknown): boolean;
   ownerDocument: Document;
   replaceChildren(...nodes: unknown[]): void;
@@ -61,15 +42,22 @@ const LEGACY_STANDALONE_ARTIFACT_IDS = [
   "zotero-ai-assistant-tb-chat-toggle",
 ];
 
-const windowHosts = new WeakMap<AIAssistantWindow, SidebarHostState>();
-const windowRefreshCleanup = new WeakMap<AIAssistantWindow, () => void>();
+const windowHosts = new WeakMap<Window, SidebarHostState>();
+const windowRefreshCleanup = new WeakMap<Window, () => void>();
 const windowSectionRefresh = new WeakMap<
-  AIAssistantWindow,
+  Window,
   () => Promise<void>
 >();
-const windowScopeRetryTimer = new WeakMap<AIAssistantWindow, number>();
-const windowLibraryEmptyStateRetryTimer = new WeakMap<AIAssistantWindow, number>();
-const windowLibraryEmptyStateRetryBudget = new WeakMap<AIAssistantWindow, number>();
+const windowScopeRetryTimer = new WeakMap<Window, number>();
+const windowLibraryEmptyStateRetryTimer = new WeakMap<
+  Window,
+  number
+>();
+const windowLibraryEmptyStateRetryBudget = new WeakMap<
+  Window,
+  number
+>();
+const windowReaderSectionWasExpanded = new WeakMap<Window, boolean>();
 const BRANDED_SECTION_ICON =
   "chrome://zotero-ai-assistant/content/icons/icon-20.png";
 
@@ -78,7 +66,7 @@ let reactDomClientPromise: Promise<typeof import("react-dom/client")> | null =
   null;
 
 export class UIFactory {
-  static registerChatPanel(win: AIAssistantWindow) {
+  static registerChatPanel(win: Window) {
     this.removeLegacyStandaloneArtifacts(win);
     this.registerSection();
     this.ensureWindowRefreshRegistration(win);
@@ -86,7 +74,7 @@ export class UIFactory {
     this.refreshWindow(win);
   }
 
-  static removeChatPanel(win: AIAssistantWindow) {
+  static removeChatPanel(win: Window) {
     const hosts = windowHosts.get(win);
     if (hosts) {
       [hosts.library, hosts.reader].forEach((hostState) => {
@@ -101,6 +89,7 @@ export class UIFactory {
     this.clearScopeRetryTimer(win);
     this.clearLibraryEmptyStateRetryTimer(win);
     windowLibraryEmptyStateRetryBudget.delete(win);
+    windowReaderSectionWasExpanded.delete(win);
     this.renderLibraryEmptyStateHead(win, false);
     this.removeTabSelectionRefreshRegistration(win);
     windowRefreshCleanup.get(win)?.();
@@ -109,21 +98,21 @@ export class UIFactory {
     this.removeLegacyStandaloneArtifacts(win);
   }
 
-  static refreshWindow(win: AIAssistantWindow) {
+  static refreshWindow(win: Window) {
     void this.requestSectionRefresh(win);
     this.syncLibraryEmptyStateHost(win);
   }
 
   static refreshAllWindows() {
     for (const win of Zotero.getMainWindows()) {
-      this.refreshWindow(win as AIAssistantWindow);
+      this.refreshWindow(win);
     }
   }
 
   static shutdown() {
     for (const win of Zotero.getMainWindows()) {
       try {
-        this.removeChatPanel(win as AIAssistantWindow);
+        this.removeChatPanel(win);
       } catch {
         // Ignore teardown issues while shutting down.
       }
@@ -166,6 +155,14 @@ export class UIFactory {
           this.shouldEnableSection(tabType || "", body as SectionRenderBody),
         );
         this.syncSectionScope(body as SectionRenderBody, tabType || "");
+        this.restoreReaderSectionExpansion(
+          body as SectionRenderBody,
+          tabType || "",
+        );
+        this.renderReaderSectionBodyOnItemChange(
+          body as SectionRenderBody,
+          tabType || "",
+        );
         return true;
       },
       onRender: ({ body, tabType }) => {
@@ -193,7 +190,7 @@ export class UIFactory {
       return;
     }
 
-    const win = body.ownerDocument.defaultView as AIAssistantWindow | null;
+    const win = body.ownerDocument.defaultView as Window | null;
     if (!win) {
       const host = createFallbackSidebarHost(location, body.ownerDocument);
       attachSidebarHost(body, host);
@@ -227,6 +224,7 @@ export class UIFactory {
     hosts[location] = host;
 
     host.mountPoint.style.display = "flex";
+    this.rememberReaderSectionExpansion(win, body, location);
 
     void this.ensureHostBootstrapped(win, host, location).catch((error) => {
       ztoolkit.log(
@@ -237,7 +235,7 @@ export class UIFactory {
     });
   }
 
-  private static ensureWindowRefreshRegistration(win: AIAssistantWindow) {
+  private static ensureWindowRefreshRegistration(win: Window) {
     if (windowRefreshCleanup.has(win)) {
       return;
     }
@@ -251,7 +249,7 @@ export class UIFactory {
     windowRefreshCleanup.set(win, unregister);
   }
 
-  private static ensureTabSelectionRefreshRegistration(win: AIAssistantWindow) {
+  private static ensureTabSelectionRefreshRegistration(win: Window) {
     if (win.__aiAssistantTabObserverId) {
       return;
     }
@@ -280,7 +278,7 @@ export class UIFactory {
     }
   }
 
-  private static removeTabSelectionRefreshRegistration(win: AIAssistantWindow) {
+  private static removeTabSelectionRefreshRegistration(win: Window) {
     const observerId = win.__aiAssistantTabObserverId;
     if (!observerId) {
       return;
@@ -294,7 +292,7 @@ export class UIFactory {
     win.__aiAssistantTabObserverId = null;
   }
 
-  private static ensureWindowHosts(win: AIAssistantWindow): SidebarHostState {
+  private static ensureWindowHosts(win: Window): SidebarHostState {
     const existing = windowHosts.get(win);
     if (existing) {
       return existing;
@@ -313,7 +311,7 @@ export class UIFactory {
       return;
     }
 
-    const win = body.ownerDocument.defaultView as AIAssistantWindow | null;
+    const win = body.ownerDocument.defaultView as Window | null;
     if (!win) {
       return;
     }
@@ -322,12 +320,13 @@ export class UIFactory {
   }
 
   private static syncSectionScope(body: SectionRenderBody, tabType: string) {
-    const win = body.ownerDocument.defaultView as AIAssistantWindow | null;
+    const win = body.ownerDocument.defaultView as Window | null;
     const eventBus = win?.__aiAssistantEventBus ?? EventBus.getInstance();
     const initialScope = getCurrentScope();
-    this.dispatchScopeChange(eventBus, initialScope);
+    this.dispatchScopeChange(eventBus, initialScope, win);
 
-    if (!win || this.resolveSectionLocation(tabType, body) !== "library") {
+    const location = this.resolveSectionLocation(tabType, body);
+    if (!win || (location !== "library" && location !== "reader")) {
       return;
     }
 
@@ -336,21 +335,114 @@ export class UIFactory {
       this.clearScopeRetryTimer(win);
       const retriedScope = getCurrentScope();
       if (!this.areScopesEquivalent(initialScope, retriedScope)) {
-        this.dispatchScopeChange(eventBus, retriedScope);
+        this.dispatchScopeChange(eventBus, retriedScope, win);
       }
-    }, 100);
+    }, location === "reader" ? 150 : 100);
     windowScopeRetryTimer.set(win, retryTimer);
+  }
+
+  private static renderReaderSectionBodyOnItemChange(
+    body: SectionRenderBody,
+    tabType: string,
+  ): void {
+    if (this.resolveSectionLocation(tabType, body) !== "reader") {
+      return;
+    }
+
+    this.renderSectionBody(body, tabType);
+  }
+
+  private static rememberReaderSectionExpansion(
+    win: Window,
+    body: SectionRenderBody,
+    location: SidebarLocation,
+  ): void {
+    if (location !== "reader") {
+      return;
+    }
+
+    const section = this.findSectionContainer(body);
+    if (!section || this.isSectionCollapsed(section)) {
+      return;
+    }
+
+    windowReaderSectionWasExpanded.set(win, true);
+  }
+
+  private static restoreReaderSectionExpansion(
+    body: SectionRenderBody,
+    tabType: string,
+  ): void {
+    if (this.resolveSectionLocation(tabType, body) !== "reader") {
+      return;
+    }
+
+    const win = body.ownerDocument.defaultView as Window | null;
+    if (!win || !windowReaderSectionWasExpanded.get(win)) {
+      return;
+    }
+
+    const section = this.findSectionContainer(body);
+    if (!section || !this.isSectionCollapsed(section)) {
+      return;
+    }
+
+    section.removeAttribute("collapsed");
+    section.setAttribute("open", "true");
+    section.setAttribute("aria-expanded", "true");
+  }
+
+  private static findSectionContainer(
+    body: SectionRenderBody,
+  ): Element | null {
+    const selectors = [
+      `[data-pane-id="${SECTION_PANE_ID}"]`,
+      `[paneid="${SECTION_PANE_ID}"]`,
+      `[data-paneid="${SECTION_PANE_ID}"]`,
+      `#${SECTION_PANE_ID}`,
+    ];
+
+    for (const selector of selectors) {
+      try {
+        const match = body.closest?.(selector);
+        if (match) {
+          return match;
+        }
+      } catch {
+        // Ignore selector support differences between XUL and HTML elements.
+      }
+    }
+
+    let current = (body as unknown as Element | null)?.parentElement ?? null;
+    while (current) {
+      if (
+        current.id === SECTION_PANE_ID ||
+        current.getAttribute?.("data-pane-id") === SECTION_PANE_ID ||
+        current.getAttribute?.("paneid") === SECTION_PANE_ID ||
+        current.getAttribute?.("data-paneid") === SECTION_PANE_ID
+      ) {
+        return current;
+      }
+      current = current.parentElement;
+    }
+
+    return null;
+  }
+
+  private static isSectionCollapsed(section: Element): boolean {
+    return (
+      section.getAttribute("collapsed") === "true" ||
+      section.getAttribute("aria-expanded") === "false" ||
+      section.getAttribute("open") === "false"
+    );
   }
 
   private static dispatchScopeChange(
     eventBus: EventTarget,
     scope: ReturnType<typeof getCurrentScope>,
+    win?: Window | null,
   ) {
-    eventBus.dispatchEvent(
-      new CustomEvent("scopeChange", {
-        detail: scope,
-      }),
-    );
+    eventBus.dispatchEvent(createHostCustomEvent("scopeChange", scope, win));
   }
 
   private static areScopesEquivalent(
@@ -360,7 +452,7 @@ export class UIFactory {
     return left?.type === right?.type && left?.id === right?.id;
   }
 
-  private static clearScopeRetryTimer(win: AIAssistantWindow) {
+  private static clearScopeRetryTimer(win: Window) {
     const retryTimer = windowScopeRetryTimer.get(win);
     if (retryTimer == null) {
       return;
@@ -371,7 +463,7 @@ export class UIFactory {
   }
 
   private static async requestSectionRefresh(
-    win: AIAssistantWindow,
+    win: Window,
   ): Promise<void> {
     try {
       await windowSectionRefresh.get(win)?.();
@@ -380,7 +472,7 @@ export class UIFactory {
     }
   }
 
-  private static syncLibraryEmptyStateHost(win: AIAssistantWindow): void {
+  private static syncLibraryEmptyStateHost(win: Window): void {
     const selectedLocation = this.getSelectedLocation(win);
     if (selectedLocation !== "library") {
       this.clearLibraryEmptyStateRetryTimer(win);
@@ -403,7 +495,7 @@ export class UIFactory {
   }
 
   private static renderLibraryEmptyStateHead(
-    win: AIAssistantWindow,
+    win: Window,
     shouldRender: boolean,
   ): boolean {
     const messagePane = this.getLibraryMessagePane(win.document);
@@ -441,7 +533,7 @@ export class UIFactory {
   }
 
   private static getOrCreateLibraryMessageHeadHost(
-    win: AIAssistantWindow,
+    win: Window,
   ): SidebarSurfaceHost {
     const hosts = this.ensureWindowHosts(win);
     const existing = hosts.library;
@@ -464,10 +556,12 @@ export class UIFactory {
   private static getLibraryMessagePane(
     doc: Pick<Document, "getElementById">,
   ): ItemMessagePaneLike | null {
-    return doc.getElementById("zotero-item-message") as ItemMessagePaneLike | null;
+    return doc.getElementById(
+      "zotero-item-message",
+    ) as ItemMessagePaneLike | null;
   }
 
-  private static scheduleLibraryEmptyStateRetry(win: AIAssistantWindow): void {
+  private static scheduleLibraryEmptyStateRetry(win: Window): void {
     if (windowLibraryEmptyStateRetryTimer.has(win)) {
       return;
     }
@@ -485,7 +579,9 @@ export class UIFactory {
     windowLibraryEmptyStateRetryTimer.set(win, timer);
   }
 
-  private static clearLibraryEmptyStateRetryTimer(win: AIAssistantWindow): void {
+  private static clearLibraryEmptyStateRetryTimer(
+    win: Window,
+  ): void {
     const retryTimer = windowLibraryEmptyStateRetryTimer.get(win);
     if (retryTimer == null) {
       return;
@@ -496,7 +592,7 @@ export class UIFactory {
   }
 
   private static ensureHostBootstrapped(
-    win: AIAssistantWindow,
+    win: Window,
     hostState: SidebarSurfaceHost,
     location: SidebarLocation,
   ): Promise<void> {
@@ -546,19 +642,19 @@ export class UIFactory {
     }
 
     const win = body?.ownerDocument?.defaultView as
-      | AIAssistantWindow
+      | Window
       | null
       | undefined;
     return win ? this.getSelectedLocation(win) : null;
   }
 
   private static getSelectedLocation(
-    win: AIAssistantWindow,
+    win: Window,
   ): SidebarLocation | null {
     return resolveSidebarLocation(win.Zotero_Tabs?.selectedType || "");
   }
 
-  private static async getReactDomClient(win: AIAssistantWindow) {
+  private static async getReactDomClient(win: Window) {
     if (!reactDomClientPromise) {
       this.bindDomGlobals(win);
       reactDomClientPromise = import("react-dom/client");
@@ -566,7 +662,7 @@ export class UIFactory {
     return reactDomClientPromise;
   }
 
-  private static bindDomGlobals(win: AIAssistantWindow) {
+  private static bindDomGlobals(win: Window) {
     const globalScope = globalThis as typeof globalThis & {
       document?: Document;
       navigator?: Navigator;
@@ -585,7 +681,7 @@ export class UIFactory {
   }
 
   private static removeStaleMounts(
-    win: AIAssistantWindow,
+    win: Window,
     mountId: string,
     keepMount: HTMLElement,
   ) {
@@ -600,7 +696,7 @@ export class UIFactory {
     });
   }
 
-  private static removeLegacyStandaloneArtifacts(win: AIAssistantWindow) {
+  private static removeLegacyStandaloneArtifacts(win: Window) {
     const root = (win.document.documentElement ||
       win.document.body) as ParentNode | null;
     for (const artifactId of LEGACY_STANDALONE_ARTIFACT_IDS) {

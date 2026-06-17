@@ -9,10 +9,17 @@ export interface ChatCompletionMessage {
   content: string;
 }
 
+export type ChatStreamChunk =
+  | string
+  | {
+      type: "reasoning_delta" | "status";
+      content: string;
+    };
+
 export interface StreamingResponse {
   abort: () => void;
   evidenceAuditMessage?: string;
-  stream: AsyncIterable<string>;
+  stream: AsyncIterable<ChatStreamChunk>;
 }
 
 export interface ProviderRequestDiagnostics {

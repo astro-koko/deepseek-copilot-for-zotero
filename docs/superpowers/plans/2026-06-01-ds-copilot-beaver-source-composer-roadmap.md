@@ -1,4 +1,4 @@
-# DS Copilot Beaver-Style Source Composer Roadmap
+# Deepseek Copliot Beaver-Style Source Composer Roadmap
 
 Date: 2026-06-01
 Status: Ready for execution
@@ -7,7 +7,7 @@ Design: `docs/superpowers/specs/2026-06-01-ds-copilot-beaver-source-composer-des
 ## Why This Is Split
 
 The approved design spans three independently testable subsystems. Execute them
-in order so each merge point leaves DS Copilot usable:
+in order so each merge point leaves Deepseek Copliot usable:
 
 1. core source composition and footer model switching
 2. researcher search shortcuts and filters

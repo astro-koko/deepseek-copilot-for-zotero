@@ -39,21 +39,46 @@ describe("threadExport", () => {
       File: {
         pathToFile: vi.fn((path: string) => path),
         putContents: vi.fn(),
+        putContentsAsync: vi.fn(),
       },
     });
   });
 
   it("exports one thread as markdown with scope metadata and ordered messages", async () => {
-    await exportThreadAsMarkdown(makeThread(), "/tmp/example-thread.md");
+    await expect(
+      exportThreadAsMarkdown(makeThread(), "/tmp/example-thread.md"),
+    ).resolves.toBe("/tmp/example-thread.md");
 
-    expect(Zotero.File.putContents).toHaveBeenCalledTimes(1);
-    const output = (Zotero.File.putContents as ReturnType<typeof vi.fn>).mock.calls[0]?.[1];
+    expect(Zotero.File.putContentsAsync).toHaveBeenCalledTimes(1);
+    const output = (Zotero.File.putContentsAsync as ReturnType<typeof vi.fn>)
+      .mock.calls[0]?.[1];
     expect(String(output)).toContain("# Example thread");
     expect(String(output)).toContain("Scope: pdf");
-    expect(String(output)).toContain("A Scientific Human-Agent Reproduction Pipeline");
+    expect(String(output)).toContain(
+      "A Scientific Human-Agent Reproduction Pipeline",
+    );
     expect(String(output)).toContain("## User");
     expect(String(output)).toContain("What is the core method?");
     expect(String(output)).toContain("## Assistant");
     expect(String(output)).toContain("Three key points...");
+  });
+
+  it("falls back to the legacy sync writer when async file writes are unavailable", async () => {
+    delete (Zotero.File as any).putContentsAsync;
+
+    await exportThreadAsMarkdown(makeThread(), "/tmp/example-thread.md");
+
+    expect(Zotero.File.putContents).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the sync writer when the async writer rejects", async () => {
+    (Zotero.File.putContentsAsync as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("Async write failed"),
+    );
+
+    await exportThreadAsMarkdown(makeThread(), "/tmp/example-thread.md");
+
+    expect(Zotero.File.putContentsAsync).toHaveBeenCalledTimes(1);
+    expect(Zotero.File.putContents).toHaveBeenCalledTimes(1);
   });
 });

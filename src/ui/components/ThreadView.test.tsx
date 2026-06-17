@@ -22,7 +22,9 @@ describe("ThreadView markdown rendering", () => {
   });
 
   it("renders markdown syntax for all visible chat roles", () => {
-    vi.spyOn(Date.prototype, "toLocaleTimeString").mockReturnValue("10:02:03 AM");
+    vi.spyOn(Date.prototype, "toLocaleTimeString").mockReturnValue(
+      "10:02:03 AM",
+    );
 
     const markup = renderToStaticMarkup(
       React.createElement(ThreadView, {
@@ -67,7 +69,7 @@ describe("ThreadView markdown rendering", () => {
     expect(markup).toContain("<em>italic</em>");
     expect(markup).toContain("<code>code</code>");
     expect(markup).toContain("<br/>");
-    expect(markup).toContain('<pre style=');
+    expect(markup).toContain("<pre style=");
     expect(markup).toContain("const answer = 42;");
     expect(markup).toContain("<blockquote");
     expect(markup).toContain("<ul");
@@ -103,7 +105,13 @@ describe("ThreadView markdown rendering", () => {
           {
             id: "msg-assistant",
             role: "assistant",
-            content: ["# Title", "", "| A | B |", "| - | - |", "| 1 | 2 |"].join("\n"),
+            content: [
+              "# Title",
+              "",
+              "| A | B |",
+              "| - | - |",
+              "| 1 | 2 |",
+            ].join("\n"),
             timestamp: 1,
           },
         ]),
@@ -119,6 +127,30 @@ describe("ThreadView markdown rendering", () => {
     expect(markup).not.toContain("font-size:16px");
     expect(markup).not.toContain("font-size:12px");
     expect(markup).not.toContain("font-size:11px");
+  });
+
+  it("renders a streaming assistant draft inside the message list", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        streamingMessage: {
+          content: "Partial **answer**",
+          reasoningContent: "Checking the method section",
+          statusLabel: "Responding",
+        },
+        thread: makeThread([
+          {
+            id: "msg-user",
+            role: "user",
+            content: "Summarize this paper",
+            timestamp: 1,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup).toContain("Responding");
+    expect(markup).toContain("Checking the method section");
+    expect(markup).toContain("<strong>answer</strong>");
   });
 });
 

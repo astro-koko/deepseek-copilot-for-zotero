@@ -1,7 +1,7 @@
 <vbox
   id="zotero-ai-assistant-prefs"
   onload="
-    Zotero.__addonInstance__.hooks.onPrefsEvent('load', {
+    Zotero.ZoteroAIAssistant.hooks.onPrefsEvent('load', {
       window: this.ownerDocument.defaultView,
     })
   "
@@ -56,6 +56,11 @@
           label="Validate"
           data-l10n-id="ai-assistant-pref-validate"
         />
+        <button
+          id="zotero-ai-assistant-pref-export-debug-log"
+          label="Export Debug Log"
+          data-l10n-id="ai-assistant-pref-export-debug-log"
+        />
         <description
           id="zotero-ai-assistant-pref-status"
           style="margin-inline-start: 8px"
@@ -95,9 +100,7 @@
             Tavily web verification (requires API key)
           </html:option>
         </html:select>
-        <description
-          data-l10n-id="ai-assistant-pref-evidence-provider-help"
-        />
+        <description data-l10n-id="ai-assistant-pref-evidence-provider-help" />
       </vbox>
 
       <vbox
@@ -153,6 +156,52 @@
           />
         </hbox>
       </vbox>
+
+      <separator class="thin" />
+
+      <description
+        data-l10n-id="ai-assistant-pref-commands-title"
+        style="font-weight: 600"
+      />
+      <description data-l10n-id="ai-assistant-pref-commands-help" />
+      <description
+        data-l10n-id="ai-assistant-pref-slash-title"
+        style="font-weight: 600; margin-top: 8px"
+      />
+      <description data-l10n-id="ai-assistant-pref-slash-help" />
+      <html:div
+        id="zotero-ai-assistant-pref-slash-builtins"
+        style="display: flex; flex-direction: column; gap: 10px; width: 100%;"
+      >
+      </html:div>
+      <html:div
+        id="zotero-ai-assistant-pref-slash-custom"
+        style="display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 10px;"
+      ></html:div>
+      <html:div
+        style="
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          flex-wrap: wrap;
+          margin-top: 8px;
+        "
+      >
+        <button
+          id="zotero-ai-assistant-pref-slash-add"
+          label="Add command"
+          data-l10n-id="ai-assistant-pref-slash-add"
+        />
+        <description id="zotero-ai-assistant-pref-slash-limit-status" />
+      </html:div>
+      <html:textarea
+        id="zotero-ai-assistant-pref-custom-presets"
+        spellcheck="false"
+        style="
+          display: none;
+        "
+        readonly="readonly"
+      ></html:textarea>
     </vbox>
   </groupbox>
 </vbox>

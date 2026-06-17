@@ -12,6 +12,7 @@ export interface Thread {
   title: string;
   createdAt: number;
   updatedAt: number;
+  scopeKey?: string;
   scopeSnapshot?: ScopeContext;
   messages: Message[];
 }

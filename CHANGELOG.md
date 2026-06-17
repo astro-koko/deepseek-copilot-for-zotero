@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.9.6
+
+- Reworked `Commands and Prompts` into a card-based settings flow with clearer built-in vs. custom command editing.
+- Expanded the sidebar home suggestions to 8 built-in actions in a compact two-column layout and kept built-in title overrides in sync.
+- Updated the empty-state guidance so paper and PDF conversations surface shorter action labels and a clearer `/` shortcut hint.
+
 ## v0.9.5
 
 - Unified the public plugin name to `Deepseek Copliot` across Zotero surfaces, release assets, and generated update feeds.

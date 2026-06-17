@@ -106,6 +106,7 @@ describe("scopeResolver", () => {
       itemIds: [11],
       label: "AutoScientists",
       readerAttachmentId: 22,
+      scopeKey: "pdf-22",
       type: "pdf",
     });
   });
@@ -147,6 +148,7 @@ describe("scopeResolver", () => {
       label: "AutoScientists",
       readerAttachmentId: 22,
       readerPage: 5,
+      scopeKey: "pdf-22",
       type: "pdf",
     });
   });
@@ -186,8 +188,21 @@ describe("scopeResolver", () => {
       id: "paper-44",
       itemIds: [44],
       label: "DEBATE",
+      scopeKey: "paper-44",
       type: "paper",
     });
+  });
+
+  it("returns no library scope while Zotero reports the collections view as unavailable", () => {
+    (Zotero.getMainWindow as any).mockReturnValue({
+      ZoteroPane: {
+        collectionsView: false,
+        getSelectedItems: () => [],
+        itemsView: {},
+      },
+    });
+
+    expect(resolveScopeFromLibrary()).toBeNull();
   });
 
   it("ignores attachment-like tab data when the selected tab is the Library", () => {
@@ -231,6 +246,7 @@ describe("scopeResolver", () => {
       id: "paper-44",
       itemIds: [44],
       label: "DEBATE",
+      scopeKey: "paper-44",
       type: "paper",
     });
   });
@@ -280,6 +296,7 @@ describe("scopeResolver", () => {
       itemIds: [77],
       label: "AstaBench",
       readerAttachmentId: 88,
+      scopeKey: "pdf-88",
       type: "pdf",
     });
 
@@ -291,6 +308,7 @@ describe("scopeResolver", () => {
       itemIds: [77],
       label: "AstaBench",
       readerAttachmentId: 88,
+      scopeKey: "pdf-88",
       type: "pdf",
     });
   });
@@ -324,6 +342,7 @@ describe("scopeResolver", () => {
       itemIds: [55],
       label: "Reader Warmup",
       readerAttachmentId: 66,
+      scopeKey: "pdf-66",
       type: "pdf",
     });
   });
@@ -373,6 +392,7 @@ describe("scopeResolver", () => {
       id: "paper-99",
       itemIds: [99],
       label: "Host Selection",
+      scopeKey: "paper-99",
       type: "paper",
     });
   });
@@ -440,6 +460,7 @@ describe("scopeResolver", () => {
       itemIds: [201],
       label: "Fresh Reader",
       readerAttachmentId: 202,
+      scopeKey: "pdf-202",
       type: "pdf",
     });
   });
@@ -513,6 +534,7 @@ describe("scopeResolver", () => {
       itemIds: [301],
       label: "Old Reader",
       readerAttachmentId: 302,
+      scopeKey: "pdf-302",
       type: "pdf",
     });
 
@@ -532,6 +554,7 @@ describe("scopeResolver", () => {
       itemIds: [301],
       label: "Old Reader",
       readerAttachmentId: 302,
+      scopeKey: "pdf-302",
       type: "pdf",
     });
 
@@ -553,6 +576,7 @@ describe("scopeResolver", () => {
       itemIds: [401],
       label: "New Reader",
       readerAttachmentId: 402,
+      scopeKey: "pdf-402",
       type: "pdf",
     });
   });

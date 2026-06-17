@@ -1,4 +1,4 @@
-# DS Copilot History Actions And Model Diagnostic Design
+# Deepseek Copliot History Actions And Model Diagnostic Design
 
 ## Scope
 

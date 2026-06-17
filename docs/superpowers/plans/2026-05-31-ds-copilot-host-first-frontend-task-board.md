@@ -1,8 +1,8 @@
-# DS Copilot Host-First Frontend Task Board
+# Deepseek Copliot Host-First Frontend Task Board
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stabilize DS Copilot's Zotero frontend surfaces so the plugin is visibly usable in Settings, Library, Reader, and Reader handoff flows before provider and release work expands.
+**Goal:** Stabilize Deepseek Copliot's Zotero frontend surfaces so the plugin is visibly usable in Settings, Library, Reader, and Reader handoff flows before provider and release work expands.
 
 **Architecture:** Keep the current repository as the implementation base, but reorganize the host-facing frontend around Beaver-style lifecycle boundaries. Preserve the existing service layer where possible while making host ownership deterministic per window and per surface.
 
@@ -15,7 +15,7 @@
 - Active branch: `codex/deepseek-official-config`
 - Management baseline checkpoint committed at `76598f1` (`docs: add host-first frontend execution baseline`)
 - Latest verified daily-profile facts:
-  - `Settings` is no longer blank; the DS Copilot preferences pane renders real fields and actions
+  - `Settings` is no longer blank; the Deepseek Copliot preferences pane renders real fields and actions
   - the `Settings` pane now exposes a real secure `API Key` input, and the user-facing settings contract is being collapsed toward `API key` only
   - `Reader` scope resolution is now tied to the active PDF tab, so the native host no longer falls back to stale `Waiting for context` state there
   - the sidebar shell can mount in Reader with visible scope, suggested actions, and composer chrome
@@ -42,7 +42,7 @@
 
 Verified now:
 
-- `Settings` opens a real DS Copilot pane in the daily profile instead of a blank surface.
+- `Settings` opens a real Deepseek Copliot pane in the daily profile instead of a blank surface.
 - `API Key` is a real secure text field in the daily profile.
 - the settings pane source is now reduced in code to the release-facing `API key`-only contract.
 - Reader scope resolution follows the active PDF tab instead of a stale Reader tab.
@@ -120,7 +120,7 @@ The current dirty worktree is concentrated in the host-first tranche:
 
 ## Milestones
 
-- [x] `M0` Repo already has a mountable DS Copilot host implementation
+- [x] `M0` Repo already has a mountable Deepseek Copliot host implementation
 - [ ] `M1` Settings pane is stable and persistent in the daily profile
 - [ ] `M2` Library native host owns the right pane without false-visible states
 - [ ] `M3` Reader native host survives tab/layout/reload churn
@@ -210,7 +210,7 @@ The current dirty worktree is concentrated in the host-first tranche:
 
 ## Known UX Gap
 
-- DS Copilot content now mounts into Zotero's native right-side surfaces, but the visible activation affordance is still the top-toolbar toggle.
+- Deepseek Copliot content now mounts into Zotero's native right-side surfaces, but the visible activation affordance is still the top-toolbar toggle.
 - Treat the toolbar button as a temporary debug/fallback control.
 - Do not accept toolbar-only discovery as the final UI contract for GitHub release readiness.
 - Do not spend this tranche redesigning final toolbar UX; the current requirement is host stability inside native Library and Reader panes.

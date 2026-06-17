@@ -1,4 +1,4 @@
-# DS Copilot Source Composer Tranche 3 Drag And Drop And Smoke Implementation Plan
+# Deepseek Copliot Source Composer Tranche 3 Drag And Drop And Smoke Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -188,7 +188,7 @@ Expected: PASS.
 Install:
 
 ```text
-.scaffold/build/DS Copilot-0.1.0.xpi
+.scaffold/build/Deepseek Copliot-0.1.0.xpi
 ```
 
 through Zotero's Add-ons manager. Do not hand-edit `extensions.json`.

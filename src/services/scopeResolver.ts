@@ -1,11 +1,48 @@
 import type { ScopeContext } from "../types/scope";
+import {
+  extractReaderAttachmentIDFromTabData,
+  findReaderTabByID,
+  getReaderCurrentPage,
+  getReaderSelectedText,
+} from "../modules/readerPrivate";
 
 let notifierCallbackID: string | null = null;
 let lastResolvedReaderTabID: string | null = null;
 let lastResolvedReaderScope: ScopeContext | null = null;
 let scopeRetryTimer: number | null = null;
 
-export function resolveScopeFromReader(reader: any): ScopeContext | null {
+type ReaderScopeLike = {
+  itemID?: number;
+  type?: string;
+};
+
+type ZoteroTabHostLike = Window & {
+  ZoteroPane?: {
+    collectionsView?: false | {
+      getRow?: (index: number) => {
+        isCollection?: () => boolean;
+        ref?: {
+          getChildItems?: (includeTrashed?: boolean) => number[] | null;
+          key?: string;
+          libraryID?: number;
+          name?: string;
+        };
+      } | null;
+      selection?: {
+        currentIndex?: number | string | null;
+      };
+    };
+    getSelectedItems?: () => Zotero.Item[];
+    itemsView?: unknown;
+  };
+  Zotero_Tabs?: {
+    _tabs?: unknown;
+    selectedID?: string;
+    selectedType?: string;
+  };
+};
+
+export function resolveScopeFromReader(reader: ReaderScopeLike | null): ScopeContext | null {
   if (!reader || reader.type !== "pdf") return null;
 
   const attachmentId = reader.itemID;
@@ -18,15 +55,16 @@ export function resolveScopeFromReader(reader: any): ScopeContext | null {
   const label = parentItem
     ? parentItem.getDisplayTitle()
     : item.getDisplayTitle();
-  const readerPage = resolveCurrentReaderPage(reader);
+  const readerPage = getReaderCurrentPage(reader);
 
   return {
     type: "pdf",
     id: `pdf-${attachmentId}`,
+    scopeKey: buildDocumentScopeKey("pdf", attachmentId),
     label: label || "Current PDF",
     itemIds: parentItem ? [parentItem.id] : [attachmentId],
     readerAttachmentId: attachmentId,
-    readerPage,
+    ...(readerPage ? { readerPage } : {}),
   };
 }
 
@@ -34,7 +72,7 @@ export function resolveScopeFromLibrary(): ScopeContext | null {
   const win = Zotero.getMainWindow();
   if (!win) return null;
 
-  const zp = (win as any).ZoteroPane;
+  const zp = (win as ZoteroTabHostLike).ZoteroPane;
   if (!zp) return null;
 
   const itemsView = zp.itemsView;
@@ -42,17 +80,31 @@ export function resolveScopeFromLibrary(): ScopeContext | null {
 
   if (!itemsView || !collectionsView) return null;
 
-  const selectedCollectionRow = collectionsView.getRow(collectionsView.selection?.currentIndex);
+  const selectedCollectionRowIndex = toCollectionRowIndex(
+    collectionsView.selection?.currentIndex,
+  );
+  const selectedCollectionRow =
+    selectedCollectionRowIndex == null
+      ? null
+      : collectionsView.getRow?.(selectedCollectionRowIndex);
   const selectedItems = zp.getSelectedItems ? zp.getSelectedItems() : [];
 
   if (selectedItems.length === 0) {
     if (selectedCollectionRow?.isCollection?.()) {
       const collection = selectedCollectionRow.ref;
-      const itemIds = collection.getChildItems ? collection.getChildItems(true) || [] : [];
+      if (!collection) {
+        return null;
+      }
+
+      const collectionKey = collection.key ?? "unknown";
+      const collectionLibraryID = collection.libraryID ?? "unknown";
+      const itemIds = collection.getChildItems
+        ? collection.getChildItems(true) || []
+        : [];
       return {
         type: "collection",
-        id: `collection-${collection.libraryID}-${collection.key}`,
-        label: collection.name,
+        id: `collection-${collectionLibraryID}-${collectionKey}`,
+        label: collection.name || "Collection",
         itemIds,
       };
     }
@@ -65,6 +117,7 @@ export function resolveScopeFromLibrary(): ScopeContext | null {
       return {
         type: "paper",
         id: `paper-${item.id}`,
+        scopeKey: buildDocumentScopeKey("paper", item.id),
         label: item.getDisplayTitle(),
         itemIds: [item.id],
       };
@@ -82,6 +135,7 @@ export function resolveScopeFromLibrary(): ScopeContext | null {
       return {
         type: "pdf",
         id: `pdf-${item.id}`,
+        scopeKey: buildDocumentScopeKey("pdf", item.id),
         label: label || "Current PDF",
         itemIds: parentItem ? [parentItem.id] : [item.id],
         readerAttachmentId: item.id,
@@ -101,13 +155,9 @@ export function resolveScopeFromLibrary(): ScopeContext | null {
 }
 
 export function getCurrentScope(): ScopeContext | null {
-  const mainWindow = Zotero.getMainWindow?.() as any;
-  const selectedType = `${mainWindow?.Zotero_Tabs?.selectedType ?? ""}`.toLowerCase();
-  const selectedTabID = `${mainWindow?.Zotero_Tabs?.selectedID ?? ""}`;
-  const reader =
-    isReaderTabType(selectedType) && selectedTabID
-      ? Zotero.Reader.getByTabID(selectedTabID)
-      : null;
+  const mainWindow = Zotero.getMainWindow?.() as ZoteroTabHostLike | null;
+  const { selectedTabID, selectedType } = getSelectedTabState(mainWindow);
+  const reader = getActiveReader(selectedType, selectedTabID);
   if (reader) {
     const scope = resolveScopeFromReader(reader);
     if (scope) {
@@ -139,44 +189,29 @@ export function getCurrentScope(): ScopeContext | null {
 }
 
 export function getSelectedTextFromReader(): string | null {
-  const selectedType = `${Zotero.getMainWindow?.()?.Zotero_Tabs?.selectedType ?? ""}`.toLowerCase();
-  const selectedTabID = `${Zotero.getMainWindow?.()?.Zotero_Tabs?.selectedID ?? ""}`;
-  const reader =
-    isReaderTabType(selectedType) && selectedTabID
-      ? Zotero.Reader.getByTabID(selectedTabID)
-      : null;
+  const { selectedTabID, selectedType } = getSelectedTabState(
+    Zotero.getMainWindow?.() as ZoteroTabHostLike | null,
+  );
+  const reader = getActiveReader(selectedType, selectedTabID);
   if (!reader || reader.type !== "pdf") return null;
 
-  try {
-    const primaryView = (reader as any)?._internalReader?._primaryView;
-    if (primaryView?._selectionRanges?.length > 0) {
-      return primaryView._selectionRanges
-        .map((range: any) => range.text)
-        .join("\n\n");
-    }
-  } catch (_e) {
-    // Graceful fallback
-  }
-  return null;
+  return getReaderSelectedText(reader);
 }
 
 function resolveScopeFromReaderTabData(
-  mainWindow: any,
+  mainWindow: ZoteroTabHostLike | null,
   selectedTabID: string,
 ): ScopeContext | null {
   if (!selectedTabID) {
     return null;
   }
 
-  const tabs = Array.isArray(mainWindow?.Zotero_Tabs?._tabs)
-    ? mainWindow.Zotero_Tabs._tabs
-    : [];
-  const activeTab = tabs.find((tab: any) => `${tab?.id ?? ""}` === selectedTabID);
+  const activeTab = findReaderTabByID(mainWindow?.Zotero_Tabs?._tabs, selectedTabID);
   if (!activeTab) {
     return null;
   }
 
-  const attachmentId = extractReaderAttachmentID(activeTab.data);
+  const attachmentId = extractReaderAttachmentIDFromTabData(activeTab.data);
   if (!attachmentId) {
     return null;
   }
@@ -188,39 +223,26 @@ function resolveScopeFromReaderTabData(
   return resolveScopeFromReader(readerLike);
 }
 
-function extractReaderAttachmentID(data: any): number | null {
-  if (!data || typeof data !== "object") {
-    return null;
+function toNumericID(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
   }
 
-  const directCandidate = toNumericID(
-    data.itemID ??
-      data.itemId ??
-      data.attachmentID ??
-      data.attachmentId ??
-      data.id,
-  );
-  if (directCandidate) {
-    return directCandidate;
-  }
-
-  for (const value of Object.values(data)) {
-    const nestedCandidate = toNumericID(
-      (value as any)?.itemID ??
-        (value as any)?.itemId ??
-        (value as any)?.attachmentID ??
-        (value as any)?.attachmentId ??
-        (value as any)?.id,
-    );
-    if (nestedCandidate) {
-      return nestedCandidate;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
     }
   }
 
   return null;
 }
 
-function toNumericID(value: unknown): number | null {
+function buildDocumentScopeKey(type: "paper" | "pdf", itemId: number): string {
+  return `${type}-${itemId}`;
+}
+
+function toCollectionRowIndex(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
   }
@@ -239,19 +261,25 @@ function isReaderTabType(selectedType: string): boolean {
   return selectedType.includes("reader");
 }
 
-function resolveCurrentReaderPage(reader: any): number | undefined {
-  try {
-    const pdfViewer =
-      reader?._internalReader?._primaryView?._iframeWindow?.PDFViewerApplication?.pdfViewer;
-    const pageNumber = pdfViewer?.currentPageNumber;
-    if (typeof pageNumber === "number" && Number.isFinite(pageNumber) && pageNumber > 0) {
-      return pageNumber;
-    }
-  } catch {
-    // Ignore reader page probe failures.
+function getSelectedTabState(mainWindow: ZoteroTabHostLike | null): {
+  selectedTabID: string;
+  selectedType: string;
+} {
+  return {
+    selectedTabID: `${mainWindow?.Zotero_Tabs?.selectedID ?? ""}`,
+    selectedType: `${mainWindow?.Zotero_Tabs?.selectedType ?? ""}`.toLowerCase(),
+  };
+}
+
+function getActiveReader(
+  selectedType: string,
+  selectedTabID: string,
+): ReaderScopeLike | null {
+  if (!isReaderTabType(selectedType) || !selectedTabID) {
+    return null;
   }
 
-  return undefined;
+  return Zotero.Reader.getByTabID(selectedTabID);
 }
 
 export function resetScopeResolverCacheForTests(): void {
@@ -266,7 +294,12 @@ export function registerScopeNotifier(
   unregisterScopeNotifier();
 
   const callback = {
-    notify: (event: string, type: string, ids: Array<string | number>, _extraData: any) => {
+    notify: (
+      event: string,
+      type: string,
+      ids: Array<string | number>,
+      _extraData: Record<string, unknown>,
+    ) => {
       if (
         event === "select" &&
         (type === "item" ||
@@ -307,7 +340,9 @@ export function unregisterScopeNotifier(): void {
 }
 
 function getScopeObserverID(): string {
-  const addonID = (globalThis as any)?.addon?.data?.config?.addonID;
+  const addonID = (globalThis as typeof globalThis & {
+    addon?: { data?: { config?: { addonID?: string } } };
+  })?.addon?.data?.config?.addonID;
   return addonID || "deepseek-copliot-scope-resolver";
 }
 

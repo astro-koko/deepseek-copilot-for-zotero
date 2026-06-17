@@ -5,6 +5,7 @@ export interface ReaderActionDetail {
   text: string;
   page: number;
   readerItemID: number;
+  traceId?: string;
 }
 
 export function buildReaderActionDraft(

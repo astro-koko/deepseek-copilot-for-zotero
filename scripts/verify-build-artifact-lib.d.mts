@@ -1,3 +1,5 @@
+import type { BuildAddonVersionMetadata } from "./build-version-lib.mjs";
+
 export function buildVerificationContext(options: {
   buildRoot: string;
   pkg: {
@@ -7,8 +9,10 @@ export function buildVerificationContext(options: {
       addonRef: string;
     };
   };
+  env?: Record<string, string | undefined>;
 }): {
   xpiPath: string;
+  addonVersion: BuildAddonVersionMetadata;
   requiredFiles: string[];
   requiredArchiveEntries: string[];
 };

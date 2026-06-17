@@ -1,12 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
-  COMMAND_PRESET_GROUP_ORDER,
   applyPreset,
+  expandSlashCommandInput,
   filterPresets,
   getPresetById,
-  getPresetGroupLabel,
+  getPresetSlashCommand,
   getPresetWarning,
-  type CommandPreset,
 } from "../../services/presets";
 import type { ScopeType } from "../../types/scope";
 import { getSidebarTheme } from "../theme";
@@ -25,6 +30,7 @@ interface ComposerProps {
   disabled?: boolean;
   disabledReason?: string | null;
   placeholder?: string;
+  customPresets?: string;
   draftValue?: string;
   focusNonce?: number;
   onDraftChange?: (value: string) => void;
@@ -39,9 +45,11 @@ function recordComposerDiagnostic(
   disabled: boolean,
   isStreaming: boolean,
 ): void {
-  const diagnostics = ((globalThis as unknown as {
-    __aiAssistantDiagnostics?: Record<string, unknown>;
-  }).__aiAssistantDiagnostics ??= {});
+  const diagnostics = ((
+    globalThis as unknown as {
+      __aiAssistantDiagnostics?: Record<string, unknown>;
+    }
+  ).__aiAssistantDiagnostics ??= {});
 
   diagnostics.composer = {
     disabled,
@@ -61,9 +69,12 @@ function readSlashQuery(value: string): string | null {
 }
 
 function replaceActiveSlashToken(value: string, replacement: string): string {
-  return value.replace(/(^|\s)\/[^\n]*$/, (_match, leadingWhitespace: string) => {
-    return `${leadingWhitespace}${replacement}`;
-  });
+  return value.replace(
+    /(^|\s)\/[^\n]*$/,
+    (_match, leadingWhitespace: string) => {
+      return `${leadingWhitespace}${replacement}`;
+    },
+  );
 }
 
 export const Composer: React.FC<ComposerProps> = ({
@@ -75,7 +86,8 @@ export const Composer: React.FC<ComposerProps> = ({
   currentScopeType,
   disabled = false,
   disabledReason = null,
-  placeholder = "围绕这篇论文提问…（输入 / 可查看预设）",
+  placeholder = "围绕这篇论文或这个 PDF 提问，输入 / 使用快捷命令",
+  customPresets = "",
   draftValue,
   focusNonce,
   onDraftChange,
@@ -88,23 +100,17 @@ export const Composer: React.FC<ComposerProps> = ({
   const [showPresets, setShowPresets] = useState(false);
   const [selectedPresetIndex, setSelectedPresetIndex] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const theme = getSidebarTheme((globalThis as unknown as { window?: Window }).window);
+  const theme = getSidebarTheme(
+    (globalThis as unknown as { window?: Window }).window,
+  );
   const zh = isChineseLocale();
   const slashQuery = useMemo(() => readSlashQuery(input), [input]);
   const visiblePresets = useMemo(() => {
     if (!currentScopeType) {
       return [];
     }
-    return filterPresets(slashQuery || "", currentScopeType, zh);
-  }, [currentScopeType, slashQuery, zh]);
-  const groupedVisiblePresets = useMemo(
-    () =>
-      COMMAND_PRESET_GROUP_ORDER.map((group) => ({
-        group,
-        presets: visiblePresets.filter((preset) => preset.group === group),
-      })).filter((group) => group.presets.length > 0),
-    [visiblePresets],
-  );
+    return filterPresets(slashQuery || "", currentScopeType, zh, customPresets);
+  }, [currentScopeType, customPresets, slashQuery, zh]);
 
   useEffect(() => {
     recordComposerDiagnostic(input, disabled, isStreaming);
@@ -143,11 +149,23 @@ export const Composer: React.FC<ComposerProps> = ({
   const handleSubmit = useCallback(() => {
     const trimmed = input.trim();
     if (!trimmed || isStreaming || disabled) return;
-    onSend(trimmed);
+    const expanded =
+      currentScopeType != null
+        ? expandSlashCommandInput(trimmed, currentScopeType, customPresets)
+        : trimmed;
+    onSend(expanded);
     setInput("");
     onDraftChange?.("");
     setShowPresets(false);
-  }, [disabled, input, isStreaming, onDraftChange, onSend]);
+  }, [
+    currentScopeType,
+    customPresets,
+    disabled,
+    input,
+    isStreaming,
+    onDraftChange,
+    onSend,
+  ]);
 
   const applyPresetToInput = useCallback(
     (presetId: string) => {
@@ -158,19 +176,19 @@ export const Composer: React.FC<ComposerProps> = ({
         console.warn(warning);
       }
 
-      const preset = getPresetById(presetId);
+      const preset = getPresetById(presetId, customPresets);
       if (!preset) {
         return;
       }
 
-      const replacement = applyPreset(preset.id, "");
+      const replacement = applyPreset(preset.id, "", customPresets);
       const nextValue = replaceActiveSlashToken(input, replacement);
       setInput(nextValue);
       onDraftChange?.(nextValue);
       inputRef.current?.focus();
       setShowPresets(false);
     },
-    [currentScopeType, input, onDraftChange],
+    [currentScopeType, customPresets, input, onDraftChange],
   );
 
   const handleKeyDown = useCallback(
@@ -209,7 +227,13 @@ export const Composer: React.FC<ComposerProps> = ({
         handleSubmit();
       }
     },
-    [applyPresetToInput, handleSubmit, selectedPresetIndex, showPresets, visiblePresets],
+    [
+      applyPresetToInput,
+      handleSubmit,
+      selectedPresetIndex,
+      showPresets,
+      visiblePresets,
+    ],
   );
 
   const handleInputChange = useCallback(
@@ -262,13 +286,12 @@ export const Composer: React.FC<ComposerProps> = ({
             borderColor: theme.softBorder,
           }}
         >
-          {renderPresetGroups({
+          {renderPresetList({
             applyPresetToInput,
-            groupedVisiblePresets,
             selectedPresetIndex,
             setSelectedPresetIndex,
             theme,
-            zh,
+            visiblePresets,
           })}
         </div>
       )}
@@ -306,7 +329,9 @@ export const Composer: React.FC<ComposerProps> = ({
                 ...styles.modelToggleButton,
                 color: theme.buttonText,
                 background:
-                  modelMode === "light" ? theme.surfaceBackground : "transparent",
+                  modelMode === "light"
+                    ? theme.surfaceBackground
+                    : "transparent",
                 borderColor:
                   modelMode === "light" ? theme.buttonBorder : "transparent",
               }}
@@ -320,7 +345,9 @@ export const Composer: React.FC<ComposerProps> = ({
                 ...styles.modelToggleButton,
                 color: theme.buttonText,
                 background:
-                  modelMode === "deep" ? theme.surfaceBackground : "transparent",
+                  modelMode === "deep"
+                    ? theme.surfaceBackground
+                    : "transparent",
                 borderColor:
                   modelMode === "deep" ? theme.buttonBorder : "transparent",
               }}
@@ -391,57 +418,36 @@ export const Composer: React.FC<ComposerProps> = ({
   );
 };
 
-function renderPresetGroups({
+function renderPresetList({
   applyPresetToInput,
-  groupedVisiblePresets,
   selectedPresetIndex,
   setSelectedPresetIndex,
   theme,
-  zh,
+  visiblePresets,
 }: {
   applyPresetToInput: (presetId: string) => void;
-  groupedVisiblePresets: Array<{
-    group: CommandPreset["group"];
-    presets: CommandPreset[];
-  }>;
   selectedPresetIndex: number;
   setSelectedPresetIndex: React.Dispatch<React.SetStateAction<number>>;
   theme: ReturnType<typeof getSidebarTheme>;
-  zh: boolean;
+  visiblePresets: ReturnType<typeof filterPresets>;
 }) {
-  let flatIndex = -1;
-
-  return groupedVisiblePresets.map(({ group, presets }) => (
-    <div key={group} style={styles.presetGroup}>
-      <div style={{ ...styles.presetGroupLabel, color: theme.mutedText }}>
-        {getPresetGroupLabel(group, zh)}
-      </div>
-      {presets.map((preset) => {
-        flatIndex += 1;
-        const presetIndex = flatIndex;
-        return (
-          <button
-            key={preset.id}
-            style={{
-              ...styles.presetItem,
-              background:
-                presetIndex === selectedPresetIndex
-                  ? theme.userMessageBackground
-                  : "transparent",
-            }}
-            onClick={() => applyPresetToInput(preset.id)}
-            onMouseEnter={() => setSelectedPresetIndex(presetIndex)}
-          >
-            <span style={{ ...styles.presetLabel, color: theme.text }}>
-              /{preset.label}
-            </span>
-            <span style={{ ...styles.presetDesc, color: theme.mutedText }}>
-              {preset.description}
-            </span>
-          </button>
-        );
-      })}
-    </div>
+  return visiblePresets.map((preset, presetIndex) => (
+    <button
+      key={preset.id}
+      style={{
+        ...styles.presetItem,
+        background:
+          presetIndex === selectedPresetIndex
+            ? theme.userMessageBackground
+            : "transparent",
+      }}
+      onClick={() => applyPresetToInput(preset.id)}
+      onMouseEnter={() => setSelectedPresetIndex(presetIndex)}
+    >
+      <span style={{ ...styles.presetLabel, color: theme.text }}>
+        /{getPresetSlashCommand(preset)}
+      </span>
+    </button>
   ));
 }
 
@@ -560,37 +566,18 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 100,
   },
   presetItem: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-    padding: "7px 9px",
+    display: "block",
+    padding: "6px 9px",
     border: "none",
     background: "none",
     width: "100%",
     cursor: "pointer",
     textAlign: "left",
   },
-  presetGroup: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "2px",
-    padding: "6px 0",
-  },
-  presetGroupLabel: {
-    fontSize: typography.caption,
-    fontWeight: 700,
-    letterSpacing: "0.04em",
-    textTransform: "uppercase",
-    padding: "0 9px",
-  },
   presetLabel: {
     fontWeight: 600,
     fontSize: typography.body,
     color: "#333",
-  },
-  presetDesc: {
-    fontSize: typography.meta,
-    color: "#777",
   },
   disabledReason: {
     marginTop: "2px",

@@ -1,6 +1,6 @@
-# DS Copilot Zotero Dev Workbench
+# Deepseek Copliot Zotero Dev Workbench
 
-This document is the repo-specific workbench for developing and validating DS Copilot inside Zotero.
+This document is the repo-specific workbench for developing and validating Deepseek Copliot inside Zotero.
 
 For real packaged import, cold restart, or GUI-driven acceptance work, also follow [docs/zotero-real-smoke-guardrails.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-real-smoke-guardrails.md). That document records the actual mistakes made during smoke work and turns them into required execution rules.
 
@@ -23,11 +23,11 @@ Formal acceptance environment:
 
 Primary issue buckets for this phase:
 
-- DS Copilot host code
+- Deepseek Copliot host code
 - hot reload / plugin reload lifecycle
 - installed-plugin surface conflicts
 
-The intended user-facing surface for this phase is the native Zotero right-side pane entry in both Library and Reader. A top-toolbar `D...` artifact or any toolbar-only DS Copilot discovery path is a host regression, not an acceptable fallback.
+The intended user-facing surface for this phase is the native Zotero right-side pane entry in both Library and Reader. A top-toolbar `D...` artifact or any toolbar-only Deepseek Copliot discovery path is a host regression, not an acceptable fallback.
 
 ## Environment baseline
 
@@ -129,7 +129,7 @@ Reloading the dev plugin is allowed only as an iteration tool. It is not accepta
 
 Always debug in this order:
 
-1. Add-ons list shows `DS Copilot`
+1. Add-ons list shows `Deepseek Copliot`
 2. Settings pane exists
 3. Library native host exists and is visibly correct through the right-side pane entry
 4. Reader native host exists and is visibly correct through the right-side pane entry

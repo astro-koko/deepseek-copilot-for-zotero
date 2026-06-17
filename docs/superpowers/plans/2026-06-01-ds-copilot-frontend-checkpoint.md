@@ -1,4 +1,4 @@
-# DS Copilot Frontend Checkpoint
+# Deepseek Copliot Frontend Checkpoint
 
 Date: 2026-06-01
 Status: Saved handoff state for the next window

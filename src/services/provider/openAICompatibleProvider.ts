@@ -1,6 +1,7 @@
 import type {
   ProviderConfig,
   ChatCompletionMessage,
+  ChatStreamChunk,
   StreamingResponse,
   ChatCompletionRequest,
   ProviderRequestDiagnostics,
@@ -8,9 +9,7 @@ import type {
 
 const PROVIDER_DIAGNOSTIC_PATH = "/tmp/deepseek-copliot-provider-request.json";
 
-export function createOpenAICompatibleProvider(
-  config: ProviderConfig,
-) {
+export function createOpenAICompatibleProvider(config: ProviderConfig) {
   async function sendChat(
     messages: ChatCompletionMessage[],
     signal?: AbortSignal,
@@ -24,59 +23,6 @@ export function createOpenAICompatibleProvider(
     };
 
     recordProviderRequestDiagnostic(config, requestBody, diagnostics);
-
-    const hostHttp = (globalThis as any).Zotero?.HTTP as
-      | {
-          request?: (
-            method: string,
-            url: string,
-            options: {
-              body: string;
-              headers: Record<string, string>;
-              responseType: string;
-              successCodes?: boolean;
-              timeout?: number;
-            },
-          ) => Promise<{ responseText?: string; status?: number }>;
-        }
-      | undefined;
-
-    if (typeof hostHttp?.request === "function") {
-      const hostRequestBody = {
-        ...requestBody,
-        stream: false,
-      };
-      const response = await hostHttp.request(
-        "POST",
-        `${config.baseURL}/chat/completions`,
-        {
-          body: JSON.stringify(hostRequestBody),
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${config.apiKey}`,
-          },
-          responseType: "text",
-          successCodes: false,
-          timeout: 120000,
-        },
-      );
-      const status = Number(response?.status ?? 0);
-      if (status < 200 || status >= 300) {
-        throw new Error(`Provider error ${status}: ${response?.responseText || ""}`);
-      }
-
-      const content = extractNonStreamingAssistantContent(
-        response?.responseText || "",
-      );
-      return {
-        abort: () => {},
-        stream: (async function* () {
-          if (content) {
-            yield content;
-          }
-        })(),
-      };
-    }
 
     const AbortControllerCtor = (globalThis as any).AbortController;
     const controller =
@@ -107,31 +53,34 @@ export function createOpenAICompatibleProvider(
       throw new Error("No response body");
     }
 
-    async function* streamGenerator(): AsyncGenerator<string> {
+    async function* streamGenerator(): AsyncGenerator<ChatStreamChunk> {
       const decoder = new TextDecoder();
       let buffer = "";
       try {
         while (true) {
           const { done, value } = await reader!.read(undefined as any);
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-
-          for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (!trimmedLine.startsWith("data: ")) continue;
-            const data = trimmedLine.slice(6);
-            if (data === "[DONE]") return;
-
-            try {
-              const parsed = JSON.parse(data);
-              const delta = parsed.choices?.[0]?.delta?.content;
-              if (delta) yield delta;
-            } catch {
-              // Ignore parse errors for malformed chunks
+          if (done) {
+            buffer += decoder
+              .decode()
+              .replace(/\r\n/g, "\n")
+              .replace(/\r/g, "\n");
+            for (const event of parseSseEvents(buffer, true).events) {
+              if (event === "[DONE]") return;
+              yield* parseStreamEvent(event);
             }
+            break;
+          }
+
+          buffer += decoder
+            .decode(value, { stream: true })
+            .replace(/\r\n/g, "\n")
+            .replace(/\r/g, "\n");
+          const parsed = parseSseEvents(buffer);
+          buffer = parsed.remainder;
+
+          for (const event of parsed.events) {
+            if (event === "[DONE]") return;
+            yield* parseStreamEvent(event);
           }
         }
       } finally {
@@ -148,20 +97,108 @@ export function createOpenAICompatibleProvider(
   return { sendChat };
 }
 
-function extractNonStreamingAssistantContent(responseText: string): string {
-  let parsed: any;
+function parseSseEvents(
+  buffer: string,
+  flush = false,
+): { events: string[]; remainder: string } {
+  const events: string[] = [];
+  let remainder = buffer;
+
+  while (true) {
+    const separatorIndex = remainder.indexOf("\n\n");
+    if (separatorIndex < 0) {
+      break;
+    }
+
+    const rawEvent = remainder.slice(0, separatorIndex);
+    remainder = remainder.slice(separatorIndex + 2);
+    const event = parseSseDataPayload(rawEvent);
+    if (event) {
+      events.push(event);
+    }
+  }
+
+  if (flush && remainder.trim()) {
+    const event = parseSseDataPayload(remainder);
+    if (event) {
+      events.push(event);
+    }
+    remainder = "";
+  }
+
+  return { events, remainder };
+}
+
+function parseSseDataPayload(rawEvent: string): string {
+  return rawEvent
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice(5).trimStart())
+    .join("\n")
+    .trim();
+}
+
+async function* parseStreamEvent(
+  data: string,
+): AsyncGenerator<ChatStreamChunk> {
+  let parsed: unknown;
   try {
-    parsed = JSON.parse(responseText);
+    parsed = JSON.parse(data);
   } catch {
-    throw new Error("Provider returned invalid JSON");
+    // Ignore malformed stream events; later valid SSE events can still arrive.
+    return;
   }
 
-  const content = parsed?.choices?.[0]?.message?.content;
-  if (typeof content === "string") {
-    return content;
+  const streamError = extractProviderStreamError(parsed);
+  if (streamError) {
+    throw new Error(`Provider stream error: ${streamError}`);
   }
 
-  throw new Error("Provider response did not contain assistant content");
+  const delta = (parsed as any).choices?.[0]?.delta;
+  const reasoningDelta =
+    delta?.reasoning_content || delta?.reasoning || delta?.reasoningContent;
+  if (reasoningDelta) {
+    yield {
+      type: "reasoning_delta",
+      content: String(reasoningDelta),
+    };
+  }
+
+  const contentDelta = delta?.content;
+  if (contentDelta) {
+    yield String(contentDelta);
+  }
+}
+
+function extractProviderStreamError(parsed: unknown): string | null {
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+
+  const record = parsed as Record<string, unknown>;
+  const error = record.error;
+  if (!error) {
+    return null;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (typeof error === "object") {
+    const errorRecord = error as Record<string, unknown>;
+    const message = errorRecord.message || errorRecord.type || errorRecord.code;
+    if (message) {
+      return String(message);
+    }
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "Unknown provider stream error";
+  }
 }
 
 function recordProviderRequestDiagnostic(

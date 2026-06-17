@@ -58,6 +58,7 @@ export async function initDatabase(): Promise<void> {
           title TEXT NOT NULL,
           createdAt INTEGER NOT NULL,
           updatedAt INTEGER NOT NULL,
+          scopeKey TEXT,
           scopeSnapshot TEXT,
           messages TEXT NOT NULL
         )
@@ -79,22 +80,44 @@ export async function saveThread(thread: Thread): Promise<void> {
   try {
     await initDatabase();
     const db = getDB();
-    await db.queryAsync(
-      `INSERT OR REPLACE INTO threads (id, title, createdAt, updatedAt, scopeSnapshot, messages)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        thread.id,
-        thread.title,
-        thread.createdAt,
-        thread.updatedAt,
-        thread.scopeSnapshot ? JSON.stringify(thread.scopeSnapshot) : null,
-        JSON.stringify(thread.messages),
-      ],
-    );
+    await insertThread(db, thread);
   } catch (e) {
+    if (isMissingScopeKeyColumnError(e)) {
+      await ensureScopeKeyColumn();
+      await insertThread(getDB(), thread);
+      return;
+    }
     ztoolkit.log("Failed to save thread:", e);
     throw e;
   }
+}
+
+async function insertThread(
+  db: ReturnType<typeof getDB>,
+  thread: Thread,
+): Promise<void> {
+  await db.queryAsync(
+    `INSERT OR REPLACE INTO threads (id, title, createdAt, updatedAt, scopeKey, scopeSnapshot, messages)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      thread.id,
+      thread.title,
+      thread.createdAt,
+      thread.updatedAt,
+      thread.scopeKey ?? deriveThreadScopeKey(thread.scopeSnapshot) ?? null,
+      thread.scopeSnapshot ? JSON.stringify(thread.scopeSnapshot) : null,
+      JSON.stringify(thread.messages),
+    ],
+  );
+}
+
+async function ensureScopeKeyColumn(): Promise<void> {
+  await getDB().queryAsync(`ALTER TABLE threads ADD COLUMN scopeKey TEXT`);
+}
+
+function isMissingScopeKeyColumnError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /scopeKey/i.test(message) && /column|no such/i.test(message);
 }
 
 export async function loadThread(id: string): Promise<Thread | null> {
@@ -148,14 +171,31 @@ export async function deletePersistedThread(id: string): Promise<boolean> {
 }
 
 function rowToThread(row: any): Thread {
+  const scopeSnapshot = row.scopeSnapshot ? JSON.parse(row.scopeSnapshot) : undefined;
+  const scopeKey = row.scopeKey || deriveThreadScopeKey(scopeSnapshot);
   return {
     id: row.id,
     title: row.title,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
-    scopeSnapshot: row.scopeSnapshot ? JSON.parse(row.scopeSnapshot) : undefined,
+    ...(scopeKey ? { scopeKey } : {}),
+    scopeSnapshot,
     messages: JSON.parse(row.messages),
   };
+}
+
+function deriveThreadScopeKey(
+  scopeSnapshot: Thread["scopeSnapshot"],
+): string | undefined {
+  if (!scopeSnapshot) return undefined;
+  if (scopeSnapshot.scopeKey) return scopeSnapshot.scopeKey;
+  if (scopeSnapshot.type === "pdf" && scopeSnapshot.readerAttachmentId) {
+    return `pdf-${scopeSnapshot.readerAttachmentId}`;
+  }
+  if (scopeSnapshot.type === "paper" && scopeSnapshot.itemIds.length === 1) {
+    return `paper-${scopeSnapshot.itemIds[0]}`;
+  }
+  return scopeSnapshot.id;
 }
 
 function isChineseLocale(): boolean {

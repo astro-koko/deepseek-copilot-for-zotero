@@ -124,7 +124,8 @@ function readHostSmokeConfig(deps: Pick<HostSmokeDeps, "getPref">): HostSmokeCon
   );
   const configuredOutputPath = String(deps.getPref("hostSmokeOutputPath") || "").trim();
   const outputPath =
-    configuredOutputPath || `/tmp/deepseek-copliot-live-smoke-${sanitizeRunId(runId)}.json`;
+    configuredOutputPath ||
+    `/tmp/deepseek-copliot-live-smoke-${sanitizeRunId(runId)}.json`;
   const scope = parseConfiguredScope(deps.getPref("hostSmokeScopeJson"));
 
   return {

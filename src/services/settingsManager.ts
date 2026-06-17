@@ -1,5 +1,7 @@
+import type { CommandPreset } from "./presets";
 import { getPref, setPref } from "../utils/prefs";
 import { config } from "../../package.json";
+import type { ScopeType } from "../types/scope";
 
 export const DEFAULT_EVIDENCE_PROVIDER_MODE = "mcp-web-search";
 export type EvidenceProviderMode =
@@ -9,6 +11,7 @@ type LegacyEvidenceProviderMode = "builtin-search";
 
 export interface PersistedSettings {
   apiKey: string;
+  customPresets: string;
   model: string;
   maxContextBudget: number;
   keyboardShortcut: string;
@@ -22,12 +25,16 @@ export interface Settings extends PersistedSettings {
 }
 
 export const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
-export const DEEPSEEK_MODELS = ["deepseek-v4-flash", "deepseek-v4-pro"] as const;
+export const DEEPSEEK_MODELS = [
+  "deepseek-v4-flash",
+  "deepseek-v4-pro",
+] as const;
 export const TAVILY_BASE_URL = "https://api.tavily.com";
 
 export const DEFAULT_SETTINGS: Settings = {
   apiKey: "",
   baseURL: DEEPSEEK_BASE_URL,
+  customPresets: "",
   model: DEEPSEEK_MODELS[0],
   maxContextBudget: 4000,
   keyboardShortcut: "I",
@@ -40,7 +47,10 @@ export const PREFERENCES_PANE_ID = `${config.addonRef}-prefpane`;
 
 function normalizeModel(model: string | undefined): string {
   const value = model?.trim();
-  if (value && DEEPSEEK_MODELS.includes(value as (typeof DEEPSEEK_MODELS)[number])) {
+  if (
+    value &&
+    DEEPSEEK_MODELS.includes(value as (typeof DEEPSEEK_MODELS)[number])
+  ) {
     return value;
   }
 
@@ -57,15 +67,302 @@ function normalizeBoolean(value: unknown): boolean {
   return value === true || value === "true" || value === 1 || value === "1";
 }
 
+export type CustomCommandPreset = Partial<CommandPreset> & {
+  hidden?: boolean;
+  id?: string;
+  mode?: "append" | "replace";
+  slashCommand?: string;
+  showInSidebar?: boolean;
+};
+
+export type ParsedCustomCommandPreset = CustomCommandPreset & {
+  id: string;
+};
+
+export interface EditableCustomCommandPreset {
+  aliasesText: string;
+  description: string;
+  enabled: boolean;
+  evidenceHint: boolean;
+  group: NonNullable<CommandPreset["group"]>;
+  hidden?: boolean;
+  id: string;
+  label: string;
+  promptPrefix: string;
+  slashCommand: string;
+  showInSidebar: boolean;
+  scopeHint: ScopeType[];
+}
+
+export interface CustomPresetsParseResult {
+  presets: ParsedCustomCommandPreset[];
+  error: string | null;
+}
+
+function normalizeCustomPresetsValue(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim();
+}
+
+function slugifyPresetId(value: string, index: number): string {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+
+  return slug || `custom-${index + 1}`;
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(/[,，\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function serializeStringArray(value: string[]): string {
+  return value.map((item) => item.trim()).filter(Boolean).join(", ");
+}
+
+function normalizeScopeHints(value: unknown): CommandPreset["scopeHint"] {
+  const validScopeTypes = new Set([
+    "paper",
+    "pdf",
+    "collection",
+    "manual-selection",
+  ]);
+  const scopes = normalizeStringArray(value).filter((scope) =>
+    validScopeTypes.has(scope),
+  ) as NonNullable<CommandPreset["scopeHint"]>;
+
+  return scopes.length > 0 ? scopes : undefined;
+}
+
+function normalizePresetGroup(value: unknown): CommandPreset["group"] {
+  return value === "analysis" || value === "evidence" || value === "reading"
+    ? value
+    : "reading";
+}
+
+export function parseCustomPresets(value: string): CustomPresetsParseResult {
+  const normalized = normalizeCustomPresetsValue(value);
+  if (!normalized) {
+    return { presets: [], error: null };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(normalized);
+  } catch (error) {
+    return {
+      presets: [],
+      error:
+        error instanceof Error && error.message
+          ? `Invalid custom suggestions JSON: ${error.message}`
+          : "Invalid custom suggestions JSON",
+    };
+  }
+
+  const rawPresets = Array.isArray(parsed) ? parsed : [parsed];
+  const presets: ParsedCustomCommandPreset[] = [];
+  const usedIds = new Set<string>();
+  for (const [index, rawPreset] of rawPresets.entries()) {
+    if (!rawPreset || typeof rawPreset !== "object") {
+      continue;
+    }
+
+    const source = rawPreset as Record<string, unknown>;
+    const rawId = String(source.id || "").trim();
+    const label = String(source.label || "").trim();
+    const promptPrefix = String(
+      source.promptPrefix || source.prompt || "",
+    ).trim();
+    const slashCommand = String(
+      source.slashCommand || source.command || rawId || "",
+    ).trim();
+    if (!rawId && !label) {
+      continue;
+    }
+
+    let id = slugifyPresetId(rawId || label, index);
+    while (usedIds.has(id)) {
+      id = `${id}-${index + 1}`;
+    }
+    usedIds.add(id);
+
+    const preset: ParsedCustomCommandPreset = {
+      id,
+      mode: source.mode === "replace" ? "replace" : "append",
+    };
+    if (source.aliases !== undefined) {
+      preset.aliases = normalizeStringArray(source.aliases);
+    }
+    if (source.description !== undefined) {
+      preset.description = String(source.description || "").trim();
+    }
+    if (source.evidenceHint !== undefined) {
+      preset.evidenceHint = normalizeBoolean(source.evidenceHint);
+    }
+    if (source.group !== undefined) {
+      preset.group = normalizePresetGroup(source.group);
+    }
+    if (label) {
+      preset.label = label;
+    }
+    if (promptPrefix) {
+      preset.promptPrefix = promptPrefix;
+    }
+    if (slashCommand) {
+      preset.slashCommand = slashCommand;
+    } else {
+      preset.slashCommand = id;
+    }
+    if (source.scopeHint !== undefined || source.scopes !== undefined) {
+      preset.scopeHint = normalizeScopeHints(source.scopeHint ?? source.scopes);
+    }
+    if (source.hidden !== undefined) {
+      preset.hidden = normalizeBoolean(source.hidden);
+    }
+    if (source.showInSidebar !== undefined) {
+      preset.showInSidebar = normalizeBoolean(source.showInSidebar);
+    }
+
+    presets.push(preset);
+  }
+
+  return { presets, error: null };
+}
+
+export function toEditableCustomPreset(
+  preset: ParsedCustomCommandPreset,
+): EditableCustomCommandPreset {
+  return {
+    aliasesText: serializeStringArray(preset.aliases || []),
+    description: String(preset.description || "").trim(),
+    enabled: true,
+    evidenceHint: Boolean(preset.evidenceHint),
+    group: normalizePresetGroup(preset.group),
+    hidden: Boolean(preset.hidden),
+    id: preset.id,
+    label: String(preset.label || "").trim(),
+    promptPrefix: String(preset.promptPrefix || "").trim(),
+    slashCommand: String(preset.slashCommand || preset.id || "").trim(),
+    showInSidebar: Boolean(preset.showInSidebar),
+    scopeHint: (preset.scopeHint || ["paper", "pdf"]) as ScopeType[],
+  };
+}
+
+export function createEmptyEditableCustomPreset(
+  index = 0,
+): EditableCustomCommandPreset {
+  return {
+    aliasesText: "",
+    description: "",
+    enabled: true,
+    evidenceHint: false,
+    group: "reading",
+    hidden: false,
+    id: `custom-action-${index + 1}`,
+    label: "",
+    promptPrefix: "",
+    slashCommand: `custom-action-${index + 1}`,
+    showInSidebar: false,
+    scopeHint: ["paper", "pdf"],
+  };
+}
+
+export function parseEditableCustomPresets(
+  value: string,
+): EditableCustomCommandPreset[] {
+  return parseCustomPresets(value).presets.map((preset) =>
+    toEditableCustomPreset(preset),
+  );
+}
+
+export function stringifyEditableCustomPresets(
+  presets: EditableCustomCommandPreset[],
+): string {
+  const normalized = presets
+    .filter((preset) => preset.enabled !== false || preset.hidden)
+    .map((preset, index) => {
+      const id = slugifyPresetId(preset.id || preset.label, index);
+      return {
+        aliases: normalizeStringArray(preset.aliasesText),
+        description: String(preset.description || "").trim(),
+        evidenceHint: Boolean(preset.evidenceHint),
+        group: normalizePresetGroup(preset.group),
+        hidden: Boolean(preset.hidden),
+        id,
+        label: String(preset.label || "").trim(),
+        promptPrefix: String(preset.promptPrefix || "").trim(),
+        slashCommand: String(preset.slashCommand || id).trim(),
+        showInSidebar: Boolean(preset.showInSidebar),
+        scopeHint: preset.scopeHint?.length
+          ? preset.scopeHint
+          : ["paper", "pdf"],
+      };
+    })
+    .filter((preset) => preset.label || preset.promptPrefix);
+
+  if (normalized.length === 0) {
+    return "";
+  }
+
+  return JSON.stringify(normalized, null, 2);
+}
+
+export function buildCustomCommandAIPrompt(): string {
+  return [
+    "Create Deepseek Copliot custom slash commands as a JSON array",
+    "Output JSON only, with no Markdown fences and no explanation",
+    "Each object may include id, label, description, promptPrefix, aliases, scopeHint, showInSidebar, and evidenceHint",
+    'Use lower-case hyphenated ids, aliases as an array, and scopeHint values from ["paper","pdf","collection","manual-selection"]',
+    "Keep showInSidebar true only for the few commands that should appear on the sidebar home panel",
+    "Write promptPrefix text for research reading: be specific, ask for concise structure, separate paper evidence from inference, and ask for uncertainty when relevant",
+    "My command ideas are:",
+  ].join("\n");
+}
+
+export function mergeEditableCustomPresets(
+  existing: EditableCustomCommandPreset[],
+  imported: EditableCustomCommandPreset[],
+): EditableCustomCommandPreset[] {
+  const merged = [...existing];
+  for (const preset of imported) {
+    const index = merged.findIndex((candidate) => candidate.id === preset.id);
+    if (index >= 0) {
+      merged[index] = preset;
+    } else {
+      merged.push(preset);
+    }
+  }
+  return merged;
+}
+
 export function getSettings(): Settings {
   return {
     apiKey: (getPref("apiKey") || "") as string,
     baseURL: DEEPSEEK_BASE_URL,
+    customPresets: normalizeCustomPresetsValue(getPref("customPresets")),
     model: normalizeModel(getPref("model") as string | undefined),
     maxContextBudget: Number(
       getPref("maxContextBudget") || DEFAULT_SETTINGS.maxContextBudget,
     ),
-    keyboardShortcut: (getPref("keyboardShortcut") || DEFAULT_SETTINGS.keyboardShortcut) as string,
+    keyboardShortcut: (getPref("keyboardShortcut") ||
+      DEFAULT_SETTINGS.keyboardShortcut) as string,
     evidenceEnabled: normalizeBoolean(getPref("evidenceEnabled")),
     evidenceProviderMode: normalizeEvidenceProviderMode(
       getPref("evidenceProviderMode") as string | undefined,
@@ -76,7 +373,13 @@ export function getSettings(): Settings {
 
 export function saveSettings(settings: Partial<PersistedSettings>): void {
   if (settings.apiKey !== undefined) setPref("apiKey", settings.apiKey);
-  if (settings.model !== undefined) setPref("model", normalizeModel(settings.model));
+  if (settings.customPresets !== undefined)
+    setPref(
+      "customPresets",
+      normalizeCustomPresetsValue(settings.customPresets),
+    );
+  if (settings.model !== undefined)
+    setPref("model", normalizeModel(settings.model));
   if (settings.maxContextBudget !== undefined)
     setPref("maxContextBudget", settings.maxContextBudget);
   if (settings.keyboardShortcut !== undefined)
@@ -92,7 +395,9 @@ export function saveSettings(settings: Partial<PersistedSettings>): void {
     setPref("tavilyApiKey", settings.tavilyApiKey);
 }
 
-export function getSettingsIssue(settings: Settings = getSettings()): string | null {
+export function getSettingsIssue(
+  settings: Settings = getSettings(),
+): string | null {
   if (!settings.apiKey.trim()) {
     return "DeepSeek API key not configured. Open plugin Settings to continue.";
   }
@@ -136,9 +441,7 @@ export function getEvidenceAuditLabel(
   return providerMode === "tavily" ? "Tavily" : "默认查证";
 }
 
-export async function validateSettings(
-  overrides?: Partial<Settings>,
-): Promise<{
+export async function validateSettings(overrides?: Partial<Settings>): Promise<{
   valid: boolean;
   error?: string;
 }> {
@@ -247,14 +550,14 @@ async function sendValidationRequest(
         request?: (
           method: string,
           url: string,
-        options: {
-          body: string;
-          headers: Record<string, string>;
-          responseType: string;
-          successCodes?: boolean;
-          timeout?: number;
-        },
-      ) => Promise<{ responseText?: string; status?: number }>;
+          options: {
+            body: string;
+            headers: Record<string, string>;
+            responseType: string;
+            successCodes?: boolean;
+            timeout?: number;
+          },
+        ) => Promise<{ responseText?: string; status?: number }>;
       }
     | undefined;
 
@@ -424,7 +727,9 @@ async function fetchWithTimeout(
       }),
     timeoutMs,
   ).catch((error) => {
-    if (String(error?.message || "").includes(`Timed out after ${timeoutMs}ms`)) {
+    if (
+      String(error?.message || "").includes(`Timed out after ${timeoutMs}ms`)
+    ) {
       controller?.abort?.();
     }
     throw error;
@@ -443,7 +748,8 @@ function resolveTimerHost(): {
     typeof globalClearTimeout === "function"
   ) {
     return {
-      setTimeout: (callback, timeoutMs) => globalSetTimeout(callback, timeoutMs),
+      setTimeout: (callback, timeoutMs) =>
+        globalSetTimeout(callback, timeoutMs),
       clearTimeout: (timerId) => globalClearTimeout(timerId),
     };
   }
@@ -460,7 +766,8 @@ function resolveTimerHost(): {
     typeof mainWindow?.clearTimeout === "function"
   ) {
     return {
-      setTimeout: (callback, timeoutMs) => mainWindow.setTimeout?.(callback, timeoutMs),
+      setTimeout: (callback, timeoutMs) =>
+        mainWindow.setTimeout?.(callback, timeoutMs),
       clearTimeout: (timerId) => mainWindow.clearTimeout?.(timerId),
     };
   }

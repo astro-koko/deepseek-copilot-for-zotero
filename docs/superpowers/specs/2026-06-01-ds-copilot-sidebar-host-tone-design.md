@@ -1,4 +1,4 @@
-# DS Copilot Sidebar Host-Tone Design
+# Deepseek Copliot Sidebar Host-Tone Design
 
 Date: 2026-06-01
 Status: Approved for implementation
@@ -6,7 +6,7 @@ Scope: B-scope frontend convergence for the Zotero right sidebar
 
 ## Goal
 
-Make the DS Copilot sidebar feel like a native Zotero right-pane tool surface instead of a self-contained web assistant page.
+Make the Deepseek Copliot sidebar feel like a native Zotero right-pane tool surface instead of a self-contained web assistant page.
 
 This pass improves visual and structural integration only. It does not change send logic, persistence, host mounting, or packaged smoke criteria.
 
@@ -39,7 +39,7 @@ After this pass, the sidebar should:
 - collapse the header into a light title row with subdued status
 - present scope, suggestions, recents, thread content, and composer as compact pane sections
 - use shorter, more operational copy in empty/home/config states
-- keep enough identity to remain recognizable as DS Copilot without competing with the host UI
+- keep enough identity to remain recognizable as Deepseek Copliot without competing with the host UI
 
 ## Component-Level Changes
 

@@ -1,13 +1,29 @@
 import type { ScopeContext } from "../types/scope";
 import type { Thread, Message } from "../types/thread";
-import { appendMessage, createThread, recordScopeTransition } from "./threadController";
+import type { ChatStreamChunk } from "./provider/types";
+import {
+  appendMessage,
+  createThread,
+  getScopeKey,
+  getThreadScopeKey,
+  recordScopeTransition,
+} from "./threadController";
 import { type ChatRequestOptions, sendChatMessage } from "./chatEngine";
+
+export type ChatSessionStreamingStatus =
+  | "idle"
+  | "preparing"
+  | "waiting"
+  | "reasoning"
+  | "streaming";
 
 export interface ChatSessionState {
   activeThread: Thread | null;
   error: string | null;
   isStreaming: boolean;
   streamingContent: string;
+  streamingReasoningContent: string;
+  streamingStatus: ChatSessionStreamingStatus;
 }
 
 interface ChatSessionDeps {
@@ -37,25 +53,35 @@ const DEFAULT_STATE: ChatSessionState = {
   error: null,
   isStreaming: false,
   streamingContent: "",
+  streamingReasoningContent: "",
+  streamingStatus: "idle",
 };
+
+const GLOBAL_SCOPE_KEY = "__global__";
 
 interface AbortControllerLike {
   abort(): void;
   signal?: AbortSignal;
 }
 
-function hasScopeChanged(
-  thread: Thread,
+function isThreadInScope(
+  thread: Thread | null,
   scope: ScopeContext | null | undefined,
 ): boolean {
-  if (!scope) {
+  if (!thread) {
     return false;
   }
 
-  return (
-    thread.scopeSnapshot?.type !== scope.type ||
-    thread.scopeSnapshot?.id !== scope.id
-  );
+  if (!scope) {
+    return true;
+  }
+
+  const scopeKey = getScopeKey(scope);
+  if (!scopeKey) {
+    return true;
+  }
+
+  return getThreadScopeKey(thread) === scopeKey;
 }
 
 function buildErrorMessage(error: unknown): string {
@@ -66,28 +92,88 @@ function buildErrorMessage(error: unknown): string {
   return "Failed to get response";
 }
 
+function normalizeStreamChunk(chunk: ChatStreamChunk): {
+  contentDelta?: string;
+  reasoningDelta?: string;
+  status?: ChatSessionStreamingStatus;
+} {
+  if (typeof chunk === "string") {
+    return {
+      contentDelta: chunk,
+      status: "streaming",
+    };
+  }
+
+  if (chunk.type === "reasoning_delta") {
+    return {
+      reasoningDelta: chunk.content,
+      status: "reasoning",
+    };
+  }
+
+  if (chunk.type === "status") {
+    return {
+      status:
+        chunk.content === "preparing" ||
+        chunk.content === "waiting" ||
+        chunk.content === "reasoning" ||
+        chunk.content === "streaming"
+          ? chunk.content
+          : "waiting",
+    };
+  }
+
+  return {};
+}
+
 export function createChatSessionStore(
   deps: ChatSessionDeps,
 ): ChatSessionStore {
   const listeners = new Set<() => void>();
-  let state: ChatSessionState = { ...DEFAULT_STATE };
-  let abortController: AbortControllerLike | null = null;
-  let requestVersion = 0;
+  const statesByScope = new Map<string, ChatSessionState>();
+  const abortControllersByScope = new Map<string, AbortControllerLike | null>();
+  const requestVersionsByScope = new Map<string, number>();
+  let activeScopeKey = GLOBAL_SCOPE_KEY;
 
   const emit = () => {
     listeners.forEach((listener) => listener());
   };
 
-  const setState = (partial: Partial<ChatSessionState>) => {
-    state = { ...state, ...partial };
+  const getStateForKey = (scopeKey: string): ChatSessionState => {
+    const existing = statesByScope.get(scopeKey);
+    if (existing) {
+      return existing;
+    }
+
+    const initialState = { ...DEFAULT_STATE };
+    statesByScope.set(scopeKey, initialState);
+    return initialState;
+  };
+
+  const setState = (
+    partial: Partial<ChatSessionState>,
+    scopeKey = activeScopeKey,
+  ) => {
+    statesByScope.set(scopeKey, {
+      ...getStateForKey(scopeKey),
+      ...partial,
+    });
     emit();
   };
 
-  const invalidatePendingRequest = () => {
-    requestVersion += 1;
+  const getSessionScopeKey = (scope?: ScopeContext | null): string =>
+    getScopeKey(scope) || GLOBAL_SCOPE_KEY;
+
+  const getRequestVersion = (scopeKey: string): number =>
+    requestVersionsByScope.get(scopeKey) ?? 0;
+
+  const invalidatePendingRequest = (scopeKey: string) => {
+    requestVersionsByScope.set(scopeKey, getRequestVersion(scopeKey) + 1);
   };
 
-  const isCurrentRequest = (version: number) => version === requestVersion;
+  const isCurrentRequest = (scopeKey: string, version: number) =>
+    version === getRequestVersion(scopeKey);
+
   const createAbortController = (): AbortControllerLike | null => {
     const AbortControllerCtor = (globalThis as any).AbortController;
     if (typeof AbortControllerCtor !== "function") {
@@ -97,29 +183,13 @@ export function createChatSessionStore(
     return new AbortControllerCtor();
   };
 
-  const ensureScopedThread = async (
-    thread: Thread,
-    scope?: ScopeContext | null,
-  ): Promise<Thread> => {
-    if (!hasScopeChanged(thread, scope)) {
-      return thread;
-    }
-
-    const updated = await deps.recordScopeTransition(thread.id, scope!);
-    if (!updated) {
-      return thread;
-    }
-
-    setState({ activeThread: updated });
-    return updated;
-  };
-
   const persistAssistantMessage = async (
     thread: Thread,
     message: Message["content"],
+    scopeKey: string,
     version: number,
   ): Promise<void> => {
-    if (!isCurrentRequest(version)) {
+    if (!isCurrentRequest(scopeKey, version)) {
       return;
     }
 
@@ -128,57 +198,72 @@ export function createChatSessionStore(
       content: message,
     });
     if (updated) {
-      setState({ activeThread: updated });
+      setState({ activeThread: updated }, scopeKey);
     }
+  };
+
+  const abortScopeRequest = (scopeKey: string): void => {
+    abortControllersByScope.get(scopeKey)?.abort();
+    abortControllersByScope.set(scopeKey, null);
   };
 
   return {
     cancel() {
-      abortController?.abort();
-      abortController = null;
-      invalidatePendingRequest();
+      abortScopeRequest(activeScopeKey);
+      invalidatePendingRequest(activeScopeKey);
       setState({
         error: null,
         isStreaming: false,
         streamingContent: "",
+        streamingReasoningContent: "",
+        streamingStatus: "idle",
       });
     },
 
     getSnapshot() {
-      return state;
+      return getStateForKey(activeScopeKey);
     },
 
     async newThread(scope?: ScopeContext | null) {
-      abortController?.abort();
-      abortController = null;
-      invalidatePendingRequest();
+      const scopeKey = getSessionScopeKey(scope);
+      activeScopeKey = scopeKey;
+      abortScopeRequest(scopeKey);
+      invalidatePendingRequest(scopeKey);
       const thread = await deps.createThread(scope || undefined);
       setState({
         activeThread: thread,
         error: null,
         isStreaming: false,
         streamingContent: "",
-      });
+        streamingReasoningContent: "",
+        streamingStatus: "idle",
+      }, scopeKey);
       return thread;
     },
 
     openThread(thread: Thread) {
-      abortController?.abort();
-      abortController = null;
-      invalidatePendingRequest();
+      const scopeKey = getThreadScopeKey(thread) || activeScopeKey;
+      activeScopeKey = scopeKey;
+      abortScopeRequest(scopeKey);
+      invalidatePendingRequest(scopeKey);
       setState({
         activeThread: thread,
         error: null,
         isStreaming: false,
         streamingContent: "",
-      });
+        streamingReasoningContent: "",
+        streamingStatus: "idle",
+      }, scopeKey);
     },
 
     reset() {
-      abortController?.abort();
-      abortController = null;
-      invalidatePendingRequest();
-      state = { ...DEFAULT_STATE };
+      for (const scopeKey of abortControllersByScope.keys()) {
+        abortScopeRequest(scopeKey);
+        invalidatePendingRequest(scopeKey);
+      }
+      statesByScope.clear();
+      activeScopeKey = GLOBAL_SCOPE_KEY;
+      statesByScope.set(GLOBAL_SCOPE_KEY, { ...DEFAULT_STATE });
       emit();
     },
 
@@ -188,24 +273,25 @@ export function createChatSessionStore(
       requestOptions?: ChatRequestOptions,
     ) {
       const trimmed = message.trim();
-      if (!trimmed || state.isStreaming) {
+      const scopeKey = getSessionScopeKey(scope);
+      activeScopeKey = scopeKey;
+      const sessionState = getStateForKey(scopeKey);
+      if (!trimmed || sessionState.isStreaming) {
         return;
       }
 
-      setState({ error: null });
+      setState({ error: null }, scopeKey);
       let thread: Thread | null = null;
       let version: number | null = null;
       let shouldPersistFailureMessage = false;
       let assistantMessagePersistenceAttempted = false;
 
       try {
-        thread = state.activeThread;
-        if (!thread) {
+        thread = sessionState.activeThread;
+        if (!thread || !isThreadInScope(thread, scope)) {
           thread = await deps.createThread(scope || undefined);
-          setState({ activeThread: thread });
+          setState({ activeThread: thread }, scopeKey);
         }
-
-        thread = await ensureScopedThread(thread, scope);
 
         const threadWithUserMessage = await deps.appendMessage(thread.id, {
           role: "user",
@@ -217,15 +303,19 @@ export function createChatSessionStore(
         }
 
         thread = threadWithUserMessage;
-        abortController = createAbortController();
-        version = ++requestVersion;
+        const abortController = createAbortController();
+        abortControllersByScope.set(scopeKey, abortController);
+        version = getRequestVersion(scopeKey) + 1;
+        requestVersionsByScope.set(scopeKey, version);
         shouldPersistFailureMessage = true;
         setState({
           activeThread: thread,
           error: null,
           isStreaming: true,
           streamingContent: "",
-        });
+          streamingReasoningContent: "",
+          streamingStatus: "preparing",
+        }, scopeKey);
 
         const response = await deps.sendChatMessage(
           thread,
@@ -233,6 +323,11 @@ export function createChatSessionStore(
           requestOptions,
           abortController?.signal,
         );
+        if (!isCurrentRequest(scopeKey, version)) {
+          return;
+        }
+
+        setState({ streamingStatus: "waiting" }, scopeKey);
 
         if (response.evidenceAuditMessage) {
           const auditedThread = await deps.appendMessage(thread.id, {
@@ -241,29 +336,43 @@ export function createChatSessionStore(
           });
           if (auditedThread) {
             thread = auditedThread;
-            setState({ activeThread: auditedThread });
+            setState({ activeThread: auditedThread }, scopeKey);
           }
         }
 
         let fullResponse = "";
+        let fullReasoning = "";
         for await (const chunk of response.stream) {
-          if (!isCurrentRequest(version)) {
+          if (!isCurrentRequest(scopeKey, version)) {
             return;
           }
 
-          fullResponse += chunk;
-          setState({ streamingContent: fullResponse });
+          const normalizedChunk = normalizeStreamChunk(chunk);
+          if (normalizedChunk.contentDelta) {
+            fullResponse += normalizedChunk.contentDelta;
+          }
+          if (normalizedChunk.reasoningDelta) {
+            fullReasoning += normalizedChunk.reasoningDelta;
+          }
+
+          setState({
+            streamingContent: fullResponse,
+            streamingReasoningContent: fullReasoning,
+            streamingStatus: normalizedChunk.status || "streaming",
+          }, scopeKey);
         }
 
         assistantMessagePersistenceAttempted = true;
-        await persistAssistantMessage(thread, fullResponse, version);
+        await persistAssistantMessage(thread, fullResponse, scopeKey, version);
 
-        if (isCurrentRequest(version)) {
-          abortController = null;
+        if (isCurrentRequest(scopeKey, version)) {
+          abortControllersByScope.set(scopeKey, null);
           setState({
             isStreaming: false,
             streamingContent: "",
-          });
+            streamingReasoningContent: "",
+            streamingStatus: "idle",
+          }, scopeKey);
         }
       } catch (error) {
         const messageText = buildErrorMessage(error);
@@ -273,16 +382,18 @@ export function createChatSessionStore(
             error: messageText,
             isStreaming: false,
             streamingContent: "",
-          });
-          abortController = null;
+            streamingReasoningContent: "",
+            streamingStatus: "idle",
+          }, scopeKey);
+          abortControllersByScope.set(scopeKey, null);
           return;
         }
 
-        if (!isCurrentRequest(version)) {
+        if (!isCurrentRequest(scopeKey, version)) {
           return;
         }
 
-        setState({ error: messageText });
+        setState({ error: messageText }, scopeKey);
 
         if (
           thread &&
@@ -290,17 +401,27 @@ export function createChatSessionStore(
           !assistantMessagePersistenceAttempted
         ) {
           try {
-            await persistAssistantMessage(thread, `Error: ${messageText}`, version);
+            await persistAssistantMessage(
+              thread,
+              `Error: ${messageText}`,
+              scopeKey,
+              version,
+            );
           } catch (persistError) {
-            ztoolkit.log("Failed to persist assistant error message:", persistError);
+            ztoolkit.log(
+              "Failed to persist assistant error message:",
+              persistError,
+            );
           }
         }
 
-        abortController = null;
+        abortControllersByScope.set(scopeKey, null);
         setState({
           isStreaming: false,
           streamingContent: "",
-        });
+          streamingReasoningContent: "",
+          streamingStatus: "idle",
+        }, scopeKey);
       }
     },
 
@@ -312,13 +433,25 @@ export function createChatSessionStore(
     },
 
     async syncScope(scope?: ScopeContext | null) {
-      if (!state.activeThread) {
+      const scopeKey = getSessionScopeKey(scope);
+      activeScopeKey = scopeKey;
+      const sessionState = getStateForKey(scopeKey);
+      if (!sessionState.activeThread) {
+        emit();
         return;
       }
 
-      const updated = await ensureScopedThread(state.activeThread, scope);
-      if (updated !== state.activeThread) {
-        setState({ activeThread: updated });
+      if (!isThreadInScope(sessionState.activeThread, scope)) {
+        setState({
+          activeThread: null,
+          error: null,
+          isStreaming: false,
+          streamingContent: "",
+          streamingReasoningContent: "",
+          streamingStatus: "idle",
+        }, scopeKey);
+      } else {
+        emit();
       }
     },
   };

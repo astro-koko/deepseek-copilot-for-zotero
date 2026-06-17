@@ -1,12 +1,26 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createOpenAICompatibleProvider } from "./openAICompatibleProvider";
+import type { ChatStreamChunk } from "./types";
+
+async function collectStream(stream: AsyncIterable<ChatStreamChunk>): Promise<{
+  content: string;
+  reasoning: string;
+}> {
+  let content = "";
+  let reasoning = "";
+  for await (const chunk of stream) {
+    if (typeof chunk === "string") {
+      content += chunk;
+    } else if (chunk.type === "reasoning_delta") {
+      reasoning += chunk.content;
+    }
+  }
+
+  return { content, reasoning };
+}
 
 describe("openAICompatibleProvider", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it("sends the selected model in the request body", async () => {
     const fetchMock = vi.fn(
       async () =>
@@ -67,14 +81,17 @@ describe("openAICompatibleProvider", () => {
       { role: "user", content: "hi" },
     ]);
 
-    expect((globalThis as any).__aiAssistantDiagnostics?.lastProviderRequest).toMatchObject({
+    expect(
+      (globalThis as any).__aiAssistantDiagnostics?.lastProviderRequest,
+    ).toMatchObject({
       endpoint: "https://api.deepseek.com/chat/completions",
       messageCount: 2,
       model: "deepseek-v4-flash",
       stream: true,
     });
     expect(
-      (globalThis as any).__aiAssistantDiagnostics?.lastProviderRequest?.hasApiKey,
+      (globalThis as any).__aiAssistantDiagnostics?.lastProviderRequest
+        ?.hasApiKey,
     ).toBe(true);
     expect(
       (globalThis as any).__aiAssistantDiagnostics?.lastProviderRequest?.apiKey,
@@ -118,7 +135,9 @@ describe("openAICompatibleProvider", () => {
       },
     );
 
-    expect((globalThis as any).__aiAssistantDiagnostics?.lastProviderRequest).toMatchObject({
+    expect(
+      (globalThis as any).__aiAssistantDiagnostics?.lastProviderRequest,
+    ).toMatchObject({
       fullTextChars: 18,
       fullTextSource: "pdf-worker",
       systemPromptChars: 47,
@@ -154,47 +173,11 @@ describe("openAICompatibleProvider", () => {
     await provider.sendChat([{ role: "user", content: "hello" }]);
 
     expect(Zotero.File.putContents).toHaveBeenCalledTimes(1);
-    const diagnosticPayload = (Zotero.File.putContents as ReturnType<typeof vi.fn>).mock.calls[0]?.[1];
+    const diagnosticPayload = (
+      Zotero.File.putContents as ReturnType<typeof vi.fn>
+    ).mock.calls[0]?.[1];
     expect(String(diagnosticPayload)).toContain('"model": "deepseek-v4-pro"');
     expect(String(diagnosticPayload)).toContain('"messageCount": 1');
-  });
-
-  it("prefers Zotero.HTTP.request in host environments and converts the reply into a stream", async () => {
-    const hostRequest = vi.fn(async () => ({
-      responseText: JSON.stringify({
-        choices: [
-          {
-            message: {
-              content: "Host HTTP reply",
-            },
-          },
-        ],
-      }),
-      status: 200,
-    }));
-    vi.stubGlobal("Zotero", {
-      HTTP: {
-        request: hostRequest,
-      },
-    });
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-
-    const provider = createOpenAICompatibleProvider({
-      baseURL: "https://api.deepseek.com",
-      apiKey: "test-key",
-      model: "deepseek-v4-flash",
-    });
-
-    const response = await provider.sendChat([{ role: "user", content: "hello" }]);
-    let text = "";
-    for await (const chunk of response.stream) {
-      text += chunk;
-    }
-
-    expect(hostRequest).toHaveBeenCalledTimes(1);
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(text).toBe("Host HTTP reply");
   });
 
   it("reassembles SSE frames that are split across chunks", async () => {
@@ -227,12 +210,9 @@ describe("openAICompatibleProvider", () => {
     });
 
     const response = await provider.sendChat([{ role: "user", content: "hi" }]);
-    let text = "";
-    for await (const chunk of response.stream) {
-      text += chunk;
-    }
+    const { content } = await collectStream(response.stream);
 
-    expect(text).toBe("Hello world");
+    expect(content).toBe("Hello world");
   });
 
   it("parses CRLF-delimited SSE events and flushes the final buffered event on stream end", async () => {
@@ -267,11 +247,78 @@ describe("openAICompatibleProvider", () => {
     });
 
     const response = await provider.sendChat([{ role: "user", content: "hi" }]);
-    let text = "";
-    for await (const chunk of response.stream) {
-      text += chunk;
-    }
+    const { content } = await collectStream(response.stream);
 
-    expect(text).toBe("Hello world!");
+    expect(content).toBe("Hello world!");
+  });
+
+  it("surfaces explicit provider reasoning deltas separately from answer text", async () => {
+    const chunks = [
+      new TextEncoder().encode(
+        'data: {"choices":[{"delta":{"reasoning_content":"Check evidence. ","content":"Answer"}}]}\n\ndata: [DONE]\n\n',
+      ),
+    ];
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            new ReadableStream({
+              start(controller: ReadableStreamDefaultController) {
+                chunks.forEach((chunk) => controller.enqueue(chunk));
+                controller.close();
+              },
+            }),
+          ),
+      ),
+    );
+
+    const provider = createOpenAICompatibleProvider({
+      baseURL: "https://api.deepseek.com",
+      apiKey: "test-key",
+      model: "deepseek-v4-flash",
+    });
+
+    const response = await provider.sendChat([{ role: "user", content: "hi" }]);
+    const { content, reasoning } = await collectStream(response.stream);
+
+    expect(reasoning).toBe("Check evidence. ");
+    expect(content).toBe("Answer");
+  });
+
+  it("raises explicit provider error events from the SSE stream", async () => {
+    const chunks = [
+      new TextEncoder().encode(
+        'data: {"error":{"message":"Authentication failed"}}\n\n',
+      ),
+    ];
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            new ReadableStream({
+              start(controller: ReadableStreamDefaultController) {
+                chunks.forEach((chunk) => controller.enqueue(chunk));
+                controller.close();
+              },
+            }),
+          ),
+      ),
+    );
+
+    const provider = createOpenAICompatibleProvider({
+      baseURL: "https://api.deepseek.com",
+      apiKey: "test-key",
+      model: "deepseek-v4-flash",
+    });
+
+    const response = await provider.sendChat([{ role: "user", content: "hi" }]);
+
+    await expect(collectStream(response.stream)).rejects.toThrow(
+      "Provider stream error: Authentication failed",
+    );
   });
 });

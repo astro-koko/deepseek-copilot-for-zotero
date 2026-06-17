@@ -27,12 +27,16 @@ function makeThread(overrides: Partial<Thread> = {}): Thread {
   };
 }
 
-function makeSession(overrides: Partial<ChatSessionState> = {}): ChatSessionState {
+function makeSession(
+  overrides: Partial<ChatSessionState> = {},
+): ChatSessionState {
   return {
     activeThread: null,
     error: null,
     isStreaming: false,
     streamingContent: "",
+    streamingReasoningContent: "",
+    streamingStatus: "idle",
     ...overrides,
   };
 }
@@ -41,6 +45,7 @@ function makeSettings(overrides: Partial<Settings> = {}): Settings {
   return {
     apiKey: "sk-test",
     baseURL: "https://api.deepseek.com",
+    customPresets: "",
     model: "deepseek-v4-flash",
     maxContextBudget: 4000,
     keyboardShortcut: "I",
@@ -71,8 +76,6 @@ describe("buildSidebarViewModel", () => {
     expect(model.heroBody).toContain("Choose one paper");
     expect(model.composerDisabled).toBe(true);
     expect(model.showIntroSection).toBe(true);
-    expect(model.showInlineComposer).toBe(false);
-    expect(model.showDockedComposer).toBe(true);
     expect(model.showShell).toBe(true);
     expect(model.showSuggestedActions).toBe(false);
     expect(model.composerDisabledReason).toBe(
@@ -87,20 +90,17 @@ describe("buildSidebarViewModel", () => {
       scope: makeScope({ type: "pdf", id: "pdf-1", readerAttachmentId: 1 }),
       session: makeSession(),
       settings: makeSettings({ apiKey: "" }),
-      settingsIssue: "DeepSeek API key not configured. Open plugin Settings to continue.",
+      settingsIssue:
+        "DeepSeek API key not configured. Open plugin Settings to continue.",
     });
 
     expect(model.mode).toBe("config-error");
     expect(model.showShell).toBe(true);
-    expect(model.showInlineComposer).toBe(false);
-    expect(model.showDockedComposer).toBe(true);
     expect(model.composerDisabled).toBe(true);
     expect(model.noticeText).toContain("API key");
     expect(model.noticeTitle).toBe("Configuration required");
     expect(model.heroTitle).toBe("Configuration required");
-    expect(model.heroBody).toBe(
-      "Add your DeepSeek API key in Settings.",
-    );
+    expect(model.heroBody).toBe("Add your DeepSeek API key in Settings.");
   });
 
   it("shows a Beaver-like home shell when scope exists but the thread is empty", () => {
@@ -118,9 +118,7 @@ describe("buildSidebarViewModel", () => {
     expect(model.mode).toBe("home");
     expect(model.showIntroSection).toBe(true);
     expect(model.showSuggestedActions).toBe(true);
-    expect(model.showRecentThreads).toBe(false);
-    expect(model.showInlineComposer).toBe(true);
-    expect(model.showDockedComposer).toBe(false);
+    expect(model.showRecentThreads).toBe(true);
     expect(model.composerDisabled).toBe(false);
     expect(model.heroTitle).toBe("Ready to chat");
     expect(model.heroBody).toBe(
@@ -128,6 +126,7 @@ describe("buildSidebarViewModel", () => {
     );
     expect(model.providerLabel).toBe("DeepSeek");
     expect(model.statusLabel).toBe("Ready");
+    expect(model.suggestedActionsLabel).toBe("Suggested actions");
     expect(model.suggestedActions).toHaveLength(8);
     expect(model.suggestedActions.map((action) => action.group)).toEqual([
       "reading",
@@ -178,10 +177,27 @@ describe("buildSidebarViewModel", () => {
     expect(model.mode).toBe("thread");
     expect(model.showIntroSection).toBe(false);
     expect(model.showThreadView).toBe(true);
-    expect(model.showInlineComposer).toBe(false);
-    expect(model.showDockedComposer).toBe(true);
     expect(model.composerDisabled).toBe(false);
     expect(model.heroTitle).toBe("Thread");
+  });
+
+  it("keeps the thread view visible while a first response is streaming", () => {
+    const model = buildSidebarViewModel({
+      location: "reader",
+      recentThreads: [],
+      scope: makeScope({ type: "pdf", id: "pdf-1", readerAttachmentId: 1 }),
+      session: makeSession({
+        activeThread: makeThread({ scopeSnapshot: makeScope() }),
+        isStreaming: true,
+        streamingStatus: "waiting",
+      }),
+      settings: makeSettings(),
+      settingsIssue: null,
+    });
+
+    expect(model.mode).toBe("thread");
+    expect(model.showThreadView).toBe(true);
+    expect(model.showIntroSection).toBe(false);
   });
 
   it("surfaces context fallback warnings when only abstract content is available", () => {
@@ -225,13 +241,9 @@ describe("buildSidebarViewModel", () => {
 
     expect(model.showShell).toBe(true);
     expect(model.composerDisabled).toBe(true);
-    expect(model.showInlineComposer).toBe(false);
-    expect(model.showDockedComposer).toBe(true);
     expect(model.mode).toBe("empty");
     expect(model.heroTitle).toBe("Choose one paper");
-    expect(model.heroBody).toBe(
-      "Use one paper or the active PDF.",
-    );
+    expect(model.heroBody).toBe("Use one paper or the active PDF.");
     expect(model.composerDisabledReason).toBe(
       "Choose one paper in Library or open one PDF in Reader to enable chat.",
     );
@@ -267,7 +279,9 @@ describe("buildSidebarViewModel", () => {
   it("uses zh-CN copy when Zotero is running in Chinese", () => {
     vi.stubGlobal("Zotero", {
       Prefs: {
-        get: vi.fn((key: string) => (key === "intl.locale.requested" ? "zh-CN" : "")),
+        get: vi.fn((key: string) =>
+          key === "intl.locale.requested" ? "zh-CN" : "",
+        ),
       },
     });
 
@@ -286,10 +300,43 @@ describe("buildSidebarViewModel", () => {
     expect(model.statusLabel).toBe("等待上下文");
   });
 
+  it("keeps the home panel limited to the fixed recommendation set", () => {
+    const model = buildSidebarViewModel({
+      location: "library",
+      recentThreads: [],
+      scope: makeScope(),
+      session: makeSession(),
+      settings: makeSettings({
+        customPresets: JSON.stringify([
+          {
+            id: "future-work",
+            label: "Future Work",
+            promptPrefix: "Suggest follow-up directions.",
+            showInSidebar: true,
+          },
+        ]),
+      }),
+      settingsIssue: null,
+    });
+
+    expect(model.suggestedActions.map((action) => action.id)).toEqual([
+      "summarize",
+      "explain",
+      "core-contribution",
+      "method",
+      "limitations",
+      "verify-claim",
+      "background",
+      "related-work",
+    ]);
+  });
+
   it("surfaces Chinese suggested action labels from the shared command catalog", () => {
     vi.stubGlobal("Zotero", {
       Prefs: {
-        get: vi.fn((key: string) => (key === "intl.locale.requested" ? "zh-CN" : "")),
+        get: vi.fn((key: string) =>
+          key === "intl.locale.requested" ? "zh-CN" : "",
+        ),
       },
     });
 
@@ -302,8 +349,94 @@ describe("buildSidebarViewModel", () => {
       settingsIssue: null,
     });
 
-    expect(model.suggestedActions.map((action) => action.label)).toEqual(
-      expect.arrayContaining(["总结论文", "通俗解释", "核心贡献"]),
+    expect(model.suggestedActionsLabel).toBe("建议操作");
+    expect(model.suggestedActions.map((action) => action.label)).toEqual([
+      "总结论文",
+      "通俗解释",
+      "核心贡献",
+      "方法拆解",
+      "研究局限",
+      "查证结论",
+      "补充背景",
+      "相关工作",
+    ]);
+    expect(model.suggestedActions.map((action) => action.description)).toEqual([
+      "总结论文",
+      "通俗解释",
+      "核心贡献",
+      "方法拆解",
+      "研究局限",
+      "查证结论",
+      "补充背景",
+      "相关工作",
+    ]);
+    expect(model.composerPlaceholder).toBe(
+      "围绕这篇论文或这个 PDF 提问，输入 / 使用快捷命令",
+    );
+  });
+
+  it("keeps custom commands available in the slash catalog even when the home panel stays fixed", () => {
+    const model = buildSidebarViewModel({
+      location: "library",
+      recentThreads: [],
+      scope: makeScope(),
+      session: makeSession(),
+      settings: makeSettings({
+        customPresets: JSON.stringify([
+          {
+            id: "future-work",
+            label: "Future Work",
+            description: "Suggest next steps",
+            promptPrefix: "Suggest follow-up research directions.",
+            aliases: ["future"],
+            showInSidebar: true,
+          },
+        ]),
+      }),
+      settingsIssue: null,
+    });
+
+    expect(model.suggestedActions.map((action) => action.id)).toEqual([
+      "summarize",
+      "explain",
+      "core-contribution",
+      "method",
+      "limitations",
+      "verify-claim",
+      "background",
+      "related-work",
+    ]);
+  });
+
+  it("uses built-in title overrides in the home grid while ignoring custom-only commands", () => {
+    const model = buildSidebarViewModel({
+      location: "library",
+      recentThreads: [],
+      scope: makeScope(),
+      session: makeSession(),
+      settings: makeSettings({
+        customPresets: JSON.stringify([
+          {
+            id: "summarize",
+            label: "总结实验",
+            promptPrefix: "请重点总结实验设计和结果。",
+          },
+          {
+            id: "future-work",
+            label: "未来工作",
+            promptPrefix: "提出三个下一步研究方向。",
+            showInSidebar: true,
+          },
+        ]),
+      }),
+      settingsIssue: null,
+    });
+
+    expect(model.suggestedActions.map((action) => action.label)).toContain(
+      "总结实验",
+    );
+    expect(model.suggestedActions.map((action) => action.label)).not.toContain(
+      "未来工作",
     );
   });
 });

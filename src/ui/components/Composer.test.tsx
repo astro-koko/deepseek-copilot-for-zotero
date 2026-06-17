@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { Composer } from "./Composer";
+import composerSource from "./Composer.tsx?raw";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -82,5 +83,19 @@ describe("Composer layout", () => {
     expect(markup).toContain("font-family:inherit");
     expect(markup).toContain("font-size:1.04em");
     expect(markup).toContain("font-size:0.98em");
+  });
+
+  it("renders slash suggestions without grouped descriptions", () => {
+    expect(composerSource).toContain("renderPresetList");
+    expect(composerSource).not.toContain("renderPresetGroups");
+    expect(composerSource).not.toContain("presetDesc");
+    expect(composerSource).not.toContain("getPresetGroupLabel");
+  });
+
+  it("uses a Chinese placeholder that reminds readers about slash commands", () => {
+    expect(composerSource).toContain(
+      'placeholder = "围绕这篇论文或这个 PDF 提问，输入 / 使用快捷命令"',
+    );
+    expect(composerSource).not.toContain("围绕这篇论文提问…（输入 / 可查看预设）");
   });
 });

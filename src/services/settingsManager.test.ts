@@ -17,9 +17,13 @@ vi.mock("../utils/prefs", () => ({
 }));
 
 import {
+  buildCustomCommandAIPrompt,
   DEEPSEEK_MODELS,
   getSettings,
+  mergeEditableCustomPresets,
+  parseEditableCustomPresets,
   saveSettings,
+  stringifyEditableCustomPresets,
   validateEvidenceSettings,
   validateSettings,
 } from "./settingsManager";
@@ -47,6 +51,7 @@ describe("settingsManager", () => {
     ]);
     expect(getSettings()).toMatchObject({
       baseURL: "https://api.deepseek.com",
+      customPresets: "",
       model: "deepseek-v4-flash",
       maxContextBudget: 4000,
       keyboardShortcut: "I",
@@ -346,6 +351,111 @@ describe("settingsManager", () => {
       evidenceEnabled: true,
       evidenceProviderMode: "tavily",
       tavilyApiKey: "tvly-test",
+    });
+  });
+
+  it("keeps hidden preset tombstones when serializing editable custom presets", () => {
+    const serialized = stringifyEditableCustomPresets([
+      {
+        aliasesText: "",
+        description: "Hide summarize",
+        enabled: false,
+        evidenceHint: false,
+        group: "reading",
+        hidden: true,
+        id: "summarize",
+        label: "Summarize",
+        promptPrefix: "Please summarize this paper.",
+        slashCommand: "summarize",
+        showInSidebar: false,
+        scopeHint: ["paper", "pdf"],
+      },
+    ]);
+
+    expect(serialized).toContain('"id": "summarize"');
+    expect(serialized).toContain('"hidden": true');
+  });
+
+  it("builds an AI command JSON prompt that does not end with sentence punctuation", () => {
+    const prompt = buildCustomCommandAIPrompt();
+
+    expect(prompt).toContain("JSON array");
+    expect(prompt).toContain("promptPrefix");
+    expect(prompt.endsWith(".")).toBe(false);
+    expect(prompt.endsWith("。")).toBe(false);
+  });
+
+  it("merges imported commands into existing commands by id", () => {
+    const existing = parseEditableCustomPresets(
+      JSON.stringify([
+        {
+          id: "future-work",
+          label: "Future Work",
+          promptPrefix: "Suggest next steps",
+          aliases: ["future"],
+        },
+      ]),
+    );
+    const imported = parseEditableCustomPresets(
+      JSON.stringify([
+        {
+          id: "future-work",
+          label: "Future Work Updated",
+          promptPrefix: "Suggest three concrete next studies",
+        },
+        {
+          id: "replication-risk",
+          label: "Replication Risk",
+          promptPrefix: "Assess replication risks",
+        },
+      ]),
+    );
+
+    const merged = mergeEditableCustomPresets(existing, imported);
+
+    expect(merged.map((preset) => preset.id)).toEqual([
+      "future-work",
+      "replication-risk",
+    ]);
+    expect(merged[0]).toMatchObject({
+      label: "Future Work Updated",
+    });
+  });
+
+  it("normalizes a visible slash command separate from the stable id", () => {
+    const parsed = parseEditableCustomPresets(
+      JSON.stringify([
+        {
+          id: "future-work",
+          slashCommand: "未来工作",
+          label: "未来工作",
+          promptPrefix: "请总结后续值得推进的问题",
+        },
+      ]),
+    );
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]).toMatchObject({
+      id: "future-work",
+      slashCommand: "未来工作",
+    });
+  });
+
+  it("migrates legacy editable records that do not have slashCommand", () => {
+    const parsed = parseEditableCustomPresets(
+      JSON.stringify([
+        {
+          id: "legacy-summary",
+          label: "旧总结",
+          promptPrefix: "旧提示词",
+        },
+      ]),
+    );
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]).toMatchObject({
+      id: "legacy-summary",
+      slashCommand: "legacy-summary",
     });
   });
 

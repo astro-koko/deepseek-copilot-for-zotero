@@ -1,4 +1,4 @@
-# DS Copilot Beaver-Style Source Composer Design
+# Deepseek Copliot Beaver-Style Source Composer Design
 
 Date: 2026-06-01
 Status: Approved for implementation
@@ -6,7 +6,7 @@ Scope: Researcher-first conversation composer for Zotero Library and Reader surf
 
 ## Goal
 
-Make DS Copilot as immediate as Beaver for paper reading while preserving a
+Make Deepseek Copliot as immediate as Beaver for paper reading while preserving a
 simple mental model:
 
 - open a paper and ask immediately
@@ -15,14 +15,14 @@ simple mental model:
 - keep every active source visible before sending
 
 The target is Beaver's source-composition interaction language, implemented
-with DS Copilot-owned state and services. This is not a direct component port.
+with Deepseek Copliot-owned state and services. This is not a direct component port.
 
 ## Product Principles
 
 ### Automatic First
 
 The common reading flow must require no setup. When the user opens a PDF or
-selects one paper, DS Copilot automatically attaches the relevant current
+selects one paper, Deepseek Copliot automatically attaches the relevant current
 context and shows it as a non-removable chip such as `Current File`.
 
 ### Complexity On Demand

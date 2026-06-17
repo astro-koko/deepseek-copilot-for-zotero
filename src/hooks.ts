@@ -11,12 +11,11 @@ import { createRefCountedRegistration, createWindowEventDispatcher } from "./uti
 import { buildStartupDiagnostic } from "./utils/startupDiagnostics";
 import { registerPreferencesPane } from "./modules/preferencesPane";
 import { maybeRunConfiguredHostSmoke } from "./services/hostSmoke";
+import type { ScopeContext } from "./types/scope";
 
-let scopeChangeCallback: ((scope: any) => void) | null = null;
-const scopeChangeDispatcher = createWindowEventDispatcher<
-  Window & { __aiAssistantEventBus?: EventTarget },
-  unknown
->("scopeChange");
+let scopeChangeCallback: ((scope: ScopeContext | null) => void) | null = null;
+const scopeChangeDispatcher =
+  createWindowEventDispatcher<Window, ScopeContext | null>("scopeChange");
 const BRANDED_PREFERENCES_ICON =
   "chrome://zotero-ai-assistant/content/icons/icon-20.png";
 const stylesheetRegistration = createRefCountedRegistration(
@@ -130,13 +129,13 @@ async function onMainWindowLoad(win: Window): Promise<void> {
   );
 
   // Setup event bus on window
-  (win as any).__aiAssistantEventBus = EventBus.getInstance();
-  scopeChangeDispatcher.addWindow(win as Window & { __aiAssistantEventBus?: EventTarget });
+  win.__aiAssistantEventBus = EventBus.getInstance();
+  scopeChangeDispatcher.addWindow(win);
 
   stylesheetRegistration.acquire();
 
   try {
-    UIFactory.registerChatPanel(win as Window & { __aiAssistantEventBus?: EventTarget });
+    UIFactory.registerChatPanel(win);
     ztoolkit.log(
       buildStartupDiagnostic({
         addonID: config.addonID,
@@ -169,7 +168,7 @@ async function onMainWindowLoad(win: Window): Promise<void> {
     }
   }
 
-  UIFactory.refreshWindow(win as Window & { __aiAssistantEventBus?: EventTarget });
+  UIFactory.refreshWindow(win);
   ztoolkit.log(
     buildStartupDiagnostic({
       addonID: config.addonID,
@@ -180,10 +179,10 @@ async function onMainWindowLoad(win: Window): Promise<void> {
 }
 
 async function onMainWindowUnload(win: Window): Promise<void> {
-  scopeChangeDispatcher.removeWindow(win as Window & { __aiAssistantEventBus?: EventTarget });
+  scopeChangeDispatcher.removeWindow(win);
 
   try {
-    UIFactory.removeChatPanel(win as Window & { __aiAssistantEventBus?: EventTarget });
+    UIFactory.removeChatPanel(win);
   } catch (e) {
     ztoolkit.log("Sidebar removal failed for window:", e);
   }
@@ -218,7 +217,9 @@ async function onShutdown(): Promise<void> {
   addon.data.alive = false;
 
   try {
-    delete (Zotero as any)[addon.data.config.addonInstance];
+    delete (Zotero as typeof Zotero & Record<string, unknown>)[
+      addon.data.config.addonInstance
+    ];
   } catch {
     // Ignore
   }

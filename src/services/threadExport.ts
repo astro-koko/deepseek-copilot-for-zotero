@@ -41,12 +41,34 @@ function formatThreadMarkdown(thread: Thread): string {
 export async function exportThreadAsMarkdown(
   thread: Thread,
   outputPath: string,
-): Promise<void> {
+): Promise<string> {
   const markdown = formatThreadMarkdown(thread);
-  const target =
-    typeof Zotero.File.pathToFile === "function"
-      ? Zotero.File.pathToFile(outputPath)
-      : outputPath;
-  Zotero.File.putContents(target as unknown as nsIFile, markdown);
-}
+  const fileApi = Zotero.File as typeof Zotero.File & {
+    putContentsAsync?: (
+      path: string | nsIFile,
+      data: string,
+      charset?: string,
+    ) => Promise<void>;
+  };
 
+  if (typeof fileApi.putContentsAsync === "function") {
+    try {
+      await fileApi.putContentsAsync(outputPath, markdown, "utf-8");
+      return outputPath;
+    } catch {
+      // Fall through to the sync writer for host runtimes where the async
+      // helper exists but is not actually usable for this file target.
+    }
+  }
+
+  if (typeof Zotero.File.putContents === "function") {
+    const target =
+      typeof Zotero.File.pathToFile === "function"
+        ? Zotero.File.pathToFile(outputPath)
+        : outputPath;
+    Zotero.File.putContents(target as unknown as nsIFile, markdown);
+    return outputPath;
+  }
+
+  throw new Error("No writable Zotero file API is available for export");
+}

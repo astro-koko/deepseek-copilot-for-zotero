@@ -1,8 +1,8 @@
-# DS Copilot Sidebar Host-Tone Implementation Plan
+# Deepseek Copliot Sidebar Host-Tone Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Restyle the DS Copilot sidebar so it reads like a native Zotero right-pane tool surface instead of a standalone web assistant page.
+**Goal:** Restyle the Deepseek Copliot sidebar so it reads like a native Zotero right-pane tool surface instead of a standalone web assistant page.
 
 **Architecture:** Keep the existing host wiring, state model, and send flow intact. Constrain the work to presentational components plus the sidebar view-model copy so the sidebar becomes denser, quieter, and structurally closer to Zotero while preserving the current logic contracts.
 
