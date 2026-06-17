@@ -180,9 +180,9 @@ describe("slash settings state", () => {
     const summarize = state.builtins.find((card) => card.id === "summarize");
 
     expect(summarize).toMatchObject({
-      slashCommand: "总结",
       title: "总结论文",
     });
+    expect(summarize?.slashCommand).toBe("总结论文");
   });
 
   it("keeps custom commands separate from built-ins", () => {
@@ -211,9 +211,9 @@ describe("slash settings state", () => {
     expect(state.custom).toHaveLength(1);
     expect(state.custom[0]).toMatchObject({
       id: "future-work",
-      slashCommand: "未来工作",
       title: "未来工作",
     });
+    expect(state.custom[0]?.slashCommand).toBe("未来工作");
   });
 
   it("serializes only built-in overrides and custom cards", () => {
@@ -254,17 +254,17 @@ describe("slash settings state", () => {
     expect(state.custom.every((card) => card.kind === "custom")).toBe(true);
   });
 
-  it("validates duplicate slash tokens across built-in and custom cards", () => {
+  it("validates duplicate titles across built-in and custom cards", () => {
     const state = createSlashSettingsState("");
     const duplicate = validateSlashCardDraft(state, {
       id: "future-work",
       kind: "custom",
       promptPrefix: "提出下一步研究方向",
-      slashCommand: "summarize",
-      title: "未来工作",
+      slashCommand: "Summarize",
+      title: "Summarize",
     });
 
-    expect(duplicate).toBe("This slash token is already in use");
+    expect(duplicate).toBe("This title is already in use");
   });
 
   it("discards a blank new custom card when the user blurs away", () => {
@@ -288,27 +288,27 @@ describe("slash settings state", () => {
     expect(result.state.custom).toHaveLength(0);
   });
 
-  it("keeps invalid cards in place with inline errors instead of saving", () => {
+  it("derives slash commands from the edited title", () => {
     let state = addCustomSlashCard(createSlashSettingsState(""));
     const cardId = state.custom[0]?.id;
     if (!cardId) {
       throw new Error("Expected a blank custom card");
     }
 
-    state = commitSlashCardEdit(
+    const result = commitSlashCardEdit(
       state,
       { id: cardId, kind: "custom" },
       {
         promptPrefix: "提出三个下一步研究方向",
-        slashCommand: "two words",
         title: "未来工作",
       },
-    ).state;
-
-    expect(state.custom[0]?.error).toBe(
-      "Slash token must be a single token without spaces",
     );
-    expect(serializeSlashSettingsState(state)).toBe("");
+
+    expect(result.saved).toBe(true);
+    expect(result.state.custom[0]?.slashCommand).toBe("未来工作");
+    expect(serializeSlashSettingsState(result.state)).toContain(
+      '"slashCommand": "未来工作"',
+    );
   });
 
   it("restores edited built-ins back to code-defined defaults", () => {
@@ -337,7 +337,6 @@ describe("slash settings state", () => {
       { id: "summarize", kind: "builtin" },
       {
         promptPrefix: "Focus on experiments and results.",
-        slashCommand: "summary-lite",
         title: "Summary Lite",
       },
     );
@@ -345,6 +344,9 @@ describe("slash settings state", () => {
     expect(result.saved).toBe(true);
     expect(serializeSlashSettingsState(result.state)).toContain(
       '"id": "summarize"',
+    );
+    expect(result.state.builtins.find((card) => card.id === "summarize")?.slashCommand).toBe(
+      "Summary Lite",
     );
   });
 
@@ -369,8 +371,8 @@ describe("slash settings state", () => {
     const serialized = serializeSlashSettingsState(committed.state);
     expect(getSidebarPresetsForScope("paper", serialized).map((preset) => preset.id)).toEqual([
       "summarize",
-      "explain",
       "core-contribution",
+      "method",
       "limitations",
     ]);
   });
@@ -481,6 +483,9 @@ describe("registerPreferencesPane", () => {
     expect(
       slashBuiltins.querySelector('[data-slash-field="title"]'),
     ).toBeTruthy();
+    expect(
+      slashBuiltins.querySelector('[data-slash-field="slashCommand"]'),
+    ).toBeFalsy();
   });
 
   it("binds listeners only once when the pane is reopened", () => {

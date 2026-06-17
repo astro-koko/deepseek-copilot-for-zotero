@@ -126,11 +126,12 @@ describe("buildSidebarViewModel", () => {
     );
     expect(model.providerLabel).toBe("DeepSeek");
     expect(model.statusLabel).toBe("Ready");
+    expect(model.suggestedActionsLabel).toBe("skills");
     expect(model.suggestedActions).toHaveLength(4);
     expect(model.suggestedActions.map((action) => action.group)).toEqual([
       "reading",
       "reading",
-      "reading",
+      "analysis",
       "analysis",
     ]);
   });
@@ -316,8 +317,8 @@ describe("buildSidebarViewModel", () => {
 
     expect(model.suggestedActions.map((action) => action.id)).toEqual([
       "summarize",
-      "explain",
       "core-contribution",
+      "method",
       "limitations",
     ]);
   });
@@ -340,8 +341,15 @@ describe("buildSidebarViewModel", () => {
       settingsIssue: null,
     });
 
+    expect(model.suggestedActionsLabel).toBe("skills");
     expect(model.suggestedActions.map((action) => action.label)).toEqual(
-      expect.arrayContaining(["总结论文", "通俗解释", "核心贡献"]),
+      expect.arrayContaining(["总结论文", "核心贡献", "方法拆解", "研究局限"]),
+    );
+    expect(model.suggestedActions.map((action) => action.description)).toEqual(
+      expect.arrayContaining(["总结论文", "核心贡献", "方法拆解", "研究局限"]),
+    );
+    expect(model.composerPlaceholder).toBe(
+      "围绕这篇论文或这个 PDF 提问，输入 / 使用快捷命令",
     );
   });
 
@@ -368,8 +376,8 @@ describe("buildSidebarViewModel", () => {
 
     expect(model.suggestedActions.map((action) => action.id)).toEqual([
       "summarize",
-      "explain",
       "core-contribution",
+      "method",
       "limitations",
     ]);
   });

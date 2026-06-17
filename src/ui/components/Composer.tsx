@@ -86,7 +86,7 @@ export const Composer: React.FC<ComposerProps> = ({
   currentScopeType,
   disabled = false,
   disabledReason = null,
-  placeholder = "围绕这篇论文提问…（输入 / 可查看预设）",
+  placeholder = "围绕这篇论文或这个 PDF 提问，输入 / 使用快捷命令",
   customPresets = "",
   draftValue,
   focusNonce,

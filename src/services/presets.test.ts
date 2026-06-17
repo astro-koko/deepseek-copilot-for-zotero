@@ -116,7 +116,7 @@ describe("presets", () => {
     );
 
     expect(summarize?.label).toBe("总结论文");
-    expect(getPresetSlashCommand(summarize!)).toBe("总结");
+    expect(getPresetSlashCommand(summarize!)).toBe("总结论文");
   });
 
   it("uses visible slash tokens instead of only internal ids", () => {
@@ -156,8 +156,8 @@ describe("presets", () => {
   it("limits sidebar presets to the fixed high-frequency commands", () => {
     expect(getSidebarPresetsForScope("paper").map((preset) => preset.id)).toEqual([
       "summarize",
-      "explain",
       "core-contribution",
+      "method",
       "limitations",
     ]);
   });
@@ -196,8 +196,8 @@ describe("presets", () => {
 
     expect(getSidebarPresetsForScope("paper", customPresets).map((preset) => preset.id)).toEqual([
       "summarize",
-      "explain",
       "core-contribution",
+      "method",
       "limitations",
     ]);
   });

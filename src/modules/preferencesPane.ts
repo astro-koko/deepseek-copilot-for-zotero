@@ -38,12 +38,7 @@ interface PreferencesStatusElement extends HTMLElement {
   };
 }
 
-interface PreferencesContainerElement extends HTMLElement {
-  appendChild(node: unknown): unknown;
-  replaceChildren?: (...nodes: unknown[]) => void;
-  querySelector?: (selector: string) => Element | null;
-  querySelectorAll?: (selector: string) => NodeListOf<Element>;
-}
+type PreferencesContainerElement = HTMLElement;
 
 export interface PreferencesPaneDeps {
   exportDebugLog: typeof exportDebugLog;
@@ -67,6 +62,9 @@ export interface SlashSettingsState {
   builtins: SlashCardDraft[];
   custom: SlashCardDraft[];
 }
+
+type SlashCardEditInput = Pick<SlashCardDraft, "promptPrefix" | "title"> &
+  Partial<Pick<SlashCardDraft, "slashCommand">>;
 
 const ROOT_ID = "zotero-ai-assistant-prefs";
 const API_KEY_ID = "zotero-ai-assistant-pref-api-key";
@@ -114,7 +112,10 @@ function getBuiltInDefaultMap(): Map<string, BuiltInCardDefault> {
 }
 
 function normalizeToken(value: string): string {
-  return value.trim().replace(/^\/+/, "");
+  return String(value || "")
+    .trim()
+    .replace(/^\/+/, "")
+    .replace(/\s+/g, "");
 }
 
 function isBlankCard(card: Pick<SlashCardDraft, "promptPrefix" | "slashCommand" | "title">): boolean {
@@ -144,9 +145,7 @@ function createCustomCardId(existing: SlashCardDraft[]): string {
 
 function getValidationCopy(zh: boolean) {
   return {
-    duplicateSlash: zh ? "这个简写已经在使用中了" : "This slash token is already in use",
-    invalidSlash:
-      zh ? "简写不能包含空格，且不需要重复输入 /" : "Slash token must be a single token without spaces",
+    duplicateSlash: zh ? "这个标题已经在使用中了" : "This title is already in use",
     promptRequired: zh ? "提示词不能为空" : "Prompt text is required",
     titleRequired: zh ? "标题不能为空" : "Title is required",
   };
@@ -184,8 +183,10 @@ export function createSlashSettingsState(
         isNew: false,
         kind: "custom" as const,
         promptPrefix: String(preset.promptPrefix || "").trim(),
-        slashCommand: String(preset.slashCommand || preset.id || "").trim(),
         title: String(preset.label || "").trim(),
+        slashCommand: String(
+          preset.slashCommand || preset.label || preset.id || "",
+        ).trim(),
       })),
   };
 }
@@ -208,7 +209,7 @@ export function serializeSlashSettingsState(
         id: card.id,
         label: card.title.trim(),
         promptPrefix: card.promptPrefix.trim(),
-        slashCommand: normalizeToken(card.slashCommand),
+        slashCommand: normalizeToken(card.title),
       };
       const unchanged =
         normalized.label === base.title.trim() &&
@@ -223,7 +224,7 @@ export function serializeSlashSettingsState(
       id: card.id,
       label: card.title.trim(),
       promptPrefix: card.promptPrefix.trim(),
-      slashCommand: normalizeToken(card.slashCommand),
+      slashCommand: normalizeToken(card.title),
     }));
 
   const serialized = [...serializedBuiltins, ...serializedCustom];
@@ -281,14 +282,11 @@ export function validateSlashCardDraft(
     return copy.titleRequired;
   }
 
-  const normalizedSlash = normalizeToken(draft.slashCommand);
-  if (!normalizedSlash || /\s/.test(normalizedSlash)) {
-    return copy.invalidSlash;
-  }
-
   if (!draft.promptPrefix.trim()) {
     return copy.promptRequired;
   }
+
+  const normalizedSlash = normalizeToken(draft.title);
 
   const duplicate = [...state.builtins, ...state.custom]
     .filter((card) => !(card.kind === draft.kind && card.id === draft.id))
@@ -318,7 +316,7 @@ function replaceCard(
 export function commitSlashCardEdit(
   state: SlashSettingsState,
   target: Pick<SlashCardDraft, "id" | "kind">,
-  updates: Pick<SlashCardDraft, "promptPrefix" | "slashCommand" | "title">,
+  updates: SlashCardEditInput,
   zh = isChineseLocale(),
 ): {
   saved: boolean;
@@ -337,8 +335,8 @@ export function commitSlashCardEdit(
     ...copyForState(current),
     error: null,
     promptPrefix: updates.promptPrefix,
-    slashCommand: normalizeToken(updates.slashCommand),
     title: updates.title,
+    slashCommand: updates.title,
   };
 
   if (nextCard.kind === "custom" && nextCard.isNew && isBlankCard(nextCard)) {
@@ -741,8 +739,8 @@ function createSlashSectionElement(
     text:
       kind === "builtin"
         ? zh
-          ? "直接修改标题、简写和提示词，恢复默认会撤销你对该命令的改动。"
-          : "Edit the title, slash token, and prompt text directly. Restore default removes your saved override."
+          ? "直接修改标题和提示词，恢复默认会撤销你对该命令的改动。"
+          : "Edit the title and prompt text directly. Restore default removes your saved override."
         : zh
           ? "新增自己的命令，离开编辑框后会自动保存；空白新卡片会自动丢弃。"
           : "Add your own commands here. Leaving a card saves it automatically, and blank new cards are discarded.",
@@ -829,13 +827,6 @@ function createSlashCardElement(
       label: zh ? "标题" : "Title",
       name: "title",
       value: card.title,
-    }),
-  );
-  cardElement.appendChild(
-    createSlashFieldElement(doc, {
-      label: zh ? "简写" : "Slash token",
-      name: "slashCommand",
-      value: card.slashCommand,
     }),
   );
   cardElement.appendChild(
@@ -1052,7 +1043,7 @@ function readSlashCardValues(
 
   return {
     promptPrefix: readValue("promptPrefix"),
-    slashCommand: readValue("slashCommand"),
+    slashCommand: readValue("title"),
     title: readValue("title"),
   };
 }

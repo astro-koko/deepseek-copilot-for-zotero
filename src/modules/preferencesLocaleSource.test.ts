@@ -55,6 +55,15 @@ describe("preferences locale copy", () => {
     );
   });
 
+  it("describes slash settings as title-and-prompt editing only", () => {
+    expect(enPreferences).toContain(
+      "ai-assistant-pref-slash-help = Edit built-in commands or create your own commands by changing only the title and prompt text.",
+    );
+    expect(zhPreferences).toContain(
+      "ai-assistant-pref-slash-help = 直接编辑默认命令，或新增自己的命令。这里只需要改标题和提示词。",
+    );
+  });
+
   it("makes the default web verification path explicitly keyless", () => {
     expect(enPreferences).toContain(
       "ai-assistant-pref-evidence-provider-builtin = Default web verification (recommended, no API key)",

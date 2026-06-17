@@ -30,6 +30,7 @@ Reference projects are pattern libraries, not copy sources. For details, read `d
 - Keep `package.json` on the clean release version. Use `npm run build:dev:xpi` for installable dev packages and `npm run build:release:xpi` for public artifacts.
 - `npm start` is only a rapid iteration loop. Release acceptance requires packaged `.xpi` import and Zotero restart evidence.
 - Deepseek Copliot development smoke must import the latest local dev, non-stable XPI through Zotero's native Add-ons/Plugins manager with `Install Plugin From File...`. Do not use Add-on Market / 插件市场 to install or validate this plugin. Before testing Settings or other UI behavior, verify the Add-ons entry or installed XPI manifest version/hash matches the newly built dev XPI; a visible Settings pane does not prove Zotero is running the latest plugin code.
+- If Zotero shows an unexpected `External App undefined wants to execute command...` style prompt during smoke, treat it as suspicious and deny it unless the exact command was intentionally initiated and understood.
 - When validating the Settings `Commands and Prompts` section, first prove Zotero is actually running the new dev XPI. If custom-command controls such as add, restore built-ins, validate JSON, preview, or apply import are unusable, treat that as a real product bug unless the installed package is proven stale. The primary Settings UI must not expose two competing JSON editors; keep raw storage/internal JSON out of the normal user path.
 - Do not delete, move, print, or commit `.env`, Zotero profiles, data directories, SQLite databases, cookies, or thread histories.
 - Public release smoke must not preload `DEEPSEEK_API_KEY`, `TAVILY_API_KEY`, `DS_COPILOT_EVIDENCE_PROVIDER`, or `DS_COPILOT_EVIDENCE_ENABLED`. If a provider round-trip is needed, enter a temporary key manually in Zotero Settings and clean it afterwards.
@@ -72,5 +73,6 @@ State the lane before editing files. If a request spans multiple lanes, split wo
 Project-specific skills live in `.codex/skills/`. Use them when the request matches:
 
 - `zotero-plugin-spec`: spec and issue planning for Zotero plugin changes
+- `zotero-native-plugin-install`: native dev XPI import, overwrite, and installed-version proof through Zotero's Plugins/Add-ons manager
 - `zotero-real-smoke`: real Zotero packaged smoke and evidence collection
 - `zotero-release-manager`: dev/release XPI, manifest, update manifest, and release readiness

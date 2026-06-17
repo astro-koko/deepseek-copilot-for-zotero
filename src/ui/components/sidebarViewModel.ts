@@ -107,7 +107,7 @@ export function buildSidebarViewModel({
   const openSettingsLabel = zh ? "打开设置" : "Open Settings";
   const scopeSectionLabel = zh ? "上下文" : "Context";
   const chatSectionLabel = zh ? "对话" : "Chat";
-  const suggestedActionsLabel = zh ? "建议操作" : "Suggested actions";
+  const suggestedActionsLabel = "skills";
   const streamingLabel = zh ? "正在回复" : "Responding";
   const addSourceLabel = zh ? "添加来源" : "Add Source";
   const currentFileLabel = zh ? "当前文件" : "Current file";
@@ -309,7 +309,7 @@ export function buildSidebarViewModel({
     _settings.customPresets,
   ).map((preset) => ({
     command: getPresetSlashCommand(preset),
-    description: preset.description,
+    description: preset.label,
     group: preset.group,
     id: preset.id,
     label: preset.label,
@@ -405,7 +405,7 @@ function buildComposerPlaceholder(scope: SupportedScopeContext): string {
       : "Ask about this selection or paper...";
   }
   return zh
-    ? "围绕这篇论文或这个 PDF 提问..."
+    ? "围绕这篇论文或这个 PDF 提问，输入 / 使用快捷命令"
     : "Ask about this paper or PDF...";
 }
 

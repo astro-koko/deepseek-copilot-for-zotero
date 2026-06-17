@@ -9,12 +9,18 @@ describe("Sidebar recent thread layout", () => {
     expect(sidebarSource).toContain("deepseek-favicon.png");
   });
 
-  it("renders suggested actions as one compact list instead of grouped subsections", () => {
+  it("renders suggested actions as a compact 2x2 grid instead of grouped subsections", () => {
     expect(sidebarSource).toContain("model.suggestedActions.map((action) =>");
     expect(sidebarSource).toContain("suggestedActionsList: {");
-    expect(sidebarSource).toContain('gridTemplateColumns: "1fr"');
+    expect(sidebarSource).toContain('gridTemplateColumns: "repeat(2, minmax(0, 1fr))"');
     expect(sidebarSource).not.toContain("suggestedActionGroups.map");
     expect(sidebarSource).not.toContain("getPresetGroupLabel(group, zh)");
+  });
+
+  it("renders suggested action cards with only the short label copy", () => {
+    expect(sidebarSource).toContain("{action.label}");
+    expect(sidebarSource).not.toContain("{action.description}");
+    expect(sidebarSource).not.toContain('/{action.command}');
   });
 
   it("keeps recent thread actions in their own vertical action row", () => {

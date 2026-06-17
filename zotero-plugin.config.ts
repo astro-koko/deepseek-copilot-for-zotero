@@ -4,6 +4,10 @@ import { buildDevServerStartArgs } from "./src/config/devServerArgs";
 import { buildDevProfilePrefs } from "./src/config/devProfilePrefs";
 import { buildAddonVersionMetadata } from "./scripts/build-version-lib.mjs";
 
+declare const process: {
+  env: Record<string, string | undefined>;
+};
+
 const prefsPrefix = pkg.config.prefsPrefix;
 const devStartArgs = buildDevServerStartArgs(process.env.ZOTERO_DEBUGGER);
 const devProfilePrefs = buildDevProfilePrefs({ prefsPrefix });
@@ -13,7 +17,7 @@ const addonVersion = buildAddonVersionMetadata({
 });
 const xpiName = `${pkg.config.addonName.replace(/\s+/g, ".")}-${addonVersion.xpiVersion}`;
 
-export default defineConfig({
+const config: ReturnType<typeof defineConfig> = defineConfig({
   source: ["src", "addon"],
   dist: ".scaffold/build",
   name: pkg.config.addonName,
@@ -65,3 +69,5 @@ export default defineConfig({
     createProfileIfMissing: true,
   },
 });
+
+export default config;

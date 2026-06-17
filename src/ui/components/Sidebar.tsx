@@ -771,23 +771,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         {action.label}
                       </span>
-                      <span
-                        style={{
-                          ...styles.listSecondary,
-                          color: theme.mutedText,
-                        }}
-                      >
-                        {action.description}
-                      </span>
-                      <span
-                        style={{
-                          ...styles.listMeta,
-                          color: theme.mutedText,
-                          marginTop: "2px",
-                        }}
-                      >
-                        /{action.command}
-                      </span>
                     </span>
                   </button>
                 ))}
@@ -1429,7 +1412,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   suggestedActionsList: {
     display: "grid",
-    gridTemplateColumns: "1fr",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
     gap: "1px",
     borderTop: "1px solid #dddddd",
     borderBottom: "1px solid #dddddd",
@@ -1443,6 +1426,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "4px",
     width: "100%",
     minWidth: 0,
+    minHeight: "88px",
     padding: "8px 10px",
     border: "none",
     background: "#fff",
