@@ -29,13 +29,14 @@ export const COMMAND_PRESET_GROUP_ORDER: CommandPresetGroup[] = [
 
 export const DEFAULT_SIDEBAR_PRESET_IDS = [
   "summarize",
+  "explain",
   "core-contribution",
   "method",
   "limitations",
-  "explain",
+  "verify-claim",
+  "background",
+  "related-work",
 ] as const;
-
-const MAX_SIDEBAR_PRESETS = 4;
 
 const GROUP_LABELS: Record<CommandPresetGroup, { en: string; zh: string }> = {
   reading: {
@@ -400,9 +401,7 @@ export function getSidebarPresetsForScope(
   const presets = getPresetsForScope(scopeType, customPresetsValue);
   return DEFAULT_SIDEBAR_PRESET_IDS.map((id) =>
     presets.find((preset) => preset.id === id),
-  )
-    .filter(Boolean)
-    .slice(0, MAX_SIDEBAR_PRESETS) as CommandPreset[];
+  ).filter(Boolean) as CommandPreset[];
 }
 
 export function getAllPresets(customPresetsValue?: string): CommandPreset[] {

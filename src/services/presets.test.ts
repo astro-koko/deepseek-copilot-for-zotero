@@ -153,12 +153,16 @@ describe("presets", () => {
     expect(verify?.promptPrefix).toContain("external verification");
   });
 
-  it("limits sidebar presets to the fixed high-frequency commands", () => {
+  it("shows all default built-in commands in the sidebar home grid order", () => {
     expect(getSidebarPresetsForScope("paper").map((preset) => preset.id)).toEqual([
       "summarize",
+      "explain",
       "core-contribution",
       "method",
       "limitations",
+      "verify-claim",
+      "background",
+      "related-work",
     ]);
   });
 
@@ -177,7 +181,7 @@ describe("presets", () => {
       .toContain("summarize");
   });
 
-  it("keeps sidebar recommendations fixed even when saved commands request custom home slots", () => {
+  it("keeps sidebar recommendations limited to built-in commands even when saved commands request home slots", () => {
     const customPresets = JSON.stringify([
       {
         id: "summarize",
@@ -196,9 +200,29 @@ describe("presets", () => {
 
     expect(getSidebarPresetsForScope("paper", customPresets).map((preset) => preset.id)).toEqual([
       "summarize",
+      "explain",
       "core-contribution",
       "method",
       "limitations",
+      "verify-claim",
+      "background",
+      "related-work",
     ]);
+  });
+
+  it("reflects built-in title overrides in the sidebar home grid labels", () => {
+    const customPresets = JSON.stringify([
+      {
+        id: "summarize",
+        label: "总结实验",
+        promptPrefix: "请重点总结实验设计和结果。",
+      },
+    ]);
+
+    expect(
+      getSidebarPresetsForScope("paper", customPresets).find(
+        (preset) => preset.id === "summarize",
+      )?.label,
+    ).toBe("总结实验");
   });
 });

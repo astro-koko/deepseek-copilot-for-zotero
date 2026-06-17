@@ -126,13 +126,17 @@ describe("buildSidebarViewModel", () => {
     );
     expect(model.providerLabel).toBe("DeepSeek");
     expect(model.statusLabel).toBe("Ready");
-    expect(model.suggestedActionsLabel).toBe("skills");
-    expect(model.suggestedActions).toHaveLength(4);
+    expect(model.suggestedActionsLabel).toBe("Suggested actions");
+    expect(model.suggestedActions).toHaveLength(8);
     expect(model.suggestedActions.map((action) => action.group)).toEqual([
       "reading",
       "reading",
+      "reading",
       "analysis",
       "analysis",
+      "analysis",
+      "evidence",
+      "evidence",
     ]);
   });
 
@@ -317,9 +321,13 @@ describe("buildSidebarViewModel", () => {
 
     expect(model.suggestedActions.map((action) => action.id)).toEqual([
       "summarize",
+      "explain",
       "core-contribution",
       "method",
       "limitations",
+      "verify-claim",
+      "background",
+      "related-work",
     ]);
   });
 
@@ -341,13 +349,27 @@ describe("buildSidebarViewModel", () => {
       settingsIssue: null,
     });
 
-    expect(model.suggestedActionsLabel).toBe("skills");
-    expect(model.suggestedActions.map((action) => action.label)).toEqual(
-      expect.arrayContaining(["总结论文", "核心贡献", "方法拆解", "研究局限"]),
-    );
-    expect(model.suggestedActions.map((action) => action.description)).toEqual(
-      expect.arrayContaining(["总结论文", "核心贡献", "方法拆解", "研究局限"]),
-    );
+    expect(model.suggestedActionsLabel).toBe("建议操作");
+    expect(model.suggestedActions.map((action) => action.label)).toEqual([
+      "总结论文",
+      "通俗解释",
+      "核心贡献",
+      "方法拆解",
+      "研究局限",
+      "查证结论",
+      "补充背景",
+      "相关工作",
+    ]);
+    expect(model.suggestedActions.map((action) => action.description)).toEqual([
+      "总结论文",
+      "通俗解释",
+      "核心贡献",
+      "方法拆解",
+      "研究局限",
+      "查证结论",
+      "补充背景",
+      "相关工作",
+    ]);
     expect(model.composerPlaceholder).toBe(
       "围绕这篇论文或这个 PDF 提问，输入 / 使用快捷命令",
     );
@@ -376,9 +398,45 @@ describe("buildSidebarViewModel", () => {
 
     expect(model.suggestedActions.map((action) => action.id)).toEqual([
       "summarize",
+      "explain",
       "core-contribution",
       "method",
       "limitations",
+      "verify-claim",
+      "background",
+      "related-work",
     ]);
+  });
+
+  it("uses built-in title overrides in the home grid while ignoring custom-only commands", () => {
+    const model = buildSidebarViewModel({
+      location: "library",
+      recentThreads: [],
+      scope: makeScope(),
+      session: makeSession(),
+      settings: makeSettings({
+        customPresets: JSON.stringify([
+          {
+            id: "summarize",
+            label: "总结实验",
+            promptPrefix: "请重点总结实验设计和结果。",
+          },
+          {
+            id: "future-work",
+            label: "未来工作",
+            promptPrefix: "提出三个下一步研究方向。",
+            showInSidebar: true,
+          },
+        ]),
+      }),
+      settingsIssue: null,
+    });
+
+    expect(model.suggestedActions.map((action) => action.label)).toContain(
+      "总结实验",
+    );
+    expect(model.suggestedActions.map((action) => action.label)).not.toContain(
+      "未来工作",
+    );
   });
 });

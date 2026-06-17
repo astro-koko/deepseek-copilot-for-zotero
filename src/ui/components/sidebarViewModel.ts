@@ -107,7 +107,7 @@ export function buildSidebarViewModel({
   const openSettingsLabel = zh ? "打开设置" : "Open Settings";
   const scopeSectionLabel = zh ? "上下文" : "Context";
   const chatSectionLabel = zh ? "对话" : "Chat";
-  const suggestedActionsLabel = "skills";
+  const suggestedActionsLabel = zh ? "建议操作" : "Suggested actions";
   const streamingLabel = zh ? "正在回复" : "Responding";
   const addSourceLabel = zh ? "添加来源" : "Add Source";
   const currentFileLabel = zh ? "当前文件" : "Current file";

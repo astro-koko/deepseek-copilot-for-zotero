@@ -3,6 +3,15 @@ import sidebarSource from "./Sidebar.tsx?raw";
 import { describe, expect, it } from "vitest";
 
 describe("Sidebar recent thread layout", () => {
+  const getStyleBlock = (blockName: string) => {
+    const match = sidebarSource.match(
+      new RegExp(`${blockName}: \\{([\\s\\S]*?)\\n  \\},`),
+    );
+
+    expect(match, `Expected style block ${blockName}`).toBeTruthy();
+    return match?.[1] ?? "";
+  };
+
   it("renders a branded header icon next to the Deepseek Copliot title", () => {
     expect(sidebarSource).toContain("headerBrand");
     expect(sidebarSource).toContain("headerBrandIcon");
@@ -10,11 +19,32 @@ describe("Sidebar recent thread layout", () => {
   });
 
   it("renders suggested actions as a compact 2x2 grid instead of grouped subsections", () => {
+    const suggestedActionsList = getStyleBlock("suggestedActionsList");
+
     expect(sidebarSource).toContain("model.suggestedActions.map((action) =>");
     expect(sidebarSource).toContain("suggestedActionsList: {");
     expect(sidebarSource).toContain('gridTemplateColumns: "repeat(2, minmax(0, 1fr))"');
     expect(sidebarSource).not.toContain("suggestedActionGroups.map");
     expect(sidebarSource).not.toContain("getPresetGroupLabel(group, zh)");
+    expect(suggestedActionsList).toContain('gap: "6px"');
+    expect(suggestedActionsList).not.toContain("borderTop");
+    expect(suggestedActionsList).not.toContain("borderBottom");
+  });
+
+  it("renders all eight built-in suggestions in a two-column grid without custom-only cards", () => {
+    expect(sidebarSource).toContain("model.suggestedActions.map((action) =>");
+    expect(sidebarSource).not.toContain("showInSidebar");
+    expect(sidebarSource).not.toContain("future-work");
+  });
+
+  it("keeps the suggested action cards centered and padded away from the bottom border", () => {
+    const suggestedActionButton = getStyleBlock("suggestedActionButton");
+
+    expect(suggestedActionButton).not.toContain('minHeight: "88px"');
+    expect(suggestedActionButton).not.toContain('minHeight: "48px"');
+    expect(suggestedActionButton).toContain('justifyContent: "center"');
+    expect(suggestedActionButton).toContain('textAlign: "center"');
+    expect(suggestedActionButton).toContain('padding: "7px 8px 8px"');
   });
 
   it("renders suggested action cards with only the short label copy", () => {

@@ -749,9 +749,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div
                 style={{
                   ...styles.suggestedActionsList,
-                  borderTopColor: theme.border,
-                  borderBottomColor: theme.border,
-                  background: theme.border,
+                  background: "transparent",
                 }}
               >
                 {model.suggestedActions.map((action) => (
@@ -1413,24 +1411,22 @@ const styles: Record<string, React.CSSProperties> = {
   suggestedActionsList: {
     display: "grid",
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: "1px",
-    borderTop: "1px solid #dddddd",
-    borderBottom: "1px solid #dddddd",
-    overflow: "hidden",
-    background: "#dddddd",
+    gap: "6px",
+    overflow: "visible",
+    background: "transparent",
   },
   suggestedActionButton: {
     display: "flex",
     flexDirection: "column",
     alignItems: "stretch",
+    justifyContent: "center",
     gap: "4px",
     width: "100%",
     minWidth: 0,
-    minHeight: "88px",
-    padding: "8px 10px",
+    padding: "7px 8px 8px",
     border: "none",
     background: "#fff",
-    textAlign: "left",
+    textAlign: "center",
   },
   listButton: {
     display: "flex",
@@ -1502,6 +1498,7 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     overflowWrap: "anywhere",
+    textAlign: "center",
   },
   listSecondary: {
     fontSize: typography.meta,
