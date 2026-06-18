@@ -72,3 +72,9 @@
 6. 重启 Zotero。
 
 当前稳定版本是 `v0.9.6`。
+
+## 微信群交流
+
+欢迎大家进入微信群交流：
+
+![Deepseek Copliot 微信交流群二维码](docs/community/assets/deepseek-copilot-wechat-group-2026-06-25.jpg)
