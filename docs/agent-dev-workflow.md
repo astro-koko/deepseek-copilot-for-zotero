@@ -76,7 +76,7 @@ Do not mix install-chain, host-surface, and provider debugging. If Add-ons impor
 
 ## Project Skills
 
-This repo includes project-specific Codex skills under `.codex/skills/`:
+Local development may use project-specific Codex skills from `.codex/skills/`, but those files are optional local tooling rather than required public repo contents:
 
 - `zotero-plugin-spec` for issues, specs, implementation plans, and multi-agent task splits.
 - `zotero-real-smoke` for packaged XPI validation, real Zotero GUI smoke, and evidence review.

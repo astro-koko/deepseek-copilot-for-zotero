@@ -42,7 +42,6 @@ Evidence:
 Scope:
 
 - `AGENTS.md`
-- `.codex/skills/**`
 - `docs/agent-dev-workflow.md`
 - `docs/reference-adoption.md`
 - issue/PR templates

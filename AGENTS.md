@@ -70,7 +70,7 @@ State the lane before editing files. If a request spans multiple lanes, split wo
 
 ## Skills
 
-Project-specific skills live in `.codex/skills/`. Use them when the request matches:
+Project-specific Codex skills may exist in a local `.codex/skills/` checkout, but they are not required to live in the public repo. Use them when available and the request matches:
 
 - `zotero-plugin-spec`: spec and issue planning for Zotero plugin changes
 - `zotero-native-plugin-install`: native dev XPI import, overwrite, and installed-version proof through Zotero's Plugins/Add-ons manager
