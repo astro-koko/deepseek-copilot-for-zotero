@@ -1,7 +1,7 @@
 {
   "name": "deepseek-copliot",
   "type": "module",
-  "version": "0.9.6",
+  "version": "0.9.7",
   "description": "Reading copilot for Zotero powered by the DeepSeek API and scoped to your local papers, PDFs, and collections.",
   "author": "AgentPaper",
   "homepage": "https://github.com/astro-koko/deepseek-copilot-for-zotero#readme",

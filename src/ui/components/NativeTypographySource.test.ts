@@ -24,6 +24,13 @@ describe("Native typography source contract", () => {
     expect(stylesSource).toContain("font: inherit");
     expect(stylesSource).not.toContain("font-size: 12px");
     expect(readerIntegrationSource).not.toContain("font-size: 11px");
+    expect(stylesSource).not.toMatch(
+      /\.ai-assistant-selection-popup \.toolbar-button \{[\s\S]*background:/,
+    );
+    expect(stylesSource).not.toMatch(
+      /\.ai-assistant-selection-popup \.toolbar-button:hover \{[\s\S]*background:/,
+    );
+    expect(readerIntegrationSource).not.toContain("color: #888");
   });
 
   it("removes fallback card pixel sizing from ui helpers", () => {

@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.9.7
+
+- Fixed the Reader text-selection popup so Deepseek Copliot action buttons inherit Zotero host theming instead of forcing a light button style in dark mode.
+- Updated the popup label styling to inherit host text color, keeping the Reader selection UI readable across Zotero themes.
+
 ## v0.9.6
 
 - Reworked `Commands and Prompts` into a card-based settings flow with clearer built-in vs. custom command editing.

@@ -13,13 +13,4 @@
 
 .ai-assistant-selection-popup .toolbar-button {
   font: inherit;
-  background: #f0f0f0;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  padding: 4px 8px;
-  cursor: pointer;
-}
-
-.ai-assistant-selection-popup .toolbar-button:hover {
-  background: #e0e0e0;
 }
