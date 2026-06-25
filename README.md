@@ -144,3 +144,11 @@ npm run verify:xpi
 
 - README 主要介绍当前项目的整体能力与使用方式，不承担版本更新日志的职责。
 - 如果你更关心发布与验收流程，请优先看 `docs/` 目录里的开发工作台与 smoke checklist。
+
+## 社区交流
+
+如果你想交流使用体验、安装问题或后续开发进展，可以扫码加入微信群。二维码会周期性更新；如果图片过期，请以仓库最新 README 为准。
+
+<p align="center">
+  <img src="docs/assets/wechat-group-qr.jpg" alt="Deepseek Copliot 微信群二维码" width="360" />
+</p>
