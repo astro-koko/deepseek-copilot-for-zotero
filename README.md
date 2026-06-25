@@ -74,4 +74,4 @@
 
 欢迎大家进入微信群交流：
 
-![Deepseek Copliot 微信交流群二维码](docs/community/assets/deepseek-copilot-wechat-group-2026-06-25.jpg)
+![Deepseek Copliot 微信交流群二维码](docs/community/assets/deepseek-copilot-wechat-group-2026-07-02.jpg)
