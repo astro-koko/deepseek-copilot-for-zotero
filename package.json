@@ -1,7 +1,7 @@
 {
   "name": "deepseek-copliot",
   "type": "module",
-  "version": "0.9.7",
+  "version": "0.9.8",
   "description": "Reading copilot for Zotero powered by the DeepSeek API and scoped to your local papers, PDFs, and collections.",
   "author": "AgentPaper",
   "homepage": "https://github.com/astro-koko/deepseek-copilot-for-zotero#readme",
@@ -29,7 +29,8 @@
     "lint:fix": "prettier --write . && eslint . --fix",
     "release": "zotero-plugin release",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "marketplace:check": "node scripts/check-marketplace-feed.mjs"
   },
   "dependencies": {
     "jotai": "^2.12.1",
