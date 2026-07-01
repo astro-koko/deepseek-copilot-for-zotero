@@ -68,6 +68,12 @@ const config: ReturnType<typeof defineConfig> = defineConfig({
     asProxy: true,
     createProfileIfMissing: true,
   },
+
+  release: {
+    bumpp: {
+      execute: "npm run build:release:xpi",
+    },
+  },
 });
 
 export default config;

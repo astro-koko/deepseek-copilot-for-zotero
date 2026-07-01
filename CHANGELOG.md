@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.9.8
+
+- Published one shared `Deepseek.Copliot-0.9.8.xpi` package for Zotero 7, 8, 9, and 10 instead of splitting compatibility by Zotero version.
+- Widened the packaged Zotero manifest range to `7.0` through `10.*`.
+- Recorded Zotero 10 beta packaged-smoke evidence for the Add-ons entry, Settings pane, Library pane, Reader pane, selection popup actions, and Reader context-menu actions.
+- Added marketplace feed verification notes for confirming Zotero 7, 8, 9, and 10 visibility after the GitHub Release is public.
+
 ## v0.9.7
 
 - Fixed the Reader text-selection popup so Deepseek Copliot action buttons inherit Zotero host theming instead of forcing a light button style in dark mode.

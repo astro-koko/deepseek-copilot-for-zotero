@@ -16,14 +16,14 @@ This release is prepared as the single marketplace pickup build for Zotero 7 thr
 - `addon/manifest.json` compatibility range: Zotero `7.0` through `10.*`
 - Release artifact name after `npm run build:release:xpi`: `Deepseek.Copliot-0.9.8.xpi`
 
-Local preflight on 2026-07-01 produced:
+Local release preflight on 2026-07-01 confirmed that `npm run build:release:xpi` produces:
 
 ```text
-617b87ccacf77bc6df3351beb2cd4f61d3716fd408ffc13c3ebeaaacd1e8d559  .scaffold/build/Deepseek.Copliot-0.9.8.xpi
-582bb256189659aa289e8bbbca0819c298902be21c4bf906e36a68c489b85e39  .scaffold/build/update.json
+.scaffold/build/Deepseek.Copliot-0.9.8.xpi
+.scaffold/build/update.json
 ```
 
-These hashes are only for this local build output. Recompute them after the final CI/release build and use the CI-produced artifacts as the public release source of truth.
+Release builds embed build-time metadata, so local SHA-256 values can change across rebuilds. The GitHub Actions asset digest is the public release source of truth after the tag workflow finishes.
 
 ## Publish sequence
 
@@ -34,7 +34,7 @@ npm ci
 npm test
 npm run build:release:xpi
 jq '.version, .version_name, .applications.zotero' .scaffold/build/addon/manifest.json
-sha256sum .scaffold/build/Deepseek.Copliot-0.9.8.xpi .scaffold/build/update.json
+shasum -a 256 .scaffold/build/Deepseek.Copliot-0.9.8.xpi .scaffold/build/update.json
 ```
 
 Expected manifest excerpt:

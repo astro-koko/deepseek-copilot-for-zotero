@@ -9,11 +9,11 @@
 
 它也不再把不同文献的对话混在一起。每篇论文或 PDF 都可以保留自己的会话上下文，你在多篇文献之间来回切换时，切回原文献还能继续之前的阅读线程。
 
-## 插件市场安装
+## 安装
 
-插件已经上线 Zotero 插件市场，Zotero 7、8、9、10 用户搜索 `Deepseek Copliot` 就可以直接下载安装。
+推荐优先通过 Zotero 插件市场安装。Zotero 7、8、9、10 用户可以搜索 `Deepseek Copliot`，等待插件市场数据源刷新后直接下载安装。
 
-如果 Zotero 10 的插件市场里暂时还搜不到，先确认已经发布包含 Zotero 10 manifest 的 GitHub Release，然后等待插件市场数据源刷新。可以用 `npm run marketplace:check -- --target 10` 检查公开插件市场 feed 是否已经收录 Zotero 10 条目。
+如果某个 Zotero 版本筛选页暂时还搜不到，请先从本仓库的 GitHub Releases 手动安装最新 `.xpi`。插件市场通常需要等待公开 feed 刷新；维护者可以用 `npm run marketplace:check -- --target <7|8|9|10>` 检查数据源是否已经收录对应版本。
 
 ## 它能做什么
 
@@ -40,12 +40,13 @@
 - “这篇论文的方法核心是什么？”
 - “这篇论文的结论和局限有哪些？”
 
-## 当前版本说明
+## 当前版本
 
-`v0.9.8` 是 Zotero 7、8、9、10 共用的统一插件市场版本，用同一个 XPI 和同一个版本号发布：
+当前稳定版本是 `v0.9.8`。这一版是 Zotero 7、8、9、10 共用的统一发布包，用同一个 XPI 和同一个版本号发布：
 
-- 将公开发布包的 Zotero 兼容范围设为 7–10
+- 将公开发布包的 Zotero 兼容范围设为 Zotero `7.0` 到 `10.*`
 - Zotero 7、8、9、10 都使用 `Deepseek.Copliot-0.9.8.xpi`，不拆分不同版本号
+- Zotero 10 beta 已完成 packaged smoke：插件管理器、设置页、文库右侧面板、阅读器右侧面板、选中文本弹窗和右键菜单均通过
 - 增加插件市场 feed 检查命令，确认 Zotero Chinese / Add-on Market 数据源是否已经收录对应 Zotero 目标
 
 ## 第一次使用
@@ -71,7 +72,7 @@
 5. 选中下载好的 `.xpi` 文件并完成安装。
 6. 重启 Zotero。
 
-当前稳定版本是 `v0.9.8`。
+当前稳定版本是 `v0.9.8`，手动安装文件名为 `Deepseek.Copliot-0.9.8.xpi`。
 
 ## 微信群交流
 
