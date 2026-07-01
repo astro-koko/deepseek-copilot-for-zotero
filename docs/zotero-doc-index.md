@@ -27,8 +27,8 @@ These files define the immediate execution target:
 ## Host and version baseline
 
 - Current daily target: Zotero 9 release
-- Compatibility target: Zotero 10 beta
-- Keep [addon/manifest.json](/Users/Liang/project/agentpaper_zotero/addon/manifest.json) at `strict_max_version: "9.*"` until a packaged Zotero 10 beta smoke succeeds.
+- Marketplace compatibility target: Zotero 7 through Zotero 10 (`strict_min_version: "7.0"`, `strict_max_version: "10.*"`)
+- Daily development and primary smoke still target Zotero 9 release; Zotero 10 coverage is for marketplace distribution compatibility.
 
 Reference snapshots:
 - [reference/upstream-docs/zotero/zotero-7-for-developers.md](/Users/Liang/project/agentpaper_zotero/reference/upstream-docs/zotero/zotero-7-for-developers.md)

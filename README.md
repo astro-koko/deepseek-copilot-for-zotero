@@ -1,7 +1,7 @@
 # Deepseek Copliot
 
 [![Release](https://img.shields.io/github/v/release/astro-koko/deepseek-copilot-for-zotero?display_name=tag&style=flat-square)](https://github.com/astro-koko/deepseek-copilot-for-zotero/releases)
-[![Zotero](https://img.shields.io/badge/Zotero-9%20stable-CC2936?style=flat-square)](https://www.zotero.org/)
+[![Zotero](https://img.shields.io/badge/Zotero-7--10-CC2936?style=flat-square)](https://www.zotero.org/)
 
 `Deepseek Copliot` 是一个给 Zotero 用的 AI 论文阅读插件。
 
@@ -11,7 +11,9 @@
 
 ## 插件市场安装
 
-插件已经上线 Zotero 插件市场，搜索 `Deepseek Copliot` 就可以直接下载安装。
+插件已经上线 Zotero 插件市场，Zotero 7、8、9、10 用户搜索 `Deepseek Copliot` 就可以直接下载安装。
+
+如果 Zotero 10 的插件市场里暂时还搜不到，先确认已经发布包含 Zotero 10 manifest 的 GitHub Release，然后等待插件市场数据源刷新。可以用 `npm run marketplace:check -- --target 10` 检查公开插件市场 feed 是否已经收录 Zotero 10 条目。
 
 ## 它能做什么
 
@@ -40,10 +42,11 @@
 
 ## 当前版本说明
 
-`v0.9.7` 这一版主要修复 Reader 选中文本后提问/解释弹窗在深浅色主题下的显示问题：
+`v0.9.8` 是 Zotero 7、8、9、10 共用的统一插件市场版本，用同一个 XPI 和同一个版本号发布：
 
-- 修复 Reader 选中文本后提问/解释弹窗在深色模式下的显示异常
-- 优化浅色模式与深色模式下对话框的样式一致性
+- 将公开发布包的 Zotero 兼容范围设为 7–10
+- Zotero 7、8、9、10 都使用 `Deepseek.Copliot-0.9.8.xpi`，不拆分不同版本号
+- 增加插件市场 feed 检查命令，确认 Zotero Chinese / Add-on Market 数据源是否已经收录对应 Zotero 目标
 
 ## 第一次使用
 
@@ -68,7 +71,7 @@
 5. 选中下载好的 `.xpi` 文件并完成安装。
 6. 重启 Zotero。
 
-当前稳定版本是 `v0.9.7`。
+当前稳定版本是 `v0.9.8`。
 
 ## 微信群交流
 
