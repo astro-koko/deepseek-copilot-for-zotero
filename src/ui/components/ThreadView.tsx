@@ -8,6 +8,10 @@ import { getSidebarTheme } from "../theme";
 import { typography } from "../typography";
 import { isChineseLocale } from "../../utils/locale";
 
+type MessageSegment =
+  | { type: "markdown"; value: string }
+  | { type: "math"; value: string; display: boolean };
+
 interface ThreadViewProps {
   hasScope?: boolean;
   streamingMessage?: {
@@ -126,7 +130,7 @@ function buildMarkdownComponents(
           lineHeight: 1.3,
         }}
       >
-        {children}
+        {renderInlineMath(children, theme)}
       </h1>
     ),
     h2: ({ node: _node, children, ...props }) => (
@@ -138,7 +142,7 @@ function buildMarkdownComponents(
           lineHeight: 1.35,
         }}
       >
-        {children}
+        {renderInlineMath(children, theme)}
       </h2>
     ),
     h3: ({ node: _node, children, ...props }) => (
@@ -150,7 +154,7 @@ function buildMarkdownComponents(
           lineHeight: 1.35,
         }}
       >
-        {children}
+        {renderInlineMath(children, theme)}
       </h3>
     ),
     h4: ({ node: _node, children, ...props }) => (
@@ -162,7 +166,7 @@ function buildMarkdownComponents(
           lineHeight: 1.35,
         }}
       >
-        {children}
+        {renderInlineMath(children, theme)}
       </h4>
     ),
     h5: ({ node: _node, children, ...props }) => (
@@ -174,7 +178,7 @@ function buildMarkdownComponents(
           lineHeight: 1.35,
         }}
       >
-        {children}
+        {renderInlineMath(children, theme)}
       </h5>
     ),
     h6: ({ node: _node, children, ...props }) => (
@@ -186,7 +190,7 @@ function buildMarkdownComponents(
           lineHeight: 1.35,
         }}
       >
-        {children}
+        {renderInlineMath(children, theme)}
       </h6>
     ),
     ol: ({ node: _node, children, ...props }) => (
@@ -196,7 +200,7 @@ function buildMarkdownComponents(
     ),
     p: ({ node: _node, children, ...props }) => (
       <p {...props} style={{ margin: "0 0 6px" }}>
-        {children}
+        {renderInlineMath(children, theme)}
       </p>
     ),
     pre: ({ node: _node, children, ...props }) => (
@@ -237,7 +241,7 @@ function buildMarkdownComponents(
           verticalAlign: "top",
         }}
       >
-        {children}
+        {renderInlineMath(children, theme)}
       </td>
     ),
     th: ({ node: _node, children, ...props }) => (
@@ -250,7 +254,7 @@ function buildMarkdownComponents(
           background: theme.panelBackground,
         }}
       >
-        {children}
+        {renderInlineMath(children, theme)}
       </th>
     ),
     ul: ({ node: _node, children, ...props }) => (
@@ -261,19 +265,259 @@ function buildMarkdownComponents(
   };
 }
 
+function splitMessageSegments(content: string): MessageSegment[] {
+  const segments: MessageSegment[] = [];
+  let cursor = 0;
+
+  while (cursor < content.length) {
+    const nextMath = findNextDisplayMath(content, cursor);
+    if (!nextMath) {
+      pushMarkdownSegment(segments, content.slice(cursor));
+      break;
+    }
+
+    pushMarkdownSegment(segments, content.slice(cursor, nextMath.start));
+    segments.push({
+      type: "math",
+      value: normalizeMathText(nextMath.value),
+      display: true,
+    });
+    cursor = nextMath.end;
+  }
+
+  return segments;
+}
+
+function pushMarkdownSegment(segments: MessageSegment[], value: string): void {
+  if (value) {
+    segments.push({ type: "markdown", value });
+  }
+}
+
+function findNextDisplayMath(
+  content: string,
+  fromIndex: number,
+): { start: number; end: number; value: string } | null {
+  let index = fromIndex;
+  let lineStart = index === 0 || content[index - 1] === "\n";
+  let fencedCode = false;
+
+  while (index < content.length) {
+    if (lineStart && content.startsWith("```", index)) {
+      fencedCode = !fencedCode;
+      index += 3;
+      lineStart = false;
+      continue;
+    }
+
+    if (!fencedCode) {
+      const dollar = readDelimitedMath(content, index, "$$", "$$");
+      if (dollar) return dollar;
+
+      const bracket = readDelimitedMath(content, index, "\\[", "\\]");
+      if (bracket) return bracket;
+
+      const equation = readDelimitedMath(
+        content,
+        index,
+        "\\begin{equation}",
+        "\\end{equation}",
+      );
+      if (equation) return equation;
+    }
+
+    lineStart = content[index] === "\n";
+    index += 1;
+  }
+
+  return null;
+}
+
+function readDelimitedMath(
+  content: string,
+  start: number,
+  open: string,
+  close: string,
+): { start: number; end: number; value: string } | null {
+  if (!content.startsWith(open, start)) {
+    return null;
+  }
+
+  const valueStart = start + open.length;
+  const closeStart = content.indexOf(close, valueStart);
+  if (closeStart < 0) {
+    return null;
+  }
+
+  return {
+    start,
+    end: closeStart + close.length,
+    value: content.slice(valueStart, closeStart).trim(),
+  };
+}
+
+function splitInlineMathText(text: string): MessageSegment[] {
+  const segments: MessageSegment[] = [];
+  let cursor = 0;
+
+  while (cursor < text.length) {
+    const next = findNextInlineMath(text, cursor);
+    if (!next) {
+      pushMarkdownSegment(segments, text.slice(cursor));
+      break;
+    }
+
+    pushMarkdownSegment(segments, text.slice(cursor, next.start));
+    segments.push({
+      type: "math",
+      value: normalizeMathText(next.value),
+      display: false,
+    });
+    cursor = next.end;
+  }
+
+  return segments;
+}
+
+function findNextInlineMath(
+  text: string,
+  fromIndex: number,
+): { start: number; end: number; value: string } | null {
+  let index = fromIndex;
+  while (index < text.length) {
+    if (
+      text[index] === "$" &&
+      text[index - 1] !== "\\" &&
+      text[index + 1] !== "$"
+    ) {
+      const close = findClosingSingleDollar(text, index + 1);
+      if (close >= 0) {
+        return {
+          start: index,
+          end: close + 1,
+          value: text.slice(index + 1, close),
+        };
+      }
+    }
+
+    if (text.startsWith("\\(", index)) {
+      const close = text.indexOf("\\)", index + 2);
+      if (close >= 0) {
+        return {
+          start: index,
+          end: close + 2,
+          value: text.slice(index + 2, close),
+        };
+      }
+    }
+
+    index += 1;
+  }
+
+  return null;
+}
+
+function findClosingSingleDollar(text: string, fromIndex: number): number {
+  let index = fromIndex;
+  while (index < text.length) {
+    if (
+      text[index] === "$" &&
+      text[index - 1] !== "\\" &&
+      text[index + 1] !== "$"
+    ) {
+      return index;
+    }
+    index += 1;
+  }
+  return -1;
+}
+
+function normalizeMathText(value: string): string {
+  return value.trim().replace(/\\\\(?=[A-Za-z])/g, "\\");
+}
+
+function renderInlineMath(
+  children: React.ReactNode,
+  theme: ReturnType<typeof getSidebarTheme>,
+): React.ReactNode {
+  const rendered: React.ReactNode[] = [];
+
+  React.Children.forEach(children, (child, childIndex) => {
+    if (typeof child !== "string") {
+      rendered.push(child);
+      return;
+    }
+
+    splitInlineMathText(child).forEach((segment, segmentIndex) => {
+      if (segment.type === "math") {
+        rendered.push(
+          <MathMessageSegment
+            key={`math-${childIndex}-${segmentIndex}`}
+            value={segment.value}
+            display={false}
+            theme={theme}
+          />,
+        );
+      } else {
+        rendered.push(segment.value);
+      }
+    });
+  });
+
+  return rendered;
+}
+
+const MathMessageSegment: React.FC<{
+  display: boolean;
+  theme: ReturnType<typeof getSidebarTheme>;
+  value: string;
+}> = ({ display, theme, value }) =>
+  display ? (
+    <div
+      className="ai-assistant-math-block"
+      style={{
+        ...styles.mathBlock,
+        background: theme.panelBackground,
+        borderColor: theme.softBorder,
+      }}
+    >
+      {value}
+    </div>
+  ) : (
+    <span className="ai-assistant-math-inline" style={styles.mathInline}>
+      {value}
+    </span>
+  );
+
 const MarkdownMessage: React.FC<{
   content: string;
   theme: ReturnType<typeof getSidebarTheme>;
-}> = ({ content, theme }) => (
-  <div style={styles.content}>
-    <ReactMarkdown
-      components={buildMarkdownComponents(theme)}
-      remarkPlugins={[remarkGfm, remarkBreaks]}
-    >
-      {content}
-    </ReactMarkdown>
-  </div>
-);
+}> = ({ content, theme }) => {
+  const segments = splitMessageSegments(content);
+
+  return (
+    <div style={styles.content}>
+      {segments.map((segment, index) =>
+        segment.type === "math" ? (
+          <MathMessageSegment
+            key={`math-${index}`}
+            value={segment.value}
+            display={segment.display}
+            theme={theme}
+          />
+        ) : (
+          <ReactMarkdown
+            key={`markdown-${index}`}
+            components={buildMarkdownComponents(theme)}
+            remarkPlugins={[remarkGfm, remarkBreaks]}
+          >
+            {segment.value}
+          </ReactMarkdown>
+        ),
+      )}
+    </div>
+  );
+};
 
 const MessageBubble: React.FC<{
   message: Message;
@@ -364,6 +608,24 @@ const styles: Record<string, React.CSSProperties> = {
   content: {
     wordBreak: "break-word",
     overflowWrap: "anywhere",
+  },
+  mathBlock: {
+    margin: "6px 0",
+    padding: "7px 8px",
+    border: "1px solid transparent",
+    borderRadius: "4px",
+    fontFamily:
+      'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+    fontSize: typography.body,
+    lineHeight: 1.45,
+    overflowX: "auto",
+    whiteSpace: "pre",
+  },
+  mathInline: {
+    fontFamily:
+      'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+    fontSize: "0.98em",
+    whiteSpace: "nowrap",
   },
   timestamp: {
     fontSize: typography.caption,

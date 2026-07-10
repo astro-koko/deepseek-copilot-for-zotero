@@ -126,6 +126,16 @@ describe("chatEngine", () => {
     );
   });
 
+  it("instructs the model to emit displayable LaTeX formulas", async () => {
+    await sendChatMessage(makeThread([]), undefined);
+
+    const [messages] = providerMocks.sendChat.mock.calls[0] || [];
+    expect(messages[0].content).toContain("$...$");
+    expect(messages[0].content).toContain("$$...$$");
+    expect(messages[0].content).toContain("single LaTeX backslashes");
+    expect(messages[0].content).toContain("Do not double-escape");
+  });
+
   it("includes context availability warnings in the system prompt when full text is unavailable", async () => {
     providerMocks.assembleContext.mockReturnValue({
       availability: "fulltext-required-error",

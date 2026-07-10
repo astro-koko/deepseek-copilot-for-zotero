@@ -152,6 +152,72 @@ describe("ThreadView markdown rendering", () => {
     expect(markup).toContain("Checking the method section");
     expect(markup).toContain("<strong>answer</strong>");
   });
+
+  it("renders display math blocks without exposing outer delimiters", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-assistant",
+            role: "assistant",
+            content: [
+              "模型为：",
+              "$$",
+              "C_F(q, y) = \\\\epsilon^2_{FG} \\\\sum_X A_X",
+              "$$",
+            ].join("\n"),
+            timestamp: 1,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup).toContain("ai-assistant-math-block");
+    expect(markup).toContain("C_F(q, y)");
+    expect(markup).toContain("\\epsilon^2_{FG}");
+    expect(markup).toContain("\\sum_X");
+    expect(markup).not.toContain("$$");
+    expect(markup).not.toContain("\\\\epsilon");
+  });
+
+  it("renders inline math without exposing dollar delimiters", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-assistant",
+            role: "assistant",
+            content: "其中 $\\\\epsilon_{FG}=1$ 表示无前景去除。",
+            timestamp: 1,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup).toContain("ai-assistant-math-inline");
+    expect(markup).toContain("\\epsilon_{FG}=1");
+    expect(markup).not.toContain("$\\\\epsilon");
+  });
+
+  it("leaves dollar signs inside fenced code blocks as code", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-assistant",
+            role: "assistant",
+            content: ["```tex", "$$", "E = mc^2", "$$", "```"].join("\n"),
+            timestamp: 1,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup).toContain("<pre style=");
+    expect(markup).toContain("E = mc^2");
+    expect(markup).toContain("$$");
+    expect(markup).not.toContain("ai-assistant-math-block");
+  });
 });
 
 describe("openMarkdownLink", () => {
