@@ -9,6 +9,19 @@
   min-width: 0;
 }
 
+.ai-assistant-message,
+.ai-assistant-message *,
+.ai-assistant-pane .ai-assistant-message,
+.ai-assistant-pane .ai-assistant-message *,
+#zotero-context-pane .ai-assistant-message,
+#zotero-context-pane .ai-assistant-message *,
+#zotero-item-pane .ai-assistant-message,
+#zotero-item-pane .ai-assistant-message * {
+  -moz-user-select: text !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+
 .ai-assistant-selection-popup {
   font: inherit;
 }
