@@ -21,6 +21,7 @@ cookies.sqlite
 addonStartup.json.lz4
 
 # Build and temp output
+build/
 dist/
 coverage/
 *.xpi

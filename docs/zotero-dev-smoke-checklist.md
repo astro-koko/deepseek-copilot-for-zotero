@@ -91,7 +91,7 @@ Treat the next smoke run as an evidence-collection pass, not a vibe check. Captu
 1. Run `npm run check`.
 2. If you want to inspect the packaged path only, `npm run smoke:xpi` is the shorter preflight.
 3. Run `npm start` only if you need a rapid iteration loop before packaged install.
-4. Install the newest local dev, non-stable `.xpi` through Zotero's native plugin manager with `Install Plugin From File...`; do not use Add-on Market / 插件市场 for Deepseek Copliot validation.
+4. Install the newest local dev, non-stable `.xpi` from the visible `build/xpi/` folder through Zotero's native plugin manager with `Install Plugin From File...`; do not use Add-on Market / 插件市场 for Deepseek Copliot validation.
 5. Confirm the installed Add-ons entry or installed XPI manifest version/hash matches the newly built dev package before testing Settings or host behavior.
 6. In Zotero, confirm `Deepseek Copliot` appears in the plugin/add-ons list with the new icon.
 7. Open Zotero Settings and confirm the `Deepseek Copliot` pane exists.

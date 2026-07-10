@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from "react";
+import katex from "katex";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
@@ -100,7 +101,7 @@ function buildMarkdownComponents(
             : undefined
         }
       >
-        {children}
+        {renderInlineMath(children, theme)}
       </a>
     ),
     blockquote: ({ node: _node, children, ...props }) => (
@@ -120,6 +121,12 @@ function buildMarkdownComponents(
       <code {...props} className={className}>
         {children}
       </code>
+    ),
+    del: ({ node: _node, children, ...props }) => (
+      <del {...props}>{renderInlineMath(children, theme)}</del>
+    ),
+    em: ({ node: _node, children, ...props }) => (
+      <em {...props}>{renderInlineMath(children, theme)}</em>
     ),
     h1: ({ node: _node, children, ...props }) => (
       <h1
@@ -193,6 +200,9 @@ function buildMarkdownComponents(
         {renderInlineMath(children, theme)}
       </h6>
     ),
+    li: ({ node: _node, children, ...props }) => (
+      <li {...props}>{renderInlineMath(children, theme)}</li>
+    ),
     ol: ({ node: _node, children, ...props }) => (
       <ol {...props} style={{ margin: "6px 0", paddingLeft: "18px" }}>
         {children}
@@ -218,6 +228,9 @@ function buildMarkdownComponents(
       >
         {children}
       </pre>
+    ),
+    strong: ({ node: _node, children, ...props }) => (
+      <strong {...props}>{renderInlineMath(children, theme)}</strong>
     ),
     table: ({ node: _node, children, ...props }) => (
       <table
@@ -436,6 +449,21 @@ function normalizeMathText(value: string): string {
   return value.trim().replace(/\\\\(?=[A-Za-z])/g, "\\");
 }
 
+function renderMathHtml(value: string, display: boolean): string {
+  try {
+    return katex.renderToString(value, {
+      displayMode: display,
+      errorColor: "#b42318",
+      output: "htmlAndMathml",
+      strict: "warn",
+      throwOnError: false,
+      trust: false,
+    });
+  } catch {
+    return "";
+  }
+}
+
 function renderInlineMath(
   children: React.ReactNode,
   theme: ReturnType<typeof getSidebarTheme>,
@@ -471,23 +499,41 @@ const MathMessageSegment: React.FC<{
   display: boolean;
   theme: ReturnType<typeof getSidebarTheme>;
   value: string;
-}> = ({ display, theme, value }) =>
-  display ? (
-    <div
-      className="ai-assistant-math-block"
-      style={{
-        ...styles.mathBlock,
-        background: theme.panelBackground,
-        borderColor: theme.softBorder,
-      }}
-    >
-      {value}
-    </div>
+}> = ({ display, theme, value }) => {
+  const renderedMath = renderMathHtml(value, display);
+
+  if (display) {
+    const displayStyle = {
+      ...styles.mathBlock,
+      background: theme.panelBackground,
+      borderColor: theme.softBorder,
+    };
+
+    return renderedMath ? (
+      <div
+        className="ai-assistant-math-block"
+        style={displayStyle}
+        dangerouslySetInnerHTML={{ __html: renderedMath }}
+      />
+    ) : (
+      <div className="ai-assistant-math-block" style={displayStyle}>
+        {value}
+      </div>
+    );
+  }
+
+  return renderedMath ? (
+    <span
+      className="ai-assistant-math-inline"
+      style={styles.mathInline}
+      dangerouslySetInnerHTML={{ __html: renderedMath }}
+    />
   ) : (
     <span className="ai-assistant-math-inline" style={styles.mathInline}>
       {value}
     </span>
   );
+};
 
 const MarkdownMessage: React.FC<{
   content: string;
@@ -496,7 +542,7 @@ const MarkdownMessage: React.FC<{
   const segments = splitMessageSegments(content);
 
   return (
-    <div style={styles.content}>
+    <div className="ai-assistant-message-content" style={styles.content}>
       {segments.map((segment, index) =>
         segment.type === "math" ? (
           <MathMessageSegment
@@ -528,6 +574,7 @@ const MessageBubble: React.FC<{
 
   return (
     <div
+      className={`ai-assistant-message ai-assistant-message-${message.role}`}
       style={{
         ...(isSystem ? styles.systemMessage : styles.message),
         alignSelf: isSystem ? "center" : isUser ? "flex-end" : "flex-start",
@@ -557,6 +604,7 @@ const StreamingMessageBubble: React.FC<{
   theme: ReturnType<typeof getSidebarTheme>;
 }> = ({ message, theme }) => (
   <div
+    className="ai-assistant-message ai-assistant-message-assistant ai-assistant-message-streaming"
     style={{
       ...styles.message,
       alignSelf: "flex-start",
@@ -586,6 +634,12 @@ const StreamingMessageBubble: React.FC<{
   </div>
 );
 
+const selectableTextStyle: React.CSSProperties = {
+  userSelect: "text",
+  MozUserSelect: "text",
+  WebkitUserSelect: "text",
+};
+
 const styles: Record<string, React.CSSProperties> = {
   container: {
     flex: "none",
@@ -595,6 +649,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     gap: "5px",
     minWidth: 0,
+    ...selectableTextStyle,
   },
   message: {
     maxWidth: "94%",
@@ -604,28 +659,28 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid transparent",
     fontSize: typography.body,
     lineHeight: 1.4,
+    ...selectableTextStyle,
   },
   content: {
     wordBreak: "break-word",
     overflowWrap: "anywhere",
+    ...selectableTextStyle,
   },
   mathBlock: {
     margin: "6px 0",
     padding: "7px 8px",
     border: "1px solid transparent",
     borderRadius: "4px",
-    fontFamily:
-      'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
     fontSize: typography.body,
     lineHeight: 1.45,
     overflowX: "auto",
-    whiteSpace: "pre",
+    overflowY: "hidden",
+    ...selectableTextStyle,
   },
   mathInline: {
-    fontFamily:
-      'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
-    fontSize: "0.98em",
+    fontSize: "1em",
     whiteSpace: "nowrap",
+    ...selectableTextStyle,
   },
   timestamp: {
     fontSize: typography.caption,
@@ -641,9 +696,11 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#666",
     border: "1px solid #e1e1e1",
     fontSize: typography.meta,
+    ...selectableTextStyle,
   },
   reasoningDetails: {
     margin: "3px 0 6px",
+    ...selectableTextStyle,
   },
   reasoningSummary: {
     cursor: "default",

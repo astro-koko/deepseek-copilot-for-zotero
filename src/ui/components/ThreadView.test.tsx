@@ -173,9 +173,9 @@ describe("ThreadView markdown rendering", () => {
     );
 
     expect(markup).toContain("ai-assistant-math-block");
-    expect(markup).toContain("C_F(q, y)");
-    expect(markup).toContain("\\epsilon^2_{FG}");
-    expect(markup).toContain("\\sum_X");
+    expect(markup).toContain("katex-display");
+    expect(markup).toContain("katex-html");
+    expect(markup).toContain("mathnormal");
     expect(markup).not.toContain("$$");
     expect(markup).not.toContain("\\\\epsilon");
   });
@@ -195,8 +195,98 @@ describe("ThreadView markdown rendering", () => {
     );
 
     expect(markup).toContain("ai-assistant-math-inline");
-    expect(markup).toContain("\\epsilon_{FG}=1");
+    expect(markup).toContain("katex");
+    expect(markup).toContain("katex-html");
     expect(markup).not.toContain("$\\\\epsilon");
+  });
+
+  it("renders inline math inside tight lists and emphasis", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-assistant",
+            role: "assistant",
+            content: [
+              "- **参数依据**: 振幅（$A_X$）和指数（$n_X$）参与计算。",
+              "- 变量 **$k_{FG}$** 与 *$l_p$* 也应渲染。",
+            ].join("\n"),
+            timestamp: 1,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup.match(/ai-assistant-math-inline/g)?.length).toBe(4);
+    expect(markup).toContain("katex-html");
+    expect(markup).not.toContain("$A_X$");
+    expect(markup).not.toContain("$n_X$");
+    expect(markup).not.toContain("$k_{FG}$");
+    expect(markup).not.toContain("$l_p$");
+  });
+
+  it("keeps rendered chat message text selectable", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-user",
+            role: "user",
+            content: "请解释 $A_X$",
+            timestamp: 1,
+          },
+          {
+            id: "msg-assistant",
+            role: "assistant",
+            content: "回答里的文字和 $A_X$ 都需要能选中复制。",
+            timestamp: 2,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup).toContain("ai-assistant-message-content");
+    expect(markup).toContain("user-select:text");
+    expect(markup).toContain("-moz-user-select:text");
+    expect(markup).toContain("-webkit-user-select:text");
+  });
+
+  it("keeps malformed math visible instead of throwing", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-assistant",
+            role: "assistant",
+            content: "坏公式 $\\notacommand{$ 也不能炸掉线程。",
+            timestamp: 1,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup).toContain("ai-assistant-math-inline");
+    expect(markup).toContain("katex-error");
+    expect(markup).toContain("notacommand");
+    expect(markup).toContain("也不能炸掉线程");
+  });
+
+  it("typesets streaming math through the same renderer", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        streamingMessage: {
+          content: "流式输出 $\\alpha + \\beta$",
+          reasoningContent: "$$\\sum_i x_i$$",
+          statusLabel: "Responding",
+        },
+        thread: makeThread([]),
+      }),
+    );
+
+    expect(markup).toContain("Responding");
+    expect(markup).toContain("katex");
+    expect(markup).toContain("katex-display");
+    expect(markup).not.toContain("$$");
   });
 
   it("leaves dollar signs inside fenced code blocks as code", () => {

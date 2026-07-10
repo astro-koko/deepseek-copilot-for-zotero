@@ -168,9 +168,9 @@ Do not prioritize disabling unrelated plugins such as `Better BibTeX`, `Add-on M
 - `npm run verify:xpi`
   - Confirm packaged addon artifacts exist
 - `npm run smoke:xpi`
-  - Build plus packaged-artifact gate
+  - Build plus packaged-artifact gate, then export the importable XPI to `build/xpi/`
 - `npm run check`
-  - Full acceptance preflight: test, build, verify
+  - Full acceptance preflight: test, build, verify, and export the importable XPI to `build/xpi/`
 - `npm start`
   - Proxy-mode hot reload for rapid iteration only
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.9.9
+
+- Added bundled KaTeX rendering for inline and display formulas in chat messages.
+- Exported verified dev and release XPI builds to the visible `build/xpi/` folder for Finder-based Zotero imports.
+
 ## v0.9.8
 
 - Published one shared `Deepseek.Copliot-0.9.8.xpi` package for Zotero 7, 8, 9, and 10 instead of splitting compatibility by Zotero version.

@@ -20,16 +20,17 @@ function normalizeArchiveEntry(entry) {
   return entry.replace(/\\/g, "/").replace(/^\.\//, "").trim();
 }
 
-export function buildVerificationContext({ buildRoot, pkg, env = process.env }) {
+export function buildVerificationContext({
+  buildRoot,
+  pkg,
+  env = process.env,
+}) {
   const addonVersion = buildAddonVersionMetadata({
     baseVersion: pkg.version,
     env,
   });
   const xpiFileName = `${pkg.config.addonName.replace(/\s+/g, ".")}-${addonVersion.xpiVersion}.xpi`;
-  const xpiPath = path.join(
-    buildRoot,
-    xpiFileName,
-  );
+  const xpiPath = path.join(buildRoot, xpiFileName);
 
   return {
     xpiPath,
@@ -40,6 +41,12 @@ export function buildVerificationContext({ buildRoot, pkg, env = process.env }) 
       path.join(buildRoot, "addon/bootstrap.js"),
       path.join(buildRoot, "addon/manifest.json"),
       path.join(buildRoot, "addon/prefs.js"),
+      path.join(buildRoot, "addon/content/katex/LICENSE.txt"),
+      path.join(buildRoot, "addon/content/katex/katex.min.css"),
+      path.join(
+        buildRoot,
+        "addon/content/katex/fonts/KaTeX_Main-Regular.woff2",
+      ),
       path.join(buildRoot, "addon/content/preferences.xhtml"),
       path.join(buildRoot, `addon/content/scripts/${pkg.config.addonRef}.js`),
     ],
@@ -47,6 +54,9 @@ export function buildVerificationContext({ buildRoot, pkg, env = process.env }) 
       "bootstrap.js",
       "manifest.json",
       "prefs.js",
+      "content/katex/LICENSE.txt",
+      "content/katex/katex.min.css",
+      "content/katex/fonts/KaTeX_Main-Regular.woff2",
       "content/preferences.xhtml",
       `content/scripts/${pkg.config.addonRef}.js`,
     ],
