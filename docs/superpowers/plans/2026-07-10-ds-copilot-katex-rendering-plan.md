@@ -283,7 +283,7 @@ Run:
 npm run build:dev:xpi
 ```
 
-Expected: build succeeds and creates a dev XPI under `.scaffold/build`.
+Expected: build succeeds, verifies the package, and exports the importable dev XPI to `build/xpi/`.
 
 - [ ] **Step 2: Verify XPI archive includes KaTeX assets**
 
@@ -291,7 +291,7 @@ Run:
 
 ```bash
 npm run verify:xpi
-unzip -Z1 .scaffold/build/*.xpi | rg 'content/katex/(katex.min.css|fonts/)'
+unzip -Z1 build/xpi/*.xpi | rg 'content/katex/(katex.min.css|fonts/)'
 ```
 
 Expected: `verify:xpi` passes and the archive listing includes `content/katex/katex.min.css` plus KaTeX font files.
@@ -348,9 +348,9 @@ Expected: build and packaged verification pass. If `npm run check` fails only be
 Run:
 
 ```bash
-ls -lt .scaffold/build/*.xpi | head -1
-shasum -a 256 .scaffold/build/*.xpi
-unzip -p .scaffold/build/*.xpi manifest.json
+ls -lt build/xpi/*.xpi | head -1
+shasum -a 256 build/xpi/*.xpi
+unzip -p build/xpi/*.xpi manifest.json
 ```
 
 Expected: newest dev XPI path, hash, and manifest version are recorded.

@@ -95,6 +95,7 @@ npm run build:dev:xpi
 ```
 
 This keeps `package.json` on the clean release version while producing an XPI named like `Deepseek.Copliot-0.9.4-dev.<number>.xpi`. The manifest uses a numeric `version` for Zotero compatibility and a descriptive `version_name` for the dev label.
+After verification, the newest Finder-friendly import copy is exported to `build/xpi/`, which has no leading-dot path segment. Use that visible folder when importing through Zotero's native plugin manager or when recording tutorial videos.
 
 Use the release path for final public artifacts:
 
@@ -103,6 +104,7 @@ npm run build:release:xpi
 ```
 
 Formal release commits must not depend on a `-dev` package version.
+Release builds also export their importable XPI and update manifest to `build/xpi/`.
 
 Local `.env` credentials are allowed only for agent-run real GUI/provider smoke so the user does not need to type keys repeatedly. They must stay ignored, must not be packaged, and must not be used as product defaults. The normal user path remains entering credentials in Zotero Settings.
 

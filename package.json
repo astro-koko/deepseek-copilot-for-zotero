@@ -19,9 +19,10 @@
   "scripts": {
     "start": "node scripts/dev-serve.mjs",
     "build": "node scripts/scaffold-build.mjs && tsc --noEmit",
-    "check": "npm run privacy:check && npm test && npm run build && npm run verify:xpi",
+    "check": "npm run privacy:check && npm test && npm run build && npm run verify:xpi && npm run export:xpi",
     "privacy:check": "node scripts/privacy-check.mjs",
-    "smoke:xpi": "npm run build && npm run verify:xpi",
+    "smoke:xpi": "npm run build && npm run verify:xpi && npm run export:xpi",
+    "export:xpi": "node scripts/export-build-artifact.mjs",
     "build:dev:xpi": "DS_COPILOT_BUILD_CHANNEL=dev DS_COPILOT_DEV_NUMBER=$(node scripts/dev-build-number.mjs) npm run smoke:xpi",
     "build:release:xpi": "DS_COPILOT_BUILD_CHANNEL=release npm run smoke:xpi",
     "verify:xpi": "node scripts/verify-build-artifact.mjs",
