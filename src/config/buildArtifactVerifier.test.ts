@@ -85,6 +85,33 @@ describe("build artifact verifier", () => {
     );
   });
 
+  it("requires bundled KaTeX assets for formula rendering", () => {
+    const context = buildVerificationContext({
+      buildRoot: "/tmp/deepseek-copliot-build",
+      pkg,
+      env: {},
+    });
+
+    expect(context.requiredFiles).toContain(
+      "/tmp/deepseek-copliot-build/addon/content/katex/katex.min.css",
+    );
+    expect(context.requiredFiles).toContain(
+      "/tmp/deepseek-copliot-build/addon/content/katex/fonts/KaTeX_Main-Regular.woff2",
+    );
+    expect(context.requiredFiles).toContain(
+      "/tmp/deepseek-copliot-build/addon/content/katex/LICENSE.txt",
+    );
+    expect(context.requiredArchiveEntries).toContain(
+      "content/katex/katex.min.css",
+    );
+    expect(context.requiredArchiveEntries).toContain(
+      "content/katex/fonts/KaTeX_Main-Regular.woff2",
+    );
+    expect(context.requiredArchiveEntries).toContain(
+      "content/katex/LICENSE.txt",
+    );
+  });
+
   it("rejects non-numeric dev build numbers before packaging", () => {
     expect(() =>
       buildAddonVersionMetadata({

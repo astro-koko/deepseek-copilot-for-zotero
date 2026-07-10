@@ -1,5 +1,7 @@
 /* Deepseek Copliot styles */
 
+@import url("chrome://zotero-ai-assistant/content/katex/katex.min.css");
+
 .ai-assistant-pane {
   display: flex;
   flex-direction: column;

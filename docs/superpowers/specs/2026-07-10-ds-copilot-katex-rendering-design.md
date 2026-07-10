@@ -104,6 +104,7 @@ The preferred first implementation is a committed `addon/content/katex/` asset d
 - `addon/content/styles.css`
 - `addon/content/katex/katex.min.css`
 - `addon/content/katex/fonts/*`
+- `addon/content/katex/LICENSE.txt`
 - `src/ui/components/ThreadView.tsx`
 - `src/ui/components/ThreadView.test.tsx`
 - `docs/superpowers/specs/2026-07-10-ds-copilot-katex-rendering-design.md`

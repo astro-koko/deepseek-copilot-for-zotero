@@ -173,9 +173,9 @@ describe("ThreadView markdown rendering", () => {
     );
 
     expect(markup).toContain("ai-assistant-math-block");
-    expect(markup).toContain("C_F(q, y)");
-    expect(markup).toContain("\\epsilon^2_{FG}");
-    expect(markup).toContain("\\sum_X");
+    expect(markup).toContain("katex-display");
+    expect(markup).toContain("katex-html");
+    expect(markup).toContain("mathnormal");
     expect(markup).not.toContain("$$");
     expect(markup).not.toContain("\\\\epsilon");
   });
@@ -195,8 +195,47 @@ describe("ThreadView markdown rendering", () => {
     );
 
     expect(markup).toContain("ai-assistant-math-inline");
-    expect(markup).toContain("\\epsilon_{FG}=1");
+    expect(markup).toContain("katex");
+    expect(markup).toContain("katex-html");
     expect(markup).not.toContain("$\\\\epsilon");
+  });
+
+  it("keeps malformed math visible instead of throwing", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-assistant",
+            role: "assistant",
+            content: "坏公式 $\\notacommand{$ 也不能炸掉线程。",
+            timestamp: 1,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup).toContain("ai-assistant-math-inline");
+    expect(markup).toContain("katex-error");
+    expect(markup).toContain("notacommand");
+    expect(markup).toContain("也不能炸掉线程");
+  });
+
+  it("typesets streaming math through the same renderer", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        streamingMessage: {
+          content: "流式输出 $\\alpha + \\beta$",
+          reasoningContent: "$$\\sum_i x_i$$",
+          statusLabel: "Responding",
+        },
+        thread: makeThread([]),
+      }),
+    );
+
+    expect(markup).toContain("Responding");
+    expect(markup).toContain("katex");
+    expect(markup).toContain("katex-display");
+    expect(markup).not.toContain("$$");
   });
 
   it("leaves dollar signs inside fenced code blocks as code", () => {

@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from "react";
+import katex from "katex";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
@@ -436,6 +437,21 @@ function normalizeMathText(value: string): string {
   return value.trim().replace(/\\\\(?=[A-Za-z])/g, "\\");
 }
 
+function renderMathHtml(value: string, display: boolean): string {
+  try {
+    return katex.renderToString(value, {
+      displayMode: display,
+      errorColor: "#b42318",
+      output: "htmlAndMathml",
+      strict: "warn",
+      throwOnError: false,
+      trust: false,
+    });
+  } catch {
+    return "";
+  }
+}
+
 function renderInlineMath(
   children: React.ReactNode,
   theme: ReturnType<typeof getSidebarTheme>,
@@ -471,23 +487,41 @@ const MathMessageSegment: React.FC<{
   display: boolean;
   theme: ReturnType<typeof getSidebarTheme>;
   value: string;
-}> = ({ display, theme, value }) =>
-  display ? (
-    <div
-      className="ai-assistant-math-block"
-      style={{
-        ...styles.mathBlock,
-        background: theme.panelBackground,
-        borderColor: theme.softBorder,
-      }}
-    >
-      {value}
-    </div>
+}> = ({ display, theme, value }) => {
+  const renderedMath = renderMathHtml(value, display);
+
+  if (display) {
+    const displayStyle = {
+      ...styles.mathBlock,
+      background: theme.panelBackground,
+      borderColor: theme.softBorder,
+    };
+
+    return renderedMath ? (
+      <div
+        className="ai-assistant-math-block"
+        style={displayStyle}
+        dangerouslySetInnerHTML={{ __html: renderedMath }}
+      />
+    ) : (
+      <div className="ai-assistant-math-block" style={displayStyle}>
+        {value}
+      </div>
+    );
+  }
+
+  return renderedMath ? (
+    <span
+      className="ai-assistant-math-inline"
+      style={styles.mathInline}
+      dangerouslySetInnerHTML={{ __html: renderedMath }}
+    />
   ) : (
     <span className="ai-assistant-math-inline" style={styles.mathInline}>
       {value}
     </span>
   );
+};
 
 const MarkdownMessage: React.FC<{
   content: string;
@@ -614,17 +648,13 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "7px 8px",
     border: "1px solid transparent",
     borderRadius: "4px",
-    fontFamily:
-      'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
     fontSize: typography.body,
     lineHeight: 1.45,
     overflowX: "auto",
-    whiteSpace: "pre",
+    overflowY: "hidden",
   },
   mathInline: {
-    fontFamily:
-      'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
-    fontSize: "0.98em",
+    fontSize: "1em",
     whiteSpace: "nowrap",
   },
   timestamp: {

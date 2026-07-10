@@ -15,7 +15,7 @@
 - `src/ui/components/ThreadView.tsx`: owns chat message Markdown and math rendering.
 - `src/ui/components/ThreadView.test.tsx`: owns server-rendered regression tests for Markdown, formula segmentation, KaTeX markup, malformed formulas, and streaming content.
 - `addon/content/styles.css`: loads plugin CSS and imports bundled KaTeX CSS.
-- `addon/content/katex/`: bundled KaTeX CSS and fonts copied from `node_modules/katex/dist`.
+- `addon/content/katex/`: bundled KaTeX CSS, fonts, and license copied from `node_modules/katex`.
 - `package.json`: adds `katex`.
 - `package-lock.json`: locks the installed KaTeX package.
 - `scripts/verify-build-artifact-lib.mjs`: optionally verifies KaTeX archive entries if the existing verifier does not.
@@ -23,6 +23,7 @@
 ## Task 1: Add KaTeX Rendering Tests
 
 **Files:**
+
 - Modify: `src/ui/components/ThreadView.test.tsx`
 
 - [ ] **Step 1: Write failing KaTeX tests**
@@ -122,6 +123,7 @@ Expected: the new tests fail because current formula rendering emits plain text 
 ## Task 2: Add KaTeX Dependency And Assets
 
 **Files:**
+
 - Modify: `package.json`
 - Modify: `package-lock.json`
 - Modify: `addon/content/styles.css`
@@ -146,9 +148,10 @@ Run:
 mkdir -p addon/content/katex
 cp node_modules/katex/dist/katex.min.css addon/content/katex/katex.min.css
 cp -R node_modules/katex/dist/fonts addon/content/katex/fonts
+cp node_modules/katex/LICENSE addon/content/katex/LICENSE.txt
 ```
 
-Expected: `addon/content/katex/katex.min.css` and font files exist.
+Expected: `addon/content/katex/katex.min.css`, font files, and `addon/content/katex/LICENSE.txt` exist.
 
 - [ ] **Step 3: Load KaTeX CSS from plugin stylesheet**
 
@@ -163,6 +166,7 @@ Expected: Zotero loads KaTeX styles through the same stylesheet registration use
 ## Task 3: Render Math Segments With KaTeX
 
 **Files:**
+
 - Modify: `src/ui/components/ThreadView.tsx`
 
 - [ ] **Step 1: Import KaTeX**
@@ -268,6 +272,7 @@ Expected: all `ThreadView` tests pass.
 ## Task 4: Package Verification
 
 **Files:**
+
 - Modify only if needed: `scripts/verify-build-artifact-lib.mjs`
 
 - [ ] **Step 1: Build a dev XPI**
@@ -298,6 +303,7 @@ If `verify:xpi` does not check KaTeX assets, add required archive entries in `sc
 ## Task 5: Full Automated Verification
 
 **Files:**
+
 - No source changes unless failures reveal bugs in this branch.
 
 - [ ] **Step 1: Run focused formula and prompt tests**
@@ -334,6 +340,7 @@ Expected: build and packaged verification pass. If `npm run check` fails only be
 ## Task 6: Real Zotero Dev XPI Smoke
 
 **Files:**
+
 - Create or update smoke evidence note only if this branch already uses a smoke evidence file. Otherwise record evidence in the final report.
 
 - [ ] **Step 1: Prove the XPI path and hash**
@@ -378,6 +385,7 @@ Restart Zotero and repeat:
 ## Task 7: Prepare Release Next Step
 
 **Files:**
+
 - Modify later: `CHANGELOG.md`
 - Modify later: `package.json`
 
