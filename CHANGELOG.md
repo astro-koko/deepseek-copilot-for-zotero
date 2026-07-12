@@ -3,6 +3,8 @@
 ## v0.9.9
 
 - Added bundled KaTeX rendering for inline and display formulas in chat messages.
+- Added a fallback renderer for common model drift where short LaTeX formulas are emitted as bare parenthesized fragments such as `(A_X)`, `(\varepsilon_{\rm FG})`, and `(k_{\rm FG})`.
+- Tightened the DeepSeek system prompt so generated answers prefer `$...$` for every inline formula, including formulas inside lists, tables, and parentheses.
 - Exported verified dev and release XPI builds to the visible `build/xpi/` folder for Finder-based Zotero imports.
 
 ## v0.9.8

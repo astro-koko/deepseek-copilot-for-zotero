@@ -22,6 +22,7 @@
 - 在多篇论文或多个 PDF 标签之间切换时，按当前文献保持各自会话
 - 通过 `/` 快捷命令快速触发总结、解释、方法拆解、研究局限等常用操作
 - 在设置页编辑默认命令，或新增自己的自定义命令
+- 在聊天回答中渲染 LaTeX 公式，支持行内公式和独立公式块
 - 更适合快速读懂论文主旨、方法、结论和细节
 - 需要时可以开启联网查证
 
@@ -42,12 +43,12 @@
 
 ## 当前版本
 
-当前稳定版本是 `v0.9.8`。这一版是 Zotero 7、8、9、10 共用的统一发布包，用同一个 XPI 和同一个版本号发布：
+当前稳定版本是 `v0.9.9`。这一版继续使用 Zotero 7、8、9、10 共用的统一发布包，用同一个 XPI 和同一个版本号发布：
 
-- 将公开发布包的 Zotero 兼容范围设为 Zotero `7.0` 到 `10.*`
-- Zotero 7、8、9、10 都使用 `Deepseek.Copliot-0.9.8.xpi`，不拆分不同版本号
-- Zotero 10 beta 已完成 packaged smoke：插件管理器、设置页、文库右侧面板、阅读器右侧面板、选中文本弹窗和右键菜单均通过
-- 增加插件市场 feed 检查命令，确认 Zotero Chinese / Add-on Market 数据源是否已经收录对应 Zotero 目标
+- Zotero 7、8、9、10 都使用 `Deepseek.Copliot-0.9.9.xpi`，不拆分不同版本号
+- 新增内置 KaTeX 渲染，聊天回答中的 `$...$` 行内公式和 `$$...$$` 独立公式会直接显示为公式
+- 对模型偶尔输出的裸括号公式做兜底渲染，例如 `(A_X)`、`(\varepsilon_{\rm FG})` 和 `(k_{\rm FG})`
+- 保持开发测试包和正式发布包同源：测试通过后，正式包只更换版本元数据，不再改动功能代码
 
 ## 第一次使用
 
@@ -72,10 +73,10 @@
 5. 选中下载好的 `.xpi` 文件并完成安装。
 6. 重启 Zotero。
 
-当前稳定版本是 `v0.9.8`，手动安装文件名为 `Deepseek.Copliot-0.9.8.xpi`。
+当前稳定版本是 `v0.9.9`，手动安装文件名为 `Deepseek.Copliot-0.9.9.xpi`。
 
 ## 微信群交流
 
-欢迎大家进入微信群交流：
+欢迎大家进入微信群交流。下面的二维码有效期至 `2026-07-19`：
 
-<img src="docs/community/assets/deepseek-copilot-wechat-group-2026-07-08.jpg" alt="Deepseek Copliot 微信交流群二维码" width="360">
+<img src="docs/community/assets/deepseek-copilot-wechat-group-2026-07-19.jpg" alt="Deepseek Copliot 微信交流群二维码" width="360">
