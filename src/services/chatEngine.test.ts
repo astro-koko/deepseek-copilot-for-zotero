@@ -132,6 +132,8 @@ describe("chatEngine", () => {
     const [messages] = providerMocks.sendChat.mock.calls[0] || [];
     expect(messages[0].content).toContain("$...$");
     expect(messages[0].content).toContain("$$...$$");
+    expect(messages[0].content).toContain("lists, tables, or parentheses");
+    expect(messages[0].content).toContain("bare parenthetical text");
     expect(messages[0].content).toContain("single LaTeX backslashes");
     expect(messages[0].content).toContain("Do not double-escape");
   });

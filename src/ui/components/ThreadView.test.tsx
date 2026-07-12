@@ -225,6 +225,55 @@ describe("ThreadView markdown rendering", () => {
     expect(markup).not.toContain("$l_p$");
   });
 
+  it("renders bare parenthesized formula fragments from model drift", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-assistant",
+            role: "assistant",
+            content: [
+              "- (q, y) 是角向和径向的傅里叶波数。",
+              "- (\\\\varepsilon_{\\\\rm FG}) 是全局前景去除效率参数，(\\\\varepsilon_{\\\\rm FG} \\\\lesssim 10^{-5}) 才能有效提取信号。",
+              "- (A_X, n_X, m_X) 是每种前景成分的振幅和谱指数。",
+              "",
+              "| 前景成分 | (A_X) [mK²] | (n_X) | (m_X) |",
+              "| - | - | - | - |",
+              "| 河外点源 | 57.0 | 1.1 | 2.07 |",
+              "",
+              "2. 径向大尺度截断 (k_{\\\\rm FG})",
+            ].join("\n"),
+            timestamp: 1,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup.match(/ai-assistant-math-inline/g)?.length).toBe(8);
+    expect(markup).toContain("katex-html");
+  });
+
+  it("does not treat ordinary parenthetical prose as math", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-assistant",
+            role: "assistant",
+            content:
+              "论文在 Section 2.3 (Foreground model) 和 Santos et al. (2005) 中讨论背景，样本范围为 (10-25)。",
+            timestamp: 1,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup).not.toContain("ai-assistant-math-inline");
+    expect(markup).toContain("(Foreground model)");
+    expect(markup).toContain("(2005)");
+    expect(markup).toContain("(10-25)");
+  });
+
   it("keeps rendered chat message text selectable", () => {
     const markup = renderToStaticMarkup(
       React.createElement(ThreadView, {

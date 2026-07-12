@@ -424,6 +424,11 @@ function findNextInlineMath(
       }
     }
 
+    const bareParenthetical = readBareParenthesizedMath(text, index);
+    if (bareParenthetical) {
+      return bareParenthetical;
+    }
+
     index += 1;
   }
 
@@ -443,6 +448,63 @@ function findClosingSingleDollar(text: string, fromIndex: number): number {
     index += 1;
   }
   return -1;
+}
+
+function readBareParenthesizedMath(
+  text: string,
+  start: number,
+): { start: number; end: number; value: string } | null {
+  const open = text[start];
+  const close = open === "(" ? ")" : open === "（" ? "）" : "";
+  if (!close) {
+    return null;
+  }
+
+  const closeStart = text.indexOf(close, start + 1);
+  if (closeStart < 0) {
+    return null;
+  }
+
+  const value = text.slice(start, closeStart + 1);
+  const inner = value.slice(1, -1);
+  if (!isBareParenthesizedMath(inner)) {
+    return null;
+  }
+
+  return {
+    start,
+    end: closeStart + 1,
+    value,
+  };
+}
+
+function isBareParenthesizedMath(inner: string): boolean {
+  const value = normalizeMathText(inner).trim();
+  if (!value || value.length > 120) {
+    return false;
+  }
+
+  if (/[\u3400-\u9fff]/.test(value)) {
+    return false;
+  }
+
+  if (/https?:|www\.|@/.test(value)) {
+    return false;
+  }
+
+  if (!/^[A-Za-z0-9\\{}_\^,\s.=+\-*/<>≤≥≲≳~]+$/.test(value)) {
+    return false;
+  }
+
+  if (!/[A-Za-z\\]/.test(value)) {
+    return false;
+  }
+
+  if (/\\[A-Za-z]+|[_^{}=+\-*/<>≤≥≲≳~]/.test(value)) {
+    return true;
+  }
+
+  return /^[A-Za-z](?:\s*,\s*[A-Za-z])+$/.test(value);
 }
 
 function normalizeMathText(value: string): string {
