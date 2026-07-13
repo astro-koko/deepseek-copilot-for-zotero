@@ -1,158 +1,163 @@
-# Deepseek Copliot Product Demo Video Design
+# Deepseek Copliot 产品演示视频设计稿
 
-Status: Proposed, awaiting review
-Owner: Product and video production
-Related issue: Product introduction video
-Target release: 1-minute product demo for Bilibili and Xiaohongshu
+状态：已修订，等待确认
+负责人：产品与视频制作
+关联事项：产品宣传视频
+交付目标：面向 B 站与小红书的横屏产品演示视频
 
-## Problem
+## 问题
 
-New graduate students who read papers in Zotero may be interested in AI assistance but hesitate when setup looks opaque or the product appears to be a generic chat window. The product needs a short, credible demonstration of its actual Zotero-native workflow: configuration guidance, in-context questions from the Reader sidebar, reusable slash commands, and whole-paper interpretation.
+对于刚开始建立科研工作流、但已经需要高频阅读文献的研究生而言，AI 辅助阅读的吸引力很强，但复杂、分散的配置会在真正开始读论文之前就制造阻力。即使安装了插件，用户也未必知道它和普通聊天框有什么差别。
 
-Existing personal-library recordings are unsuitable as source material because titles, notes, items, conversation history, and document content make the screen visually noisy and may expose private material.
+产品需要一条短视频，以可见、连续的 Zotero 操作证明四件事：配置有引导且相关链接可直达；可在 Reader 中选中文字并在侧边栏追问；常用阅读任务已有快捷命令；可以围绕当前论文完成整篇解读。
 
-## Goals
+个人文献库不适合作为素材来源：条目、笔记、会话、文件名和论文内容杂乱，也可能泄露隐私。因此，真实产品画面必须来自一个干净、独立的演示环境。
 
-- Produce a 55-59 second, 16:9 horizontal product demo suitable for Bilibili and Xiaohongshu.
-- Make the software functions, not abstract AI claims, the center of every scene.
-- Establish that the plugin is designed for Zotero paper reading and has a low-friction configuration path.
-- Demonstrate selection-to-sidebar questioning, slash commands, and a whole-paper reading workflow.
-- Use smooth, restrained motion to guide attention without obscuring the genuine product UI.
-- Provide an AI voice-over script aligned to the final shot timing.
+## 目标
 
-## Non-goals
+- 制作一条 `16:9` 横屏产品演示视频，适合 B 站与小红书发布。
+- 成片以 45-60 秒为目标，不为凑时长或卡死在 59 秒而压缩关键操作；最终以功能讲清、口播自然为准，仍保持在 1 分钟以内。
+- 让用户看到软件功能，而非泛泛的 AI 概念或模型能力宣传。
+- 传达“配置门槛低”和“阅读动作不断流”两项产品价值。
+- 真实展示配置引导、侧边栏画词提问、快捷命令和整篇解读。
+- 使用丝滑但克制的动态设计，让注意力始终落在实际 Zotero 界面和具体操作上。
+- 提供与最终镜头时长匹配的中文 AI 配音稿和字幕稿。
 
-- Do not create a full installation tutorial, feature inventory, comparison video, or benchmark of model quality.
-- Do not show personal library data, API keys, chat history, real account information, or an uncontrolled desktop.
-- Do not make unverified claims that all model inference is free. The supported claim is that the plugin is free to use; model-provider billing remains determined by the user's API configuration.
-- Do not replace the product UI with a fictional AI-generated interface.
+## 非目标
 
-## Audience
+- 不制作完整安装教程、功能清单、竞品对比或模型能力测评。
+- 不展示个人文献库、API Key、真实账户、私密聊天记录或杂乱桌面。
+- 不宣称所有模型调用都免费。可确认的表达是“插件免费使用”；模型服务是否收费取决于用户所选 API 服务商与账户。
+- 不用 AI 生成一套看似真实但并不存在的 Deepseek Copliot 界面。
 
-The primary audience is graduate students who are new to structured research workflows but frequently read papers, especially English-language papers. They need confidence that the tool can be configured without a detour and will remain useful during ordinary close reading.
+## 受众
 
-## User Workflow
+主要受众是刚开始建立文献阅读工作流、但已需要频繁阅读尤其是英文论文的研究生。他们需要确认两件事：这个插件不会让配置成为新负担，并且它能在日常精读的具体节点提供帮助。
 
-1. Viewer recognizes the friction of facing a dense English paper.
-2. Viewer sees configuration guidance and relevant provider links presented in the Zotero plugin settings.
-3. Viewer sees the plugin available in Zotero's native Reader right sidebar.
-4. Viewer sees a selected passage become a contextual sidebar question and a readable explanation.
-5. Viewer sees recurring reading tasks available as slash commands.
-6. Viewer sees one command turn the current paper into a structured whole-paper interpretation.
-7. Viewer receives a concise call to action naming the product and its free plugin availability.
+## 观众路径
 
-## Creative Direction
+1. 观众看到一篇难读的英文论文，代入阅读受阻的时刻。
+2. 观众看到插件设置中清晰的配置引导和可跳转的相关入口。
+3. 观众看到插件位于 Zotero Reader 原生右侧栏，而不是跳去另一个工具。
+4. 观众看到所选段落直接带入侧边栏问题，并得到清晰解释。
+5. 观众看到高频阅读任务可以通过斜杠快捷命令触发。
+6. 观众看到一个命令把当前论文组织为整篇解读。
+7. 观众记住产品名以及“插件免费使用”的核心信息。
 
-Use a continuous first-person research-reading flow rather than isolated screens or a competing-product comparison. The hook is: "Reading papers should not begin by learning complicated setup." The promise is: "Guidance and useful reading actions are already in Zotero where the paper is open."
+## 创意方向
 
-The visual language is calm and software-native:
+采用“连续阅读体验”而非功能快闪或竞品对比：同一篇论文、同一个阅读者、同一条操作流贯穿全片。开头的钩子是“读论文，不该先被复杂配置劝退”；随后立即证明产品怎样让配置和阅读动作都留在 Zotero 内完成。
 
-- The Zotero interface owns the frame.
-- Motion is limited to 1.12x-1.35x focal zooms, subtle dimming outside the active control, cursor movement, and short text callouts.
-- Each feature change is connected through the same paper, keeping the mental model continuous.
-- Captions use high-contrast Chinese text with no more than two lines at a time.
-- Decorative transitions, floating generic AI imagery, and an oversized marketing hero are excluded.
+画面语言保持安静、软件原生、易看清：
 
-## Storyboard And Voice-over
+- Zotero 界面是绝对主角，画面不出现泛化的 AI 装饰图。
+- 动效仅用于导视：1.12-1.35 倍聚焦放大、非重点区域弱化、自然的鼠标移动、短句标注。
+- 功能切换都围绕同一篇论文发生，避免观众重新建立上下文。
+- 中文字幕保持高对比度、每次不超过两行，并避开正在操作的控件。
+- 不使用华而不实的转场、夸张宣传页或大面积浮层卡片。
 
-| Time | Product visual | On-screen copy | AI voice-over |
+## 分镜与中文配音
+
+下表是可伸缩的节奏参考。实际剪辑中，配置和回答出现的停留时间可根据录屏清晰度在 45-60 秒总长内调整；功能顺序不变。
+
+| 节奏段 | 产品画面 | 屏幕文字 | AI 配音 |
 | --- | --- | --- | --- |
-| 0-4s | A clean academic PDF opens in Zotero Reader; a difficult sentence is in view. | 读论文，别先被配置劝退 | "读论文，最难的有时不是论文，而是开始前那一串配置。" |
-| 4-11s | Plugin settings page: configuration guidance and provider links are individually focused. | 配置有引导，链接直接可达 | "Deepseek Copliot 把配置引导和相关入口整理在 Zotero 里，跟着做就能开始。" |
-| 11-18s | A safe mock configuration is completed; success state transitions back to Reader. No key is shown. | 几步完成，回到阅读 | "完成必要设置后，你不需要离开文献库。" |
-| 18-30s | A sentence is selected in the Reader. The native right sidebar opens, receives the passage context, and the user asks for an explanation. | 画词提问，就在侧边栏 | "遇到读不懂的句子，划选以后就在侧边栏继续问。上下文跟着当前论文走。" |
-| 30-39s | A structured reply appears; method, logic, and terminology are visually emphasized. | 方法、逻辑、术语，逐层讲清 | "它把复杂的表达拆成你真正需要理解的方法、逻辑和术语。" |
-| 39-48s | The composer receives `/`; command menu reveals a small set: summary, explain, method breakdown, research limitations. One command is selected. | 常用问题，一条命令 | "总结、解释、方法拆解、研究局限，这些常用问题已经准备成快捷命令。" |
-| 48-54s | The selected command produces a compact structured whole-paper interpretation. | 从一句话，到整篇论文 | "从一句话，到一整篇论文，都能在同一个阅读流程里推进。" |
-| 54-59s | Product name and actual Zotero right sidebar remain visible; clean CTA appears. | Deepseek Copliot<br>免费使用的 Zotero AI 阅读助手 | "Deepseek Copliot，免费使用的 Zotero AI 阅读助手。" |
+| 开头，约 3-5 秒 | Zotero Reader 打开干净的学术 PDF，一句较难的英文方法描述处于画面中央。 | 读论文，别先被配置劝退 | “读论文，最难的有时不是论文，而是开始前那一串配置。” |
+| 配置引导，约 7-12 秒 | 插件设置页。配置说明和相关链接依次被聚焦，显示用户能自己找到下一步。 | 配置有引导，链接直接可达 | “Deepseek Copliot 把配置引导和相关入口整理在 Zotero 里，跟着做就能开始。” |
+| 配置完成，约 4-7 秒 | 安全的模拟配置完成，成功状态过渡回 Reader。绝不显示密钥。 | 几步完成，回到阅读 | “完成必要设置后，你不需要离开文献库。” |
+| 画词提问，约 9-13 秒 | 在 Reader 选中一句话，原生右侧栏出现并承接所选文本。用户输入“这段方法具体在做什么？”。 | 画词提问，就在侧边栏 | “遇到读不懂的句子，划选以后就在侧边栏继续问。上下文跟着当前论文走。” |
+| 回答展示，约 6-10 秒 | 结构化回答逐步出现，重点突出方法、逻辑和术语。 | 方法、逻辑、术语，逐层讲清 | “它把复杂的表达，拆成你真正需要理解的方法、逻辑和术语。” |
+| 快捷命令，约 7-10 秒 | 输入 `/`，命令菜单显示“总结、解释、方法拆解、研究局限”等少量高频命令，并选中一个。 | 常用问题，一条命令 | “总结、解释、方法拆解、研究局限，这些常用问题已经准备成快捷命令。” |
+| 整篇解读，约 5-8 秒 | 选中的命令生成紧凑的整篇论文结构化解读。 | 从一句话，到整篇论文 | “从一句话，到一整篇论文，都能在同一个阅读流程里推进。” |
+| 结尾，约 3-5 秒 | 保留实际 Zotero 右侧栏和产品名，出现干净的下载或了解更多入口。 | Deepseek Copliot<br>免费使用的 Zotero AI 阅读助手 | “Deepseek Copliot，免费使用的 Zotero AI 阅读助手。” |
 
-## Asset Strategy
+## 素材策略
 
-### Clean Demonstration Profile
+### 干净的演示 Profile
 
-Create a dedicated local demo profile and a dedicated Zotero data directory. It must not reuse the personal library, development profile, release-smoke profile, cookie store, or existing Deepseek Copliot conversation data.
+创建一个独立的本地演示 Profile 和一个独立 Zotero 数据目录。它不复用个人库、日常开发 Profile、公开发布烟测 Profile、Cookie 或已有 Deepseek Copliot 会话数据。
 
-The recording library contains only:
+演示库只包含：
 
-- one or two open-access or author-created demonstration PDFs;
-- synthetic, neutral metadata and collections;
-- a small number of carefully named items;
-- intentionally created demonstration questions and answers with no personal data.
+- 一到两篇开放获取或为演示制作的 PDF；
+- 合成、无个人信息的收藏夹和条目元数据；
+- 数量极少且命名规整的文献条目；
+- 专为视频准备的、无隐私内容的提问和回答。
 
-API keys are never recorded. The configuration scene uses masked input or a deliberate local mock state. If a real provider response is used for recording, a temporary key is entered manually only after the rest of the profile is prepared, then removed after capture.
+录屏中绝不显示 API Key。配置镜头使用掩码输入或刻意设计的本地模拟状态。若为了录制真实回答而必须调用服务商，只在 Profile 准备完成后手动填写临时密钥，并在录制结束后清理。
 
-### AI-Assisted Polish
+### AI 美化的边界
 
-AI-generated images may be used only as supporting presentation assets: a clean title background, a subtle paper thumbnail replacement, or a fully synthetic document preview. They must never represent an actual Deepseek Copliot screen or imply an unimplemented feature.
+AI 生成图片只用于辅助展示：干净的片头背景、替换后的论文缩略图，或完全虚构的论文预览。它们不可以伪装成 Deepseek Copliot 的实际界面，也不能暗示未实现的功能。
 
-For product screens, use real clean-profile captures. Remotion may crop, magnify, mask sensitive regions, recreate cursor movement, normalize colours, and add captions/callouts. It must not change feature controls, generate plausible-but-false responses, or conceal material UI failures.
+产品界面必须使用干净 Profile 中录到的真实画面。Remotion 可以裁切、放大、遮挡敏感区域、重建鼠标轨迹、统一颜色并添加字幕和标注；它不能修改控件、生成貌似可信但实际不存在的回答，或掩盖重要的界面异常。
 
-### Recording Requirements
+### 录屏要求
 
-- Record each feature as a separate clean clip at 1920x1080, with predictable window size and no desktop notifications.
-- Capture the native right-side pane in Reader, not a top-toolbar-only surface.
-- Keep each raw interaction 2-5 seconds longer than the final cut to leave room for easing.
-- Use a stable Chinese UI locale for all captures and captions.
+- 每个功能独立录成 `1920x1080` 原始片段，窗口尺寸固定，关闭桌面通知。
+- 关键交互必须录到 Reader 的原生右侧栏，不能用仅存在于顶部工具栏的替代入口。
+- 每段原始操作比最终片段多录 2-5 秒，为转场和缓动留出余量。
+- 所有界面和字幕统一使用中文。
 
-## Production Architecture
+## 制作方式
 
-Remotion is the deterministic finishing layer. It imports clean screen recordings and renders the final 1920x1080 composition with captions, callouts, zooms, cursor path overlays, audio sync, and timing-safe transitions.
+Remotion 是最终、可复现的合成层：导入干净录屏，完成 `1920x1080` 画面编排、字幕、标注、聚焦放大、鼠标轨迹、音画同步和稳定的转场。
 
-ChatCut is the editorial assistance layer. It creates the initial assembly from numbered clips and the approved voice-over script, generates an initial AI narration take, and helps locate natural cut points. The final video timing and visual treatment remain authored in Remotion so product UI callouts are reproducible.
+ChatCut 是剪辑辅助层：根据编号录屏和批准后的中文配音稿生成初剪，产出 AI 配音的初版，并帮助定位自然的剪辑点。最终时长、UI 标注和视觉处理仍在 Remotion 中完成，以确保所有产品强调都可控、可复现。
 
-The production inputs are:
+制作输入包括：
 
-1. clean-profile screen captures;
-2. the approved voice-over audio, with a calm, credible Mandarin voice;
-3. a caption sheet matched to narration phrases;
-4. optional supporting bitmap assets that have passed the AI-polish boundary above.
+1. 干净 Profile 中的产品录屏；
+2. 经确认的普通话 AI 配音；
+3. 与口播逐句对齐的字幕稿；
+4. 经过上述边界审查的可选位图辅助素材。
 
-## Scope And Boundaries
+## 范围与边界
 
-In scope:
+在范围内：
 
-- product message, final script, shot list, recording checklist, and video project;
-- separate local demo profile setup;
-- capture and compositing of actual plugin UI;
-- AI voice-over and captions.
+- 产品信息、定稿文案、分镜、录屏清单与视频工程；
+- 独立本地演示 Profile 的创建；
+- 真实插件界面的录制、剪辑和合成；
+- AI 配音和字幕。
 
-Out of scope:
+不在范围内：
 
-- changing plugin code, branding, package metadata, or production release behavior;
-- capturing or modifying the user's real library;
-- implying that a provider's API calls are universally free;
-- publishing the video or creating external accounts.
+- 修改插件代码、品牌、包元数据或正式发布行为；
+- 录制或改动用户的真实文献库；
+- 宣称 API 服务调用普遍免费；
+- 发布视频或创建外部平台账户。
 
-## Acceptance Criteria
+## 验收标准
 
-- Final duration is between 55 and 59 seconds.
-- Output is 1920x1080, 16:9, and readable without sound via Chinese captions.
-- The four planned product proofs appear clearly: configuration guidance, sidebar selection question, slash commands, whole-paper interpretation.
-- At least 80% of the visible duration is actual plugin/Zotero UI or tightly cropped detail from it.
-- No personal data, raw API key, private chat, or personal library content is visible.
-- The native Zotero Reader right sidebar is visible in the key interaction scenes.
-- Every product claim can be tied to a visible feature or to the approved pricing wording.
+- 主版时长在 45-60 秒范围内，且不超过 1 分钟；允许根据实际素材选择其中任意时长，不以 59 秒为唯一标准。
+- 输出为 `1920x1080`、`16:9`，即使静音观看也能通过中文字幕理解。
+- 配置引导、侧边栏画词提问、斜杠命令、整篇论文解读四项产品证明都清晰出现。
+- 至少 80% 的可见时长是实际插件/Zotero 界面，或由该界面紧凑裁切得到的细节画面。
+- 不出现个人数据、原始 API Key、私密聊天或个人文献库内容。
+- 关键交互镜头可见 Zotero Reader 原生右侧栏。
+- 每项产品表述都有可见功能支撑，或使用已确认的收费措辞。
 
-## Verification Plan
+## 验证计划
 
-- Review a draft at 1x speed with sound and without sound.
-- Confirm captions remain readable at 1280x720 and do not cover the active control.
-- Check every configuration frame at 200% for keys, personal metadata, file paths, notifications, and unreadable text.
-- Verify all feature shots against the clean profile before final render.
-- Render an H.264 MP4 from Remotion, inspect it on a desktop player, then review the final duration and audio peak levels.
+- 以 1 倍速带声音和静音各审看一次草稿。
+- 在 `1280x720` 下确认字幕可读，且不遮挡正在操作的控件。
+- 逐帧放大配置镜头，检查密钥、个人元数据、文件路径、通知和不可读的小字。
+- 最终渲染前，回到干净 Profile 对照每个功能镜头。
+- 从 Remotion 渲染 H.264 MP4，在桌面播放器审看时长、口播清晰度和音量峰值。
 
-## Risks And Mitigations
+## 风险与应对
 
-| Risk | Mitigation |
+| 风险 | 应对 |
 | --- | --- |
-| Personal library data leaks into a capture. | Use a separate profile and dedicated data directory; do not open the personal profile during recording. |
-| AI polish makes the UI look fabricated. | Capture real product UI first; restrict generated assets to support material only. |
-| Voice-over is too dense for one minute. | Keep each narration line tied to one visible action and cap the script to about 160 Chinese characters. |
-| "Free" is understood as model inference being free. | State "插件免费使用" or "免费使用的 Zotero AI 阅读助手"; add a pricing note only if the final distribution context requires it. |
-| The video becomes a configuration tutorial. | Limit configuration proof to 14 seconds and return immediately to reading actions. |
+| 个人库数据意外出现在录屏中。 | 仅使用独立 Profile 和独立数据目录；录制期间不打开个人 Profile。 |
+| AI 美化让界面看起来像伪造。 | 先录真实产品界面；生成内容仅作为辅助素材。 |
+| 口播在一分钟内过密。 | 一句口播只对应一个可见动作；主版按 45-60 秒弹性剪辑，而不是硬塞进固定秒数。 |
+| “免费”被理解为模型调用也免费。 | 使用“插件免费使用”或“免费使用的 Zotero AI 阅读助手”；发布页需要时补充服务商计费说明。 |
+| 视频变成配置教学。 | 配置只证明“有引导、能完成”，随即回到阅读场景。 |
 
-## Open Questions
+## 待确认事项
 
-- Select the final example paper and whether it should be an open-access real paper or a fully synthetic paper designed for legibility.
-- Confirm the preferred AI voice: neutral female, neutral male, or a defined reference voice.
-- Confirm whether the final call to action points to GitHub, a Zotero plugin marketplace listing, or another existing public destination.
+- 最终示例论文采用开放获取的真实论文，还是采用为清晰演示而制作的合成论文。
+- AI 配音偏好：中性女声、中性男声，或指定参考音色。
+- 结尾入口指向 GitHub、Zotero 插件市场页面，还是已有的其他公开下载地址。
