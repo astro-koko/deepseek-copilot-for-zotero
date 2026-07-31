@@ -141,6 +141,15 @@ describe("Sidebar recent thread layout", () => {
     expect(sidebarSource).not.toContain("composerSection:");
   });
 
+  it("observes native pane width and switches to a compact sidebar layout", () => {
+    expect(sidebarSource).toContain("ResizeObserver");
+    expect(sidebarSource).toContain("resolveSidebarLayout(width)");
+    expect(sidebarSource).toContain("data-ai-assistant-sidebar-layout");
+    expect(sidebarSource).toContain("headerActionsCompact");
+    expect(sidebarSource).toContain("headerActionsDense");
+    expect(sidebarSource).toContain("scopeLabelCompact");
+  });
+
   it("gates the intro copy behind the empty-conversation state flag", () => {
     expect(sidebarSource).toContain("{model.showIntroSection && (");
     expect(sidebarSource).toContain("{model.showSuggestedActions && (");

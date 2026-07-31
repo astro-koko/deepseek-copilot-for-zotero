@@ -174,6 +174,67 @@ describe("chatSession", () => {
     });
   });
 
+  it("coalesces a burst of streaming chunks into at most three rendered content updates", async () => {
+    const scope = makeScope();
+    const chunks = Array.from({ length: 500 }, () => "x");
+    const fullResponse = chunks.join("");
+    const emptyThread = makeThread({ scopeSnapshot: scope });
+    const threadWithUser = makeThread({
+      scopeSnapshot: scope,
+      messages: [
+        {
+          id: "msg-user-1",
+          role: "user",
+          content: "Translate this",
+          timestamp: 2,
+        },
+      ],
+      updatedAt: 2,
+    });
+    const finalThread = makeThread({
+      scopeSnapshot: scope,
+      messages: [
+        ...threadWithUser.messages,
+        {
+          id: "msg-assistant-1",
+          role: "assistant",
+          content: fullResponse,
+          timestamp: 3,
+        },
+      ],
+      updatedAt: 3,
+    });
+    const appendMessage = vi
+      .fn()
+      .mockResolvedValueOnce(threadWithUser)
+      .mockResolvedValueOnce(finalThread);
+    const store = createChatSessionStore({
+      appendMessage,
+      createThread: vi.fn().mockResolvedValue(emptyThread),
+      recordScopeTransition: vi.fn(),
+      sendChatMessage: vi.fn().mockResolvedValue({
+        abort: vi.fn(),
+        stream: streamChunks(...chunks),
+      }),
+    });
+    const streamedSnapshots: ReturnType<typeof store.getSnapshot>[] = [];
+    store.subscribe(() => {
+      const snapshot = store.getSnapshot();
+      if (snapshot.isStreaming && snapshot.streamingContent) {
+        streamedSnapshots.push(snapshot);
+      }
+    });
+
+    await store.send("Translate this", scope);
+
+    expect(streamedSnapshots).toHaveLength(3);
+    expect(streamedSnapshots).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ streamingContent: fullResponse }),
+      ]),
+    );
+  });
+
   it("clears an active thread when syncing to a different document scope", async () => {
     const initialScope = makeScope();
     const nextScope = makeScope({

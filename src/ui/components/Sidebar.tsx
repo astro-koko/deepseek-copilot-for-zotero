@@ -45,6 +45,7 @@ import { isChineseLocale } from "../../utils/locale";
 import { createHostEvent } from "../../utils/domEvents";
 import { debugLog } from "../../utils/debugLog";
 import { isSidebarLocationSelected } from "../sidebarSection";
+import { resolveSidebarLayout } from "../sidebarLayout";
 
 const BRAND_ICON_SRC =
   "chrome://zotero-ai-assistant/content/icons/deepseek-favicon.png";
@@ -63,6 +64,47 @@ function isSupportedChatScope(
   scope: ScopeContext | null,
 ): scope is ScopeContext {
   return scope?.type === "paper" || scope?.type === "pdf";
+}
+
+function useResponsiveSidebarLayout(hostWindow: Window) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) {
+      return;
+    }
+
+    const updateWidth = (nextWidth = root.getBoundingClientRect().width) => {
+      setWidth((currentWidth) =>
+        currentWidth === nextWidth ? currentWidth : nextWidth,
+      );
+    };
+
+    updateWidth();
+
+    const ResizeObserverConstructor = (
+      hostWindow as Window & {
+        ResizeObserver?: typeof ResizeObserver;
+      }
+    ).ResizeObserver;
+    if (ResizeObserverConstructor) {
+      const observer = new ResizeObserverConstructor((entries) => {
+        updateWidth(entries[0]?.contentRect.width);
+      });
+      observer.observe(root);
+      return () => observer.disconnect();
+    }
+
+    hostWindow.addEventListener("resize", updateWidth);
+    return () => hostWindow.removeEventListener("resize", updateWidth);
+  }, [hostWindow]);
+
+  return {
+    layout: resolveSidebarLayout(width),
+    rootRef,
+  };
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -89,6 +131,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [composerFocusNonce, setComposerFocusNonce] = useState(0);
   const [themeRefreshKey, setThemeRefreshKey] = useState(0);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
+  const { layout: sidebarLayout, rootRef: sidebarRootRef } =
+    useResponsiveSidebarLayout(hostWindow);
+  const isCompactSidebar = sidebarLayout !== "regular";
+  const isDenseSidebar = sidebarLayout === "dense";
   const scopeSyncVersionRef = useRef(0);
   const zh = isChineseLocale();
 
@@ -499,9 +545,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <SidebarErrorBoundary>
       <div
+        ref={sidebarRootRef}
         key={themeRefreshKey}
+        data-ai-assistant-sidebar-layout={sidebarLayout}
         style={{
           ...styles.container,
+          ...(isCompactSidebar ? styles.containerCompact : {}),
           background: theme.background,
           color: theme.text,
         }}
@@ -509,11 +558,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div
         style={{
           ...styles.header,
+          ...(isCompactSidebar ? styles.headerCompact : {}),
           background: theme.background,
           borderBottomColor: theme.border,
         }}
       >
-        <div style={styles.headerMain}>
+        <div
+          style={{
+            ...styles.headerMain,
+            ...(isCompactSidebar ? styles.headerMainCompact : {}),
+          }}
+        >
           <div style={styles.headerBrand}>
             <img alt="" src={BRAND_ICON_SRC} style={styles.headerBrandIcon} />
             <div style={{ ...styles.headerTitle, color: theme.text }}>
@@ -524,10 +579,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {model.locationLabel} · {model.providerLabel} · {model.statusLabel}
           </div>
         </div>
-        <div style={styles.headerActions}>
+        <div
+          style={{
+            ...styles.headerActions,
+            ...(isCompactSidebar ? styles.headerActionsCompact : {}),
+            ...(isDenseSidebar ? styles.headerActionsDense : {}),
+          }}
+        >
           <button
             style={{
               ...styles.toolbarButton,
+              ...(isDenseSidebar ? styles.toolbarButtonDense : {}),
               color: theme.buttonText,
               borderColor: theme.buttonBorder,
               ...(isSupportedChatScope(scope)
@@ -544,6 +606,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             style={{
               ...styles.toolbarButton,
+              ...(isDenseSidebar ? styles.toolbarButtonDense : {}),
               color: theme.buttonText,
               borderColor: theme.buttonBorder,
               ...(model.recentThreads.length > 0
@@ -558,6 +621,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             style={{
               ...styles.toolbarButton,
+              ...(isDenseSidebar ? styles.toolbarButtonDense : {}),
               color: theme.buttonText,
               borderColor: theme.buttonBorder,
             }}
@@ -571,6 +635,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div
         style={{
           ...styles.scopeSection,
+          ...(isCompactSidebar ? styles.scopeSectionCompact : {}),
           background: theme.background,
           borderBottomColor: theme.softBorder,
         }}
@@ -583,7 +648,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {model.scopeTypeLabel}
           </span>
           <span
-            style={{ ...styles.scopeLabel, color: theme.text }}
+            style={{
+              ...styles.scopeLabel,
+              ...(isCompactSidebar ? styles.scopeLabelCompact : {}),
+              color: theme.text,
+            }}
             title={model.scopeLabel}
           >
             {model.scopeLabel}
@@ -675,7 +744,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <div style={styles.mainPane}>
-        <div ref={scrollViewportRef} style={styles.scrollViewport}>
+        <div
+          ref={scrollViewportRef}
+          style={{
+            ...styles.scrollViewport,
+            ...(isCompactSidebar ? styles.scrollViewportCompact : {}),
+          }}
+        >
           {model.showIntroSection && (
             <section style={styles.introSection}>
               <div style={{ ...styles.sectionLabel, color: theme.mutedText }}>
@@ -812,6 +887,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <section
           style={{
             ...styles.composerDock,
+            ...(isCompactSidebar ? styles.composerDockCompact : {}),
             background: theme.background,
             borderTopColor: theme.softBorder,
           }}
@@ -1142,6 +1218,9 @@ const styles: Record<string, React.CSSProperties> = {
     overflowX: "hidden",
     boxSizing: "border-box",
   },
+  containerCompact: {
+    minWidth: 0,
+  },
   header: {
     display: "flex",
     flexDirection: "row",
@@ -1153,12 +1232,19 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: "1px solid #d7d7d7",
     background: "#f7f7f7",
   },
+  headerCompact: {
+    gap: "6px",
+    padding: "6px 8px",
+  },
   headerMain: {
     display: "flex",
     flexDirection: "column",
     gap: "2px",
     minWidth: 0,
     flex: "1 1 130px",
+  },
+  headerMainCompact: {
+    flex: "1 1 100%",
   },
   headerBrand: {
     display: "flex",
@@ -1197,6 +1283,16 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 0,
     flex: "1 1 170px",
   },
+  headerActionsCompact: {
+    flex: "1 1 100%",
+    justifyContent: "flex-start",
+  },
+  headerActionsDense: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    alignItems: "stretch",
+    gap: "4px",
+  },
   toolbarButton: {
     appearance: "none",
     border: "1px solid #c9c9c9",
@@ -1208,6 +1304,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 500,
     cursor: "pointer",
     whiteSpace: "nowrap",
+  },
+  toolbarButtonDense: {
+    boxSizing: "border-box",
+    minWidth: 0,
+    whiteSpace: "normal",
+    width: "100%",
   },
   toolbarButtonDisabled: {
     opacity: 0.45,
@@ -1240,6 +1342,9 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#f7f7f7",
     minWidth: 0,
   },
+  scopeSectionCompact: {
+    padding: "6px 8px",
+  },
   sectionLabel: {
     fontSize: typography.caption,
     fontWeight: 700,
@@ -1271,6 +1376,13 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     overflowWrap: "anywhere",
+  },
+  scopeLabelCompact: {
+    display: "block",
+    lineHeight: 1.3,
+    maxHeight: "2.6em",
+    textOverflow: "clip",
+    whiteSpace: "normal",
   },
   scopeMetaRow: {
     display: "flex",
@@ -1366,6 +1478,9 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 0,
     boxSizing: "border-box",
   },
+  scrollViewportCompact: {
+    padding: "6px 8px 10px",
+  },
   introSection: {
     padding: "8px 0 2px",
   },
@@ -1389,6 +1504,9 @@ const styles: Record<string, React.CSSProperties> = {
     borderTop: "1px solid #e2e2e2",
     padding: "8px 10px 10px",
     flex: "none",
+  },
+  composerDockCompact: {
+    padding: "6px 8px 8px",
   },
   recentThreadsDock: {
     paddingTop: "0",

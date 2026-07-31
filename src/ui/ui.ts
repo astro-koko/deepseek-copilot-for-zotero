@@ -223,7 +223,16 @@ export class UIFactory {
     host.attachmentTarget = "section-body";
     hosts[location] = host;
 
-    host.mountPoint.style.display = "flex";
+    Object.assign(host.mountPoint.style, {
+      display: "flex",
+      flex: "1 1 auto",
+      minHeight: "0",
+      minWidth: "0",
+      width: "100%",
+      maxWidth: "100%",
+      overflow: "hidden",
+      boxSizing: "border-box",
+    });
     this.rememberReaderSectionExpansion(win, body, location);
 
     void this.ensureHostBootstrapped(win, host, location).catch((error) => {
