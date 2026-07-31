@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.0 (development)
+
+- Reduced Zotero main-thread load while AI answers stream by coalescing sidebar updates and preserving immediate status transitions.
+- Avoided re-parsing completed chat history during streaming and removed duplicate automatic-scroll layout work.
+- Added a one-click copy control to each completed assistant reply, with Zotero-native clipboard fallback support.
+- Made the native Reader and Library sidebars adapt to the actual pane width with regular, compact, and dense layouts.
+
 ## v0.9.9
 
 - Added bundled KaTeX rendering for inline and display formulas in chat messages.

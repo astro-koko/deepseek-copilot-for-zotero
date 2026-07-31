@@ -615,6 +615,30 @@ describe("UIFactory", () => {
     expect((body as any).scrollTo).toHaveBeenCalledTimes(0);
   });
 
+  it("allows a native section to shrink with the Zotero pane without leaving a blank host", async () => {
+    const win = new FakeWindow();
+    win.Zotero_Tabs.selectedType = "reader";
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+
+    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+    const body = win.document.createElement("vbox");
+    body.ownerDocument = win.document;
+
+    sectionConfig.onRender({
+      body,
+      tabType: "reader",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(body.style.display).toBe("flex");
+    expect(body.style.flex).toBe("1 1 auto");
+    expect(body.style.minWidth).toBe("0");
+    expect(body.style.width).toBe("100%");
+    expect(body.style.overflow).toBe("hidden");
+  });
+
   it("uses the section only as a fallback when the native pane is unavailable", () => {
     const win = new FakeWindow();
 

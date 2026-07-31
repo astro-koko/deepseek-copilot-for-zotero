@@ -58,10 +58,58 @@ const DEFAULT_STATE: ChatSessionState = {
 };
 
 const GLOBAL_SCOPE_KEY = "__global__";
+const STREAM_UPDATE_INTERVAL_MS = 80;
 
 interface AbortControllerLike {
   abort(): void;
   signal?: AbortSignal;
+}
+
+interface TimerHost {
+  clearTimeout: (timerId: unknown) => void;
+  setTimeout: (callback: () => void, timeoutMs: number) => unknown;
+}
+
+function resolveTimerHost(): TimerHost | null {
+  const timers = globalThis as unknown as {
+    clearTimeout?: (timerId: unknown) => void;
+    setTimeout?: (callback: () => void, timeoutMs: number) => unknown;
+  };
+
+  if (
+    typeof timers.setTimeout === "function" &&
+    typeof timers.clearTimeout === "function"
+  ) {
+    return {
+      clearTimeout: (timerId) => timers.clearTimeout?.(timerId),
+      setTimeout: (callback, timeoutMs) =>
+        timers.setTimeout?.(callback, timeoutMs),
+    };
+  }
+
+  const mainWindow = (
+    globalThis as unknown as {
+      Zotero?: {
+        getMainWindow?: () => {
+          clearTimeout?: (timerId: unknown) => void;
+          setTimeout?: (callback: () => void, timeoutMs: number) => unknown;
+        } | null;
+      };
+    }
+  ).Zotero?.getMainWindow?.();
+
+  if (
+    typeof mainWindow?.setTimeout === "function" &&
+    typeof mainWindow.clearTimeout === "function"
+  ) {
+    return {
+      clearTimeout: (timerId) => mainWindow.clearTimeout?.(timerId),
+      setTimeout: (callback, timeoutMs) =>
+        mainWindow.setTimeout?.(callback, timeoutMs),
+    };
+  }
+
+  return null;
 }
 
 function isThreadInScope(
@@ -129,10 +177,16 @@ function normalizeStreamChunk(chunk: ChatStreamChunk): {
 export function createChatSessionStore(
   deps: ChatSessionDeps,
 ): ChatSessionStore {
+  const timerHost = resolveTimerHost();
   const listeners = new Set<() => void>();
   const statesByScope = new Map<string, ChatSessionState>();
   const abortControllersByScope = new Map<string, AbortControllerLike | null>();
   const requestVersionsByScope = new Map<string, number>();
+  const pendingStreamStatesByScope = new Map<
+    string,
+    Partial<ChatSessionState>
+  >();
+  const streamFlushTimersByScope = new Map<string, unknown>();
   let activeScopeKey = GLOBAL_SCOPE_KEY;
 
   const emit = () => {
@@ -159,6 +213,59 @@ export function createChatSessionStore(
       ...partial,
     });
     emit();
+  };
+
+  const clearPendingStreamState = (scopeKey: string): void => {
+    const timer = streamFlushTimersByScope.get(scopeKey);
+    if (timer !== undefined) {
+      timerHost?.clearTimeout(timer);
+    }
+    streamFlushTimersByScope.delete(scopeKey);
+    pendingStreamStatesByScope.delete(scopeKey);
+  };
+
+  const flushPendingStreamState = (scopeKey: string): void => {
+    const pendingState = pendingStreamStatesByScope.get(scopeKey);
+    if (!pendingState) {
+      return;
+    }
+
+    clearPendingStreamState(scopeKey);
+    setState(pendingState, scopeKey);
+  };
+
+  const queueStreamState = (
+    partial: Partial<ChatSessionState>,
+    scopeKey: string,
+  ): void => {
+    const queuedStatus =
+      pendingStreamStatesByScope.get(scopeKey)?.streamingStatus;
+    const currentStatus =
+      queuedStatus || getStateForKey(scopeKey).streamingStatus;
+    if (partial.streamingStatus && partial.streamingStatus !== currentStatus) {
+      flushPendingStreamState(scopeKey);
+      setState(partial, scopeKey);
+      return;
+    }
+
+    if (!timerHost) {
+      setState(partial, scopeKey);
+      return;
+    }
+
+    pendingStreamStatesByScope.set(scopeKey, {
+      ...pendingStreamStatesByScope.get(scopeKey),
+      ...partial,
+    });
+
+    if (streamFlushTimersByScope.has(scopeKey)) {
+      return;
+    }
+
+    const timer = timerHost.setTimeout(() => {
+      flushPendingStreamState(scopeKey);
+    }, STREAM_UPDATE_INTERVAL_MS);
+    streamFlushTimersByScope.set(scopeKey, timer);
   };
 
   const getSessionScopeKey = (scope?: ScopeContext | null): string =>
@@ -211,6 +318,7 @@ export function createChatSessionStore(
     cancel() {
       abortScopeRequest(activeScopeKey);
       invalidatePendingRequest(activeScopeKey);
+      clearPendingStreamState(activeScopeKey);
       setState({
         error: null,
         isStreaming: false,
@@ -229,6 +337,7 @@ export function createChatSessionStore(
       activeScopeKey = scopeKey;
       abortScopeRequest(scopeKey);
       invalidatePendingRequest(scopeKey);
+      clearPendingStreamState(scopeKey);
       const thread = await deps.createThread(scope || undefined);
       setState({
         activeThread: thread,
@@ -246,6 +355,7 @@ export function createChatSessionStore(
       activeScopeKey = scopeKey;
       abortScopeRequest(scopeKey);
       invalidatePendingRequest(scopeKey);
+      clearPendingStreamState(scopeKey);
       setState({
         activeThread: thread,
         error: null,
@@ -260,6 +370,9 @@ export function createChatSessionStore(
       for (const scopeKey of abortControllersByScope.keys()) {
         abortScopeRequest(scopeKey);
         invalidatePendingRequest(scopeKey);
+      }
+      for (const scopeKey of streamFlushTimersByScope.keys()) {
+        clearPendingStreamState(scopeKey);
       }
       statesByScope.clear();
       activeScopeKey = GLOBAL_SCOPE_KEY;
@@ -355,13 +468,17 @@ export function createChatSessionStore(
             fullReasoning += normalizedChunk.reasoningDelta;
           }
 
-          setState({
-            streamingContent: fullResponse,
-            streamingReasoningContent: fullReasoning,
-            streamingStatus: normalizedChunk.status || "streaming",
-          }, scopeKey);
+          queueStreamState(
+            {
+              streamingContent: fullResponse,
+              streamingReasoningContent: fullReasoning,
+              streamingStatus: normalizedChunk.status || "streaming",
+            },
+            scopeKey,
+          );
         }
 
+        flushPendingStreamState(scopeKey);
         assistantMessagePersistenceAttempted = true;
         await persistAssistantMessage(thread, fullResponse, scopeKey, version);
 
@@ -376,6 +493,7 @@ export function createChatSessionStore(
         }
       } catch (error) {
         const messageText = buildErrorMessage(error);
+        clearPendingStreamState(scopeKey);
 
         if (version == null) {
           setState({

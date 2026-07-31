@@ -3,7 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { Thread } from "../../types/thread";
-import { ThreadView, openMarkdownLink } from "./ThreadView";
+import {
+  ThreadView,
+  copyMessageToClipboard,
+  openMarkdownLink,
+} from "./ThreadView";
 
 function makeThread(messages: Thread["messages"]): Thread {
   return {
@@ -300,6 +304,36 @@ describe("ThreadView markdown rendering", () => {
     expect(markup).toContain("-webkit-user-select:text");
   });
 
+  it("renders a copy control for each assistant reply only", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-user",
+            role: "user",
+            content: "请总结论文。",
+            timestamp: 1,
+          },
+          {
+            id: "msg-assistant",
+            role: "assistant",
+            content: "这是 AI 回答。",
+            timestamp: 2,
+          },
+          {
+            id: "msg-system",
+            role: "system",
+            content: "联网查证：0 条结果",
+            timestamp: 3,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup.match(/data-ai-assistant-copy-message/g)).toHaveLength(1);
+    expect(markup).toContain('data-ai-assistant-copy-message="msg-assistant"');
+  });
+
   it("keeps malformed math visible instead of throwing", () => {
     const markup = renderToStaticMarkup(
       React.createElement(ThreadView, {
@@ -376,5 +410,42 @@ describe("openMarkdownLink", () => {
 
     expect(preventDefault).toHaveBeenCalledTimes(1);
     expect(launchURL).toHaveBeenCalledWith("https://agentpaper.ai");
+  });
+});
+
+describe("copyMessageToClipboard", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("copies the unmodified assistant response through the browser clipboard", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+
+    await expect(
+      copyMessageToClipboard("# 标题\n\n保留 Markdown 和公式 $E=mc^2$。"),
+    ).resolves.toBe(true);
+
+    expect(writeText).toHaveBeenCalledWith(
+      "# 标题\n\n保留 Markdown 和公式 $E=mc^2$。",
+    );
+  });
+
+  it("falls back to Zotero's clipboard helper when the browser clipboard is unavailable", async () => {
+    const copyString = vi.fn();
+    vi.stubGlobal("navigator", {});
+    vi.stubGlobal("Components", {
+      classes: {
+        "@mozilla.org/widget/clipboardhelper;1": {
+          getService: vi.fn().mockReturnValue({ copyString }),
+        },
+      },
+      interfaces: { nsIClipboardHelper: {} },
+    });
+
+    await expect(copyMessageToClipboard("Zotero fallback")).resolves.toBe(true);
+
+    expect(copyString).toHaveBeenCalledWith("Zotero fallback");
   });
 });

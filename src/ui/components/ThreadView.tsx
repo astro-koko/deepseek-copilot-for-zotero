@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React from "react";
 import katex from "katex";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
@@ -28,34 +28,22 @@ export const ThreadView: React.FC<ThreadViewProps> = ({
   streamingMessage = null,
   thread,
 }) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
   const theme = getSidebarTheme(
     (globalThis as unknown as { window?: Window }).window,
   );
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [
-    streamingMessage?.content,
-    streamingMessage?.reasoningContent,
-    streamingMessage?.statusLabel,
-    thread?.messages.length,
-  ]);
 
   const messages = thread?.messages || [];
 
   if (messages.length === 0 && !streamingMessage) {
     return (
-      <div ref={scrollRef} style={styles.container}>
+      <div style={styles.container}>
         <EmptyState hasScope={hasScope} />
       </div>
     );
   }
 
   return (
-    <div ref={scrollRef} style={styles.container}>
+    <div style={styles.container}>
       {messages.map((msg) => (
         <MessageBubble key={msg.id} message={msg} theme={theme} />
       ))}
@@ -82,6 +70,57 @@ export function openMarkdownLink(
     globalThis as { Zotero?: { launchURL?: (url: string) => void } }
   ).Zotero?.launchURL;
   launchURL?.(href);
+}
+
+export async function copyMessageToClipboard(text: string): Promise<boolean> {
+  if (!text.trim()) {
+    return false;
+  }
+
+  const clipboard = (
+    globalThis as unknown as {
+      navigator?: {
+        clipboard?: { writeText?: (value: string) => Promise<void> };
+      };
+    }
+  ).navigator?.clipboard;
+  if (typeof clipboard?.writeText === "function") {
+    try {
+      await clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall back to Zotero's native clipboard service below.
+    }
+  }
+
+  try {
+    const components = (
+      globalThis as unknown as {
+        Components?: {
+          classes?: Record<
+            string,
+            {
+              getService?: (interfaceType: unknown) => {
+                copyString?: (value: string) => void;
+              };
+            }
+          >;
+          interfaces?: { nsIClipboardHelper?: unknown };
+        };
+      }
+    ).Components;
+    const helper = components?.classes?.[
+      "@mozilla.org/widget/clipboardhelper;1"
+    ]?.getService?.(components.interfaces?.nsIClipboardHelper);
+    if (typeof helper?.copyString !== "function") {
+      return false;
+    }
+
+    helper.copyString(text);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function buildMarkdownComponents(
@@ -627,12 +666,38 @@ const MarkdownMessage: React.FC<{
   );
 };
 
-const MessageBubble: React.FC<{
+const MessageBubble = React.memo(function MessageBubble({
+  message,
+  theme,
+}: {
   message: Message;
   theme: ReturnType<typeof getSidebarTheme>;
-}> = ({ message, theme }) => {
+}) {
+  const [copyState, setCopyState] = React.useState<
+    "idle" | "copied" | "failed"
+  >("idle");
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
+  const isAssistant = message.role === "assistant";
+  const zh = isChineseLocale();
+  const copyLabel =
+    copyState === "copied"
+      ? zh
+        ? "已复制"
+        : "Copied"
+      : copyState === "failed"
+        ? zh
+          ? "复制失败"
+          : "Copy failed"
+        : zh
+          ? "复制"
+          : "Copy";
+
+  const handleCopy = () => {
+    void copyMessageToClipboard(message.content).then((copied) => {
+      setCopyState(copied ? "copied" : "failed");
+    });
+  };
 
   return (
     <div
@@ -654,12 +719,30 @@ const MessageBubble: React.FC<{
       }}
     >
       <MarkdownMessage content={message.content} theme={theme} />
-      <div style={{ ...styles.timestamp, color: theme.mutedText }}>
-        {new Date(message.timestamp).toLocaleTimeString()}
+      <div style={styles.messageFooter}>
+        {isAssistant && (
+          <button
+            aria-label={copyLabel}
+            data-ai-assistant-copy-message={message.id}
+            onClick={handleCopy}
+            style={{
+              ...styles.copyButton,
+              borderColor: theme.softBorder,
+              color: theme.mutedText,
+            }}
+            title={copyLabel}
+            type="button"
+          >
+            {copyLabel}
+          </button>
+        )}
+        <div style={{ ...styles.timestamp, color: theme.mutedText }}>
+          {new Date(message.timestamp).toLocaleTimeString()}
+        </div>
       </div>
     </div>
   );
-};
+});
 
 const StreamingMessageBubble: React.FC<{
   message: NonNullable<ThreadViewProps["streamingMessage"]>;
@@ -749,6 +832,22 @@ const styles: Record<string, React.CSSProperties> = {
     opacity: 0.65,
     marginTop: "2px",
     textAlign: "right",
+  },
+  messageFooter: {
+    alignItems: "center",
+    display: "flex",
+    gap: "6px",
+    justifyContent: "flex-end",
+    marginTop: "2px",
+  },
+  copyButton: {
+    background: "transparent",
+    border: "1px solid transparent",
+    borderRadius: "3px",
+    cursor: "pointer",
+    fontSize: typography.caption,
+    lineHeight: 1.2,
+    padding: "2px 5px",
   },
   systemMessage: {
     alignSelf: "center",
