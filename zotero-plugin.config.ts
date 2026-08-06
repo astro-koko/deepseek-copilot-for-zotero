@@ -70,6 +70,8 @@ const config: ReturnType<typeof defineConfig> = defineConfig({
   },
 
   release: {
+    // The scaffold uses this command's stdout as the public GitHub Release body.
+    changelog: `node scripts/read-release-notes.mjs ${pkg.version}`,
     bumpp: {
       execute: "npm run build:release:xpi",
     },

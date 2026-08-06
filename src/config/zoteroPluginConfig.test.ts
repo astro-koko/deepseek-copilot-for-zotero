@@ -12,4 +12,10 @@ describe("zotero-plugin config", () => {
     expect(manifest.applications.zotero.strict_min_version).toBe("7.0");
     expect(manifest.applications.zotero.strict_max_version).toBe("10.*");
   });
+
+  it("configures the checked-in Chinese product notes for the tagged version", () => {
+    expect(config.release?.changelog).toBe(
+      "node scripts/read-release-notes.mjs 1.0.0",
+    );
+  });
 });

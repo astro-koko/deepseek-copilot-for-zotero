@@ -28,6 +28,24 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      - name: Verify release tag, source, and Chinese notes
+        run: |
+          expected_tag="v$(node -p 'require("./package.json").version')"
+          if [ "$GITHUB_REF_NAME" != "$expected_tag" ]; then
+            echo "Release tag $GITHUB_REF_NAME does not match package version $expected_tag."
+            exit 1
+          fi
+
+          git fetch origin main --depth=1
+          tag_commit="$(git rev-parse "${GITHUB_REF_NAME}^{commit}")"
+          main_commit="$(git rev-parse origin/main)"
+          if [ "$tag_commit" != "$main_commit" ]; then
+            echo "Release tag must point at the current main HEAD."
+            exit 1
+          fi
+
+          test -s "docs/community/release-notes/${GITHUB_REF_NAME}.md"
+
       - name: Install dependencies
         run: npm ci
 

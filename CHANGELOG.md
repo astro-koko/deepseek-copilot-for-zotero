@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.0.0 (development)
+## v1.0.0
 
 Deepseek Copliot 1.0 focuses on making long-form reading conversations feel
 continuous inside Zotero, especially when you are following an AI response in a
