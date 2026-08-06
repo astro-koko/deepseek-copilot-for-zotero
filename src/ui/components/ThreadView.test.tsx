@@ -278,6 +278,25 @@ describe("ThreadView markdown rendering", () => {
     expect(markup).not.toContain("$\\\\epsilon");
   });
 
+  it("renders explicit parenthesized inline math without exposing delimiters", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-assistant",
+            role: "assistant",
+            content: "其中 \\(A_X + B_Y\\) 表示两个模型项。",
+            timestamp: 1,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup).toContain("ai-assistant-math-inline");
+    expect(markup).toContain("katex-html");
+    expect(markup).not.toContain("\\\\(A_X + B_Y\\\\)");
+  });
+
   it("renders inline math inside tight lists and emphasis", () => {
     const markup = renderToStaticMarkup(
       React.createElement(ThreadView, {
@@ -350,6 +369,24 @@ describe("ThreadView markdown rendering", () => {
     expect(markup).toContain("(Foreground model)");
     expect(markup).toContain("(2005)");
     expect(markup).toContain("(10-25)");
+  });
+
+  it("keeps hyphenated parenthetical prose readable while reasoning streams", () => {
+    const prose =
+      "Account for resolving effects (using Tully-Fouque rotation scheme, HI mass velocity width matrix).";
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        streamingMessage: {
+          content: "",
+          reasoningContent: prose,
+          statusLabel: "Streaming reasoning",
+        },
+        thread: makeThread([]),
+      }),
+    );
+
+    expect(markup).toContain(prose);
+    expect(markup).not.toContain("ai-assistant-math-inline");
   });
 
   it("keeps rendered chat message text selectable", () => {
@@ -444,6 +481,50 @@ describe("ThreadView markdown rendering", () => {
     expect(markup).toContain("katex");
     expect(markup).toContain("katex-display");
     expect(markup).not.toContain("$$");
+  });
+
+  it("contains streaming reasoning and long inline math inside the message bubble", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        streamingMessage: {
+          content: "",
+          reasoningContent:
+            "Inspect $A_{foreground}+B_{instrument}+C_{calibration}+D_{residual}$ before answering.",
+          statusLabel: "Streaming reasoning",
+        },
+        thread: makeThread([]),
+      }),
+    );
+
+    const bubbleStyle = markup.match(
+      /class="ai-assistant-message ai-assistant-message-assistant ai-assistant-message-streaming" style="([^"]+)"/,
+    );
+    const detailsStyle = markup.match(/<details open="" style="([^"]+)"/);
+    const summaryStyle = markup.match(/<summary style="([^"]+)"/);
+    const reasoningContentStyle = markup.match(
+      /<details[\s\S]*?class="ai-assistant-message-content" style="([^"]+)"/,
+    );
+    const inlineMathStyle = markup.match(
+      /class="ai-assistant-math-inline" style="([^"]+)"/,
+    );
+
+    expect(bubbleStyle?.[1]).toContain("overflow-x:hidden");
+    expect(detailsStyle?.[1]).toContain("width:100%");
+    expect(detailsStyle?.[1]).toContain("min-width:0");
+    expect(detailsStyle?.[1]).toContain("max-width:100%");
+    expect(detailsStyle?.[1]).toContain("box-sizing:border-box");
+    expect(detailsStyle?.[1]).toContain("overflow-x:hidden");
+    expect(summaryStyle?.[1]).toContain("width:100%");
+    expect(summaryStyle?.[1]).toContain("min-width:0");
+    expect(summaryStyle?.[1]).toContain("max-width:100%");
+    expect(summaryStyle?.[1]).toContain("box-sizing:border-box");
+    expect(summaryStyle?.[1]).toContain("overflow-x:hidden");
+    expect(reasoningContentStyle?.[1]).toContain("overflow-x:hidden");
+    expect(inlineMathStyle?.[1]).toContain("display:inline-block");
+    expect(inlineMathStyle?.[1]).toContain("max-width:100%");
+    expect(inlineMathStyle?.[1]).toContain("overflow-x:auto");
+    expect(inlineMathStyle?.[1]).toContain("overflow-y:hidden");
+    expect(inlineMathStyle?.[1]).toContain("box-sizing:border-box");
   });
 
   it("leaves dollar signs inside fenced code blocks as code", () => {

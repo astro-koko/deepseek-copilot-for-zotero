@@ -567,11 +567,18 @@ function isBareParenthesizedMath(inner: string): boolean {
     return false;
   }
 
-  if (/\\[A-Za-z]+|[_^{}=+\-*/<>≤≥≲≳~]/.test(value)) {
+  if (/\\[A-Za-z]+|[_^{}]/.test(value)) {
     return true;
   }
 
-  return /^[A-Za-z](?:\s*,\s*[A-Za-z])+$/.test(value);
+  if (/^[A-Za-z](?:\s*,\s*[A-Za-z])+$/.test(value)) {
+    return true;
+  }
+
+  const compactValue = value.replace(/\s+/g, "");
+  return (
+    !/[A-Za-z]{2,}/.test(compactValue) && /[=+\-*/<>≤≥≲≳~]/.test(compactValue)
+  );
 }
 
 function normalizeMathText(value: string): string {
@@ -831,6 +838,7 @@ const styles: Record<string, React.CSSProperties> = {
   message: {
     maxWidth: "94%",
     minWidth: 0,
+    overflowX: "hidden",
     boxSizing: "border-box",
     padding: "7px 9px",
     borderRadius: "4px",
@@ -847,6 +855,7 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: "normal",
     wordBreak: "break-word",
     overflowWrap: "anywhere",
+    overflowX: "hidden",
     ...selectableTextStyle,
   },
   mathBlock: {
@@ -864,8 +873,14 @@ const styles: Record<string, React.CSSProperties> = {
     ...selectableTextStyle,
   },
   mathInline: {
+    display: "inline-block",
     fontSize: "1em",
+    maxWidth: "100%",
+    overflowX: "auto",
+    overflowY: "hidden",
+    boxSizing: "border-box",
     whiteSpace: "nowrap",
+    verticalAlign: "middle",
     ...selectableTextStyle,
   },
   timestamp: {
@@ -902,12 +917,23 @@ const styles: Record<string, React.CSSProperties> = {
   },
   reasoningDetails: {
     margin: "3px 0 6px",
+    width: "100%",
+    minWidth: 0,
+    maxWidth: "100%",
+    boxSizing: "border-box",
+    overflowX: "hidden",
     ...selectableTextStyle,
   },
   reasoningSummary: {
     cursor: "default",
     fontSize: typography.meta,
     fontWeight: 600,
+    width: "100%",
+    minWidth: 0,
+    maxWidth: "100%",
+    boxSizing: "border-box",
+    overflowX: "hidden",
+    overflowWrap: "anywhere",
   },
   streamingPlaceholder: {
     fontSize: typography.body,
