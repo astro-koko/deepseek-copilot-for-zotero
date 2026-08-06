@@ -6,6 +6,8 @@ Use this file to decide what to read before changing Deepseek Copliot.
 
 For the current project-management baseline, start here first:
 
+- [docs/agent-memory.md](agent-memory.md)
+- [docs/development-status.md](development-status.md)
 - [docs/superpowers/specs/2026-05-31-ds-copilot-host-first-frontend-design.md](/Users/Liang/project/agentpaper_zotero/docs/superpowers/specs/2026-05-31-ds-copilot-host-first-frontend-design.md)
 - [docs/superpowers/specs/2026-06-16-ds-copilot-debug-observability-workflow-design.md](/Users/liang/Project/agentpaper_zotero/docs/superpowers/specs/2026-06-16-ds-copilot-debug-observability-workflow-design.md)
 - [docs/superpowers/specs/2026-06-16-ds-copilot-reader-session-isolation-design.md](/Users/liang/Project/agentpaper_zotero/docs/superpowers/specs/2026-06-16-ds-copilot-reader-session-isolation-design.md)
@@ -14,6 +16,7 @@ For the current project-management baseline, start here first:
 - [docs/superpowers/plans/2026-06-16-ds-copilot-reader-session-isolation-plan.md](/Users/liang/Project/agentpaper_zotero/docs/superpowers/plans/2026-06-16-ds-copilot-reader-session-isolation-plan.md)
 - [docs/zotero-dev-workbench.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-dev-workbench.md)
 - [docs/zotero-dev-smoke-checklist.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-dev-smoke-checklist.md)
+- [docs/zotero-sidebar-layout-contract.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-sidebar-layout-contract.md)
 - [docs/zotero-sidebar-stability-review.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-sidebar-stability-review.md)
 
 These files define the immediate execution target:
@@ -70,6 +73,7 @@ Then inspect:
 - [src/ui/ui.ts](/Users/Liang/project/agentpaper_zotero/src/ui/ui.ts)
 - [src/ui/sidebarSection.ts](/Users/Liang/project/agentpaper_zotero/src/ui/sidebarSection.ts)
 - [src/ui/components/Sidebar.tsx](/Users/Liang/project/agentpaper_zotero/src/ui/components/Sidebar.tsx)
+- [docs/zotero-sidebar-layout-contract.md](/Users/Liang/project/agentpaper_zotero/docs/zotero-sidebar-layout-contract.md)
 - [reference/beaver-zotero/react/hooks/useReaderSelectionActionHandler.ts](/Users/Liang/project/agentpaper_zotero/reference/beaver-zotero/react/hooks/useReaderSelectionActionHandler.ts)
 
 ### Reader popup, Reader right-click actions, selection handoff

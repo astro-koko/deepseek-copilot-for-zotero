@@ -18,6 +18,17 @@ export interface AssembledContext {
   warnings: string[];
 }
 
+const MAX_CONTEXT_CACHE_ENTRIES = 3;
+const MAX_CONTEXT_CACHE_CHARS = 2_000_000;
+const MAX_SINGLE_CONTEXT_CACHE_CHARS = 3_000_000;
+
+interface ContextTextCacheEntry {
+  chars: number;
+  promise: Promise<ExtractedAttachmentText | null>;
+}
+
+const contextAssemblyCache = new Map<string, ContextTextCacheEntry>();
+
 const FULLTEXT_REQUIRED_MESSAGE =
   "当前论文全文不可用，Zotero 暂时无法读取该 PDF 正文，无法发送请求。请确认 Zotero 已成功提取全文后重试。";
 const MULTI_PDF_BLOCKING_MESSAGE =
@@ -51,6 +62,10 @@ export async function assembleContext(scope: ScopeContext): Promise<AssembledCon
     default:
       return createEmptyContext();
   }
+}
+
+export function clearContextAssemblyCache(): void {
+  contextAssemblyCache.clear();
 }
 
 async function assemblePDFContext(scope: ScopeContext): Promise<AssembledContext> {
@@ -182,6 +197,73 @@ interface ExtractedAttachmentText {
 }
 
 async function extractAttachmentText(
+  attachment: Zotero.Item,
+): Promise<ExtractedAttachmentText | null> {
+  const cacheKey = getAttachmentTextCacheKey(attachment);
+  const cached = contextAssemblyCache.get(cacheKey);
+  if (cached) {
+    contextAssemblyCache.delete(cacheKey);
+    contextAssemblyCache.set(cacheKey, cached);
+    return await cached.promise;
+  }
+
+  const entry: ContextTextCacheEntry = {
+    chars: 0,
+    promise: Promise.resolve(null),
+  };
+  entry.promise = extractAttachmentTextUncached(attachment).then((result) => {
+    const isCurrentEntry = contextAssemblyCache.get(cacheKey) === entry;
+    if (!result?.text || result.text.length > MAX_SINGLE_CONTEXT_CACHE_CHARS) {
+      if (isCurrentEntry) {
+        contextAssemblyCache.delete(cacheKey);
+      }
+      return result;
+    }
+
+    entry.chars = result.text.length;
+    if (isCurrentEntry) {
+      trimContextAssemblyCache();
+    }
+    return result;
+  });
+  contextAssemblyCache.set(cacheKey, entry);
+  trimContextAssemblyCache();
+  return await entry.promise;
+}
+
+function getAttachmentTextCacheKey(attachment: Zotero.Item): string {
+  const modified = String((attachment as any).dateModified || "");
+  return `attachment:${attachment.id}:${modified}`;
+}
+
+function trimContextAssemblyCache(): void {
+  const removeOldest = (): boolean => {
+    const oldestKey = contextAssemblyCache.keys().next().value as
+      | string
+      | undefined;
+    if (!oldestKey) return false;
+    contextAssemblyCache.delete(oldestKey);
+    return true;
+  };
+
+  while (contextAssemblyCache.size > MAX_CONTEXT_CACHE_ENTRIES) {
+    if (!removeOldest()) return;
+  }
+
+  const totalChars = () =>
+    [...contextAssemblyCache.values()].reduce(
+      (total, cacheEntry) => total + cacheEntry.chars,
+      0,
+    );
+  while (
+    totalChars() > MAX_CONTEXT_CACHE_CHARS &&
+    contextAssemblyCache.size > 1
+  ) {
+    if (!removeOldest()) return;
+  }
+}
+
+async function extractAttachmentTextUncached(
   attachment: Zotero.Item,
 ): Promise<ExtractedAttachmentText | null> {
   try {

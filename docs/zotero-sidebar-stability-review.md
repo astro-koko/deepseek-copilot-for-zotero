@@ -95,6 +95,15 @@
 3. 确认右侧原生侧栏也出现同一插件 UI
 4. 预期不会出现空白 panel、重复 panel、随机消失或切换后丢 host
 
+### 响应式布局场景
+
+完整规则、代码归属和验收矩阵以
+[docs/zotero-sidebar-layout-contract.md](zotero-sidebar-layout-contract.md)
+为准。每次改动 native host、Sidebar、ThreadView 或 Composer 后，至少在
+Library 和 Reader 各验证一次：长答案可在约 `350 px → 280 px → 260 px` 与
+`宽 → 窄 → 宽 → 窄` 的拖拽过程中重新换行，消息不横向裁切，输入区可达且
+能滚动到底部；缩放本身不得强制把用户当前阅读位置跳到别处。
+
 ### Handoff 场景
 
 1. 在 Reader 中选中一段文本

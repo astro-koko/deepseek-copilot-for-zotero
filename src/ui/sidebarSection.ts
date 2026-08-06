@@ -12,6 +12,7 @@ export type SidebarAttachmentTarget =
 
 export interface SidebarSurfaceHost {
   attachmentTarget: SidebarAttachmentTarget;
+  sectionBody: HTMLElement | null;
   mountPoint: SidebarHostMount;
   reactRoot: Root | null;
   reactRootElement: HTMLDivElement;
@@ -40,7 +41,9 @@ type SidebarDocumentFactory = Pick<Document, "createElement"> &
     createXULElement?: (tagName: string) => unknown;
   };
 
-export function resolveSidebarLocation(tabType: string): SidebarLocation | null {
+export function resolveSidebarLocation(
+  tabType: string,
+): SidebarLocation | null {
   const normalized = `${tabType || ""}`.toLowerCase();
   if (
     normalized === "library" ||
@@ -116,7 +119,8 @@ export function syncSidebarHost(
   body: SidebarBodyLike,
 ): { hostState: SidebarSurfaceHost; didAttach: boolean } {
   const hostState =
-    state[location] ?? createSidebarHost(win.document as SidebarDocumentFactory, location);
+    state[location] ??
+    createSidebarHost(win.document as SidebarDocumentFactory, location);
   state[location] = hostState;
   hostState.attachmentTarget = "section-fallback";
   return {
@@ -135,15 +139,21 @@ export function attachSidebarHostToNativePane(
     attachableNode &&
     typeof attachableNode === "object" &&
     "parentElement" in (attachableNode as object)
-      ? ((attachableNode as { parentElement?: HTMLElement | null }).parentElement ?? null)
+      ? ((attachableNode as { parentElement?: HTMLElement | null })
+          .parentElement ?? null)
       : null;
 
   if (previousParent && previousParent !== pane) {
-    setElementsVisible(listPaneSiblings(previousParent, host.mountPoint.id), true);
+    setElementsVisible(
+      listPaneSiblings(previousParent, host.mountPoint.id),
+      true,
+    );
   }
 
   if (Array.isArray((pane as { children?: unknown[] }).children)) {
-    const children = Array.from((pane as { children?: ArrayLike<unknown> }).children || []);
+    const children = Array.from(
+      (pane as { children?: ArrayLike<unknown> }).children || [],
+    );
     if (children.includes(attachableNode)) {
       return false;
     }
@@ -240,6 +250,7 @@ function createSidebarHost(
 
   return {
     attachmentTarget: null,
+    sectionBody: null,
     mountPoint,
     reactRoot: null,
     reactRootElement,
@@ -262,10 +273,13 @@ function getAttachableNode(host: SidebarSurfaceHost | unknown): unknown {
 
 const sharedHostStyles = {
   display: "flex",
-  flex: "1",
+  flex: "1 1 0",
   minHeight: "0",
   minWidth: "0",
+  width: "100%",
   maxWidth: "100%",
+  maxHeight: "100%",
+  overflow: "hidden",
   boxSizing: "border-box",
 };
 

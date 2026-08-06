@@ -208,9 +208,10 @@ describe("chatSession", () => {
       .fn()
       .mockResolvedValueOnce(threadWithUser)
       .mockResolvedValueOnce(finalThread);
+    const createThread = vi.fn().mockResolvedValue(emptyThread);
     const store = createChatSessionStore({
       appendMessage,
-      createThread: vi.fn().mockResolvedValue(emptyThread),
+      createThread,
       recordScopeTransition: vi.fn(),
       sendChatMessage: vi.fn().mockResolvedValue({
         abort: vi.fn(),
@@ -509,6 +510,89 @@ describe("chatSession", () => {
       role: "assistant",
       content: "Here is a verified answer.",
     });
+  });
+
+  it("persists an automatic context-compression notice before the assistant reply", async () => {
+    const scope = makeScope();
+    const emptyThread = makeThread({ scopeSnapshot: scope });
+    const threadWithUser = makeThread({
+      scopeSnapshot: scope,
+      messages: [
+        {
+          id: "msg-user-1",
+          role: "user",
+          content: "继续讨论这篇论文",
+          timestamp: 2,
+        },
+      ],
+      updatedAt: 2,
+    });
+    const threadWithCompression = makeThread({
+      scopeSnapshot: scope,
+      messages: [
+        ...threadWithUser.messages,
+        {
+          id: "msg-system-compression",
+          role: "system",
+          content:
+            "当前会话已接近模型窗口上限，较早的交流已在本会话内自动整理为摘要；论文全文和最近对话仍会保留，较早交流中的部分细节可能被概括。",
+          timestamp: 3,
+          kind: "context-compression",
+          compressedThroughMessageId: "msg-old-assistant",
+          contextSummary: "较早对话摘要",
+        },
+      ],
+      updatedAt: 3,
+    });
+    const finalThread = makeThread({
+      scopeSnapshot: scope,
+      messages: [
+        ...threadWithCompression.messages,
+        {
+          id: "msg-assistant-1",
+          role: "assistant",
+          content: "继续回答。",
+          timestamp: 4,
+        },
+      ],
+      updatedAt: 4,
+    });
+    const compressionMessage = {
+      role: "system" as const,
+      content:
+        "当前会话已接近模型窗口上限，较早的交流已在本会话内自动整理为摘要；论文全文和最近对话仍会保留，较早交流中的部分细节可能被概括。",
+      kind: "context-compression" as const,
+      compressedThroughMessageId: "msg-old-assistant",
+      contextSummary: "较早对话摘要",
+    };
+
+    const appendMessage = vi
+      .fn()
+      .mockResolvedValueOnce(threadWithUser)
+      .mockResolvedValueOnce(threadWithCompression)
+      .mockResolvedValueOnce(finalThread);
+    const createThread = vi.fn().mockResolvedValue(emptyThread);
+    const store = createChatSessionStore({
+      appendMessage,
+      createThread,
+      recordScopeTransition: vi.fn(),
+      sendChatMessage: vi.fn().mockResolvedValue({
+        abort: vi.fn(),
+        sessionMessages: [compressionMessage],
+        stream: streamChunks("继续回答。"),
+      }),
+    });
+
+    store.openThread(emptyThread);
+    await store.send("继续讨论这篇论文", scope);
+
+    expect(createThread).not.toHaveBeenCalled();
+    expect(appendMessage).toHaveBeenNthCalledWith(2, emptyThread.id, compressionMessage);
+    expect(appendMessage).toHaveBeenNthCalledWith(3, emptyThread.id, {
+      role: "assistant",
+      content: "继续回答。",
+    });
+    expect(store.getSnapshot().activeThread).toEqual(finalThread);
   });
 
   it("keeps an in-flight answer tied to its document when switching scopes", async () => {

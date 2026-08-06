@@ -617,7 +617,6 @@ In `addon/prefs.js` and `addon/content/preferences.xhtml`, keep only the DeepSee
 ```js
 pref("extensions.zotero.zotero-ai-assistant.apiKey", "");
 pref("extensions.zotero.zotero-ai-assistant.model", "deepseek-v4-flash");
-pref("extensions.zotero.zotero-ai-assistant.maxContextBudget", 4000);
 ```
 
 Do not add account/profile/credits fields.

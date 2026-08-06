@@ -84,6 +84,23 @@ describe("ThreadView markdown rendering", () => {
     expect(markup.match(/10:02:03 AM/g)?.length).toBe(3);
   });
 
+  it("marks each persisted message with a stable resize-anchor id", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-anchor",
+            role: "assistant",
+            content: "Anchor me",
+            timestamp: 1,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup).toContain('data-ai-assistant-message-id="msg-anchor"');
+  });
+
   it("escapes raw html instead of mounting it as live markup", () => {
     const markup = renderToStaticMarkup(
       React.createElement(ThreadView, {
@@ -157,6 +174,63 @@ describe("ThreadView markdown rendering", () => {
     expect(markup).toContain("<strong>answer</strong>");
   });
 
+  it("keeps long CJK messages inside a narrow native reader pane", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-user",
+            role: "user",
+            content: "请用清晰易懂的语言解释当前概念、段落或结果。".repeat(12),
+            timestamp: 1,
+          },
+          {
+            id: "msg-assistant",
+            role: "assistant",
+            content: [
+              "这是一段用于验证狭窄阅读器侧栏换行行为的连续中文回复。".repeat(
+                24,
+              ),
+              "",
+              "```text",
+              "https://example.test/this-is-an-intentionally-long-code-line-that-must-stay-inside-the-message-bubble",
+              "```",
+              "",
+              "| 很长的列名 | Another intentionally long table heading |",
+              "| - | - |",
+              "| 内容 | value |",
+            ].join("\n"),
+            timestamp: 2,
+          },
+        ]),
+      }),
+    );
+
+    const threadViewStyle = markup.match(/^<div style="([^"]+)"/);
+    const messageStyle = markup.match(
+      /class="ai-assistant-message ai-assistant-message-user" style="([^"]+)"/,
+    );
+    const messageContentStyle = markup.match(
+      /class="ai-assistant-message-content" style="([^"]+)"/,
+    );
+
+    expect(threadViewStyle?.[1]).toContain("width:100%");
+    expect(threadViewStyle?.[1]).toContain("max-width:100%");
+    expect(threadViewStyle?.[1]).toContain("overflow:hidden");
+    expect(messageStyle?.[1]).toContain("box-sizing:border-box");
+    expect(messageContentStyle?.[1]).toContain("width:100%");
+    expect(messageContentStyle?.[1]).toContain("min-width:0");
+    expect(messageContentStyle?.[1]).toContain("max-width:100%");
+    expect(messageContentStyle?.[1]).toContain("box-sizing:border-box");
+    expect(messageContentStyle?.[1]).toContain("white-space:normal");
+    expect(markup).toMatch(
+      /<pre style="[^"]*max-width:100%[^"]*box-sizing:border-box/,
+    );
+    expect(markup).toMatch(
+      /<table style="[^"]*max-width:100%[^"]*box-sizing:border-box/,
+    );
+  });
+
   it("renders display math blocks without exposing outer delimiters", () => {
     const markup = renderToStaticMarkup(
       React.createElement(ThreadView, {
@@ -202,6 +276,25 @@ describe("ThreadView markdown rendering", () => {
     expect(markup).toContain("katex");
     expect(markup).toContain("katex-html");
     expect(markup).not.toContain("$\\\\epsilon");
+  });
+
+  it("renders explicit parenthesized inline math without exposing delimiters", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-assistant",
+            role: "assistant",
+            content: "其中 \\(A_X + B_Y\\) 表示两个模型项。",
+            timestamp: 1,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup).toContain("ai-assistant-math-inline");
+    expect(markup).toContain("katex-html");
+    expect(markup).not.toContain("\\\\(A_X + B_Y\\\\)");
   });
 
   it("renders inline math inside tight lists and emphasis", () => {
@@ -276,6 +369,24 @@ describe("ThreadView markdown rendering", () => {
     expect(markup).toContain("(Foreground model)");
     expect(markup).toContain("(2005)");
     expect(markup).toContain("(10-25)");
+  });
+
+  it("keeps hyphenated parenthetical prose readable while reasoning streams", () => {
+    const prose =
+      "Account for resolving effects (using Tully-Fouque rotation scheme, HI mass velocity width matrix).";
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        streamingMessage: {
+          content: "",
+          reasoningContent: prose,
+          statusLabel: "Streaming reasoning",
+        },
+        thread: makeThread([]),
+      }),
+    );
+
+    expect(markup).toContain(prose);
+    expect(markup).not.toContain("ai-assistant-math-inline");
   });
 
   it("keeps rendered chat message text selectable", () => {
@@ -370,6 +481,50 @@ describe("ThreadView markdown rendering", () => {
     expect(markup).toContain("katex");
     expect(markup).toContain("katex-display");
     expect(markup).not.toContain("$$");
+  });
+
+  it("contains streaming reasoning and long inline math inside the message bubble", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        streamingMessage: {
+          content: "",
+          reasoningContent:
+            "Inspect $A_{foreground}+B_{instrument}+C_{calibration}+D_{residual}$ before answering.",
+          statusLabel: "Streaming reasoning",
+        },
+        thread: makeThread([]),
+      }),
+    );
+
+    const bubbleStyle = markup.match(
+      /class="ai-assistant-message ai-assistant-message-assistant ai-assistant-message-streaming" style="([^"]+)"/,
+    );
+    const detailsStyle = markup.match(/<details open="" style="([^"]+)"/);
+    const summaryStyle = markup.match(/<summary style="([^"]+)"/);
+    const reasoningContentStyle = markup.match(
+      /<details[\s\S]*?class="ai-assistant-message-content" style="([^"]+)"/,
+    );
+    const inlineMathStyle = markup.match(
+      /class="ai-assistant-math-inline" style="([^"]+)"/,
+    );
+
+    expect(bubbleStyle?.[1]).toContain("overflow-x:hidden");
+    expect(detailsStyle?.[1]).toContain("width:100%");
+    expect(detailsStyle?.[1]).toContain("min-width:0");
+    expect(detailsStyle?.[1]).toContain("max-width:100%");
+    expect(detailsStyle?.[1]).toContain("box-sizing:border-box");
+    expect(detailsStyle?.[1]).toContain("overflow-x:hidden");
+    expect(summaryStyle?.[1]).toContain("width:100%");
+    expect(summaryStyle?.[1]).toContain("min-width:0");
+    expect(summaryStyle?.[1]).toContain("max-width:100%");
+    expect(summaryStyle?.[1]).toContain("box-sizing:border-box");
+    expect(summaryStyle?.[1]).toContain("overflow-x:hidden");
+    expect(reasoningContentStyle?.[1]).toContain("overflow-x:hidden");
+    expect(inlineMathStyle?.[1]).toContain("display:inline-block");
+    expect(inlineMathStyle?.[1]).toContain("max-width:100%");
+    expect(inlineMathStyle?.[1]).toContain("overflow-x:auto");
+    expect(inlineMathStyle?.[1]).toContain("overflow-y:hidden");
+    expect(inlineMathStyle?.[1]).toContain("box-sizing:border-box");
   });
 
   it("leaves dollar signs inside fenced code blocks as code", () => {

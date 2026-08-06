@@ -100,11 +100,10 @@ Contract:
 
 - the left navigation entry is present
 - selecting it opens a real pane, not a blank page
-- `apiKey`, `model`, and `maxContextBudget` are editable
-- the intended release contract is narrower: only `apiKey` remains user-facing
+- only `apiKey` remains user-facing for provider access; model selection and context handling stay internal
 - saved values persist across reopening the pane and restarting Zotero
 - repeated `onPrefsEvent("load")` calls are idempotent
-- long contexts are handled by internal truncation/compression, not by a user-managed max-context field
+- long contexts preserve the full paper and compress only older dialogue inside the current thread; they are not managed through a user-facing max-context field or a forced new conversation
 
 ### Library Native Host
 

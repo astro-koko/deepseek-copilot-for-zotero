@@ -615,29 +615,56 @@ describe("UIFactory", () => {
     expect((body as any).scrollTo).toHaveBeenCalledTimes(0);
   });
 
-  it("allows a native section to shrink with the Zotero pane without leaving a blank host", async () => {
-    const win = new FakeWindow();
-    win.Zotero_Tabs.selectedType = "reader";
+  it.each(["library", "reader"] as const)(
+    "keeps the %s native section body auto-sized while containing the plugin horizontally",
+    async (tabType) => {
+      const win = new FakeWindow();
+      win.Zotero_Tabs.selectedType = tabType;
 
-    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+      UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
 
-    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
-    const body = win.document.createElement("vbox");
-    body.ownerDocument = win.document;
+      const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+      const body = win.document.createElement("vbox");
+      body.ownerDocument = win.document;
 
-    sectionConfig.onRender({
-      body,
-      tabType: "reader",
-    });
-    await Promise.resolve();
-    await Promise.resolve();
+      sectionConfig.onRender({
+        body,
+        tabType,
+      });
+      await Promise.resolve();
+      await Promise.resolve();
 
-    expect(body.style.display).toBe("flex");
-    expect(body.style.flex).toBe("1 1 auto");
-    expect(body.style.minWidth).toBe("0");
-    expect(body.style.width).toBe("100%");
-    expect(body.style.overflow).toBe("hidden");
-  });
+      const mountPoint = body.children[0] as FakeElement;
+      expect(mountPoint.id).toBe(`ai-assistant-pane-${tabType}-mount`);
+      expect(body.style.display).toBe("flex");
+      expect(body.style.flexDirection).toBe("column");
+      expect(body.style.flex).toBe("none");
+      expect(body.style.minHeight).toBe("auto");
+      expect(body.style.height).toBe("auto");
+      expect(body.style.maxHeight).toBe("none");
+      expect(body.style.overflow).toBe("visible");
+      expect(body.style.minWidth).toBe("0");
+      expect(body.style.width).toBe("100%");
+      expect(body.style.maxWidth).toBe("100%");
+      expect(body.style.overflowX).toBe("hidden");
+      expect(body.style.boxSizing).toBe("border-box");
+      expect(mountPoint.style.display).toBe("flex");
+      expect(mountPoint.style.flex).toBe("none");
+      expect(mountPoint.style.minHeight).toBe("auto");
+      expect(mountPoint.style.minWidth).toBe("0");
+      expect(mountPoint.style.width).toBe("100%");
+      expect(mountPoint.style.height).toBe("auto");
+      expect(mountPoint.style.maxHeight).toBe("none");
+      expect(mountPoint.style.alignSelf).toBe("stretch");
+      expect(mountPoint.style.overflow).toBe("visible");
+      const reactRoot = mountPoint.children[0] as FakeElement;
+      expect(reactRoot.style.flex).toBe("none");
+      expect(reactRoot.style.minHeight).toBe("auto");
+      expect(reactRoot.style.height).toBe("auto");
+      expect(reactRoot.style.maxHeight).toBe("none");
+      expect(reactRoot.style.overflow).toBe("visible");
+    },
+  );
 
   it("uses the section only as a fallback when the native pane is unavailable", () => {
     const win = new FakeWindow();
@@ -669,7 +696,7 @@ describe("UIFactory", () => {
     expect(fallbackMount.id).toBe("ai-assistant-pane-library-mount");
   });
 
-  it("does not render fallback content when a native pane exists", () => {
+  it("renders the host inside the native section when a native pane exists", () => {
     const win = new FakeWindow();
     const libraryPane = attachRoot(
       win.document,
@@ -697,7 +724,8 @@ describe("UIFactory", () => {
       body,
       tabType: "library",
     });
-    expect(body.children).toHaveLength(0);
+    expect(body.children).toHaveLength(1);
+    expect(body.children[0]?.id).toBe("ai-assistant-pane-library-mount");
   });
 
   it("leaves the Zotero empty-message pane untouched while no library item is selected", async () => {
@@ -853,6 +881,118 @@ describe("UIFactory", () => {
     expect(mocks.createRoot).toHaveBeenCalledTimes(1);
   });
 
+  it("reattaches a persistent Reader mount after Zotero clears a reused section body", async () => {
+    const win = new FakeWindow();
+    mainWindows.push(win);
+    win.Zotero_Tabs.selectedType = "reader";
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+    const body = win.document.createElement("vbox");
+    body.ownerDocument = win.document;
+
+    sectionConfig.onRender({
+      body,
+      tabType: "reader",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(body.children).toHaveLength(1);
+    expect(body.children[0]?.id).toBe("ai-assistant-pane-reader-mount");
+
+    body.replaceChildren();
+    sectionConfig.onItemChange({
+      body,
+      setEnabled: vi.fn(),
+      tabType: "reader",
+    });
+
+    expect(body.children).toHaveLength(1);
+    expect(body.children[0]?.id).toBe("ai-assistant-pane-reader-mount");
+    expect(mocks.createRoot).toHaveBeenCalledTimes(1);
+  });
+
+  it("reattaches a newly allocated Reader mount after Zotero clears it post-switch", async () => {
+    const win = new FakeWindow();
+    mainWindows.push(win);
+    win.Zotero_Tabs.selectedType = "reader";
+    const queuedTimeouts: Array<() => void> = [];
+    win.setTimeout = ((fn: (...args: any[]) => void) => {
+      queuedTimeouts.push(() => fn());
+      return queuedTimeouts.length - 1;
+    }) as unknown as Window["setTimeout"];
+    win.clearTimeout = ((id: number) => {
+      queuedTimeouts[id] = () => {};
+    }) as unknown as Window["clearTimeout"];
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+    const firstBody = win.document.createElement("vbox");
+    firstBody.ownerDocument = win.document;
+    sectionConfig.onRender({
+      body: firstBody,
+      tabType: "reader",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const secondBody = win.document.createElement("vbox");
+    secondBody.ownerDocument = win.document;
+    sectionConfig.onItemChange({
+      body: secondBody,
+      setEnabled: vi.fn(),
+      tabType: "reader",
+    });
+    secondBody.replaceChildren();
+    queuedTimeouts.at(-1)?.();
+
+    expect(secondBody.children).toHaveLength(1);
+    expect(secondBody.children[0]?.id).toBe("ai-assistant-pane-reader-mount");
+  });
+
+  it("recovers a Reader body when Zotero renders another host before the post-switch cleanup", async () => {
+    const win = new FakeWindow();
+    mainWindows.push(win);
+    win.Zotero_Tabs.selectedType = "reader";
+    const queuedTimeouts: Array<() => void> = [];
+    win.setTimeout = ((fn: (...args: any[]) => void) => {
+      queuedTimeouts.push(() => fn());
+      return queuedTimeouts.length - 1;
+    }) as unknown as Window["setTimeout"];
+    win.clearTimeout = ((id: number) => {
+      queuedTimeouts[id] = () => {};
+    }) as unknown as Window["clearTimeout"];
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+    const firstBody = win.document.createElement("vbox");
+    firstBody.ownerDocument = win.document;
+    sectionConfig.onRender({ body: firstBody, tabType: "reader" });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const returnedBody = win.document.createElement("vbox");
+    returnedBody.ownerDocument = win.document;
+    sectionConfig.onItemChange({
+      body: returnedBody,
+      setEnabled: vi.fn(),
+      tabType: "reader",
+    });
+
+    const laterBody = win.document.createElement("vbox");
+    laterBody.ownerDocument = win.document;
+    sectionConfig.onRender({ body: laterBody, tabType: "reader" });
+    returnedBody.replaceChildren();
+    queuedTimeouts.at(-1)?.();
+
+    expect(returnedBody.children).toHaveLength(1);
+    expect(returnedBody.children[0]?.id).toBe("ai-assistant-pane-reader-mount");
+  });
+
   it("removes mounted UI artifacts from main windows during shutdown", async () => {
     const win = new FakeWindow();
     mainWindows.push(win);
@@ -875,7 +1015,9 @@ describe("UIFactory", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(mocks.createRoot).toHaveBeenCalledWith(body);
+    expect(mocks.createRoot).toHaveBeenCalledWith(
+      body.children[0]?.children[0],
+    );
 
     UIFactory.shutdown();
 
@@ -995,7 +1137,9 @@ describe("UIFactory", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(mocks.createRoot).toHaveBeenCalledWith(body);
+    expect(mocks.createRoot).toHaveBeenCalledWith(
+      body.children[0]?.children[0],
+    );
   });
 
   it("refreshes host visibility when a Zotero tab selection event fires", async () => {
@@ -1044,6 +1188,50 @@ describe("UIFactory", () => {
 
     UIFactory.removeChatPanel(win as unknown as Window & typeof globalThis);
     expect(mocks.unregisterObserver).toHaveBeenCalledWith("tab-observer-id");
+  });
+
+  it("retries the native section refresh after a Reader tab switch settles", async () => {
+    const win = new FakeWindow();
+    mainWindows.push(win);
+    const queuedTimeouts: Array<() => void> = [];
+    win.setTimeout = ((fn: (...args: any[]) => void) => {
+      queuedTimeouts.push(() => fn());
+      return queuedTimeouts.length - 1;
+    }) as unknown as Window["setTimeout"];
+    win.clearTimeout = ((id: number) => {
+      queuedTimeouts[id] = () => {};
+    }) as unknown as Window["clearTimeout"];
+
+    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+    const body = win.document.createElement("vbox");
+    body.ownerDocument = win.document;
+    const refresh = vi.fn().mockResolvedValue(undefined);
+    sectionConfig.onInit({
+      body,
+      refresh,
+      setEnabled: vi.fn(),
+      tabType: "reader",
+    });
+
+    const registerObserverMock = mocks.registerObserver as unknown as {
+      mock: {
+        calls: Array<
+          [
+            {
+              notify: (event: string, type: string) => void;
+            },
+            string[],
+            string,
+          ]
+        >;
+      };
+    };
+    const observerCallback = registerObserverMock.mock.calls[0]?.[0];
+    observerCallback?.notify("select", "tab");
+    queuedTimeouts.at(-1)?.();
+
+    expect(refresh).toHaveBeenCalledTimes(3);
   });
 
   it("pushes the latest library scope to the mounted sidebar when the native item pane selection changes", async () => {
@@ -1317,8 +1505,12 @@ describe("UIFactory", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(mocks.createRoot).toHaveBeenCalledWith(firstBody);
-    expect(mocks.createRoot).toHaveBeenCalledWith(secondBody);
+    expect(mocks.createRoot).toHaveBeenCalledWith(
+      firstBody.children[0]?.children[0],
+    );
+    expect(mocks.createRoot).toHaveBeenCalledWith(
+      secondBody.children[0]?.children[0],
+    );
     expect(reactRoot.unmount).toHaveBeenCalledTimes(1);
     expect(reactRoot.render).toHaveBeenCalledTimes(2);
   });

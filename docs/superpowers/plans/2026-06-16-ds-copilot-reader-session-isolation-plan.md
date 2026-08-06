@@ -501,10 +501,11 @@ Expected: pass.
 Add this to `src/ui/components/SidebarSource.test.ts`:
 
 ```ts
-it("loads recent chats through the current scope before falling back to global history", () => {
+it("keeps document chat history scoped to the current paper or PDF", () => {
   expect(sidebarSource).toContain("listThreadsForScope");
   expect(sidebarSource).toContain("findMostRecentThreadForScope");
   expect(sidebarSource).toContain("scope?.scopeKey");
+  expect(sidebarSource).toContain("return listThreadsForScope(nextScope);");
 });
 ```
 

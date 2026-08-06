@@ -6,7 +6,9 @@ import {
   buildVerificationContext,
   findForbiddenArchiveEntries,
   findMissingArchiveEntries,
+  findSensitiveArchiveContent,
   findUnexpectedArchiveEntries,
+  isTextArchiveEntry,
 } from "./verify-build-artifact-lib.mjs";
 
 const buildRoot = path.resolve(".scaffold/build");
@@ -48,11 +50,29 @@ const missingArchiveEntries = findMissingArchiveEntries(
 );
 const forbiddenArchiveEntries = findForbiddenArchiveEntries(archiveEntries);
 const unexpectedArchiveEntries = findUnexpectedArchiveEntries(archiveEntries);
+const sensitiveArchiveContent = [];
+
+for (const entry of archiveEntries.filter(isTextArchiveEntry)) {
+  try {
+    const content = execFileSync("unzip", ["-p", verification.xpiPath, entry], {
+      encoding: "utf8",
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    sensitiveArchiveContent.push(
+      ...findSensitiveArchiveContent(entry, content),
+    );
+  } catch (error) {
+    sensitiveArchiveContent.push(
+      `could not inspect ${entry}: ${error.message}`,
+    );
+  }
+}
 
 if (
   missingArchiveEntries.length > 0 ||
   forbiddenArchiveEntries.length > 0 ||
-  unexpectedArchiveEntries.length > 0
+  unexpectedArchiveEntries.length > 0 ||
+  sensitiveArchiveContent.length > 0
 ) {
   console.error("Packaged addon archive failed verification:");
 
@@ -74,6 +94,13 @@ if (
     console.error("Unexpected top-level archive entries:");
     for (const entry of unexpectedArchiveEntries) {
       console.error(`- ${entry}`);
+    }
+  }
+
+  if (sensitiveArchiveContent.length > 0) {
+    console.error("Sensitive text found in archive:");
+    for (const finding of sensitiveArchiveContent) {
+      console.error(`- ${finding}`);
     }
   }
 

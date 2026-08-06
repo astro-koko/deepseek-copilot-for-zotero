@@ -6,6 +6,8 @@ This repository builds Deepseek Copliot, a Zotero-native reading assistant. Trea
 
 Before changing Zotero integration, release behavior, settings, Reader handoff, or smoke tests, read:
 
+- `docs/agent-memory.md`
+- `docs/development-status.md`
 - `docs/agent-dev-workflow.md`
 - `docs/zotero-dev-workbench.md`
 - `docs/zotero-dev-smoke-checklist.md`
@@ -40,6 +42,7 @@ Reference projects are pattern libraries, not copy sources. For details, read `d
 - Real GUI smoke must follow `docs/zotero-real-smoke-guardrails.md`: one control plane per micro-task, frontmost app/window checks before mutating actions, and a two-strike stop rule.
 - Do not change Deepseek Copliot branding, icons, or right-pane surface ownership as a temporary smoke workaround.
 - The accepted frontend discovery surface is Zotero's native right-side pane entry in both Library and Reader. Top-toolbar-only discovery, including a truncated `D...` artifact, is a release-blocking host regression.
+- Responsive native sidebar behavior is a release-blocking host contract. Before changing `src/ui/ui.ts`, `src/ui/sidebarSection.ts`, `src/ui/components/Sidebar.tsx`, or `src/ui/components/ThreadView.tsx`, read `docs/zotero-sidebar-layout-contract.md`; preserve width containment, resize reading-position anchoring, and the Library-plus-Reader smoke matrix documented there.
 - Keep write scopes small and respect unrelated working-tree changes. This repo may have user edits in progress.
 - Prefer repo patterns and existing services over new abstractions. Add abstractions only when they reduce real duplication or risk.
 - When borrowing from a reference project, state what is borrowed, what is explicitly not borrowed, and what local tests or real Zotero smoke will verify it.

@@ -44,19 +44,12 @@ const LEGACY_STANDALONE_ARTIFACT_IDS = [
 
 const windowHosts = new WeakMap<Window, SidebarHostState>();
 const windowRefreshCleanup = new WeakMap<Window, () => void>();
-const windowSectionRefresh = new WeakMap<
-  Window,
-  () => Promise<void>
->();
+const windowSectionRefresh = new WeakMap<Window, () => Promise<void>>();
 const windowScopeRetryTimer = new WeakMap<Window, number>();
-const windowLibraryEmptyStateRetryTimer = new WeakMap<
-  Window,
-  number
->();
-const windowLibraryEmptyStateRetryBudget = new WeakMap<
-  Window,
-  number
->();
+const windowLibraryEmptyStateRetryTimer = new WeakMap<Window, number>();
+const windowLibraryEmptyStateRetryBudget = new WeakMap<Window, number>();
+const windowReaderSectionRemountTimer = new WeakMap<Window, number>();
+const windowTabSelectionRefreshTimer = new WeakMap<Window, number>();
 const windowReaderSectionWasExpanded = new WeakMap<Window, boolean>();
 const BRANDED_SECTION_ICON =
   "chrome://zotero-ai-assistant/content/icons/icon-20.png";
@@ -88,6 +81,8 @@ export class UIFactory {
 
     this.clearScopeRetryTimer(win);
     this.clearLibraryEmptyStateRetryTimer(win);
+    this.clearReaderSectionRemountTimer(win);
+    this.clearTabSelectionRefreshTimer(win);
     windowLibraryEmptyStateRetryBudget.delete(win);
     windowReaderSectionWasExpanded.delete(win);
     this.renderLibraryEmptyStateHead(win, false);
@@ -205,32 +200,63 @@ export class UIFactory {
     }
 
     const hosts = this.ensureWindowHosts(win);
-    const existing = hosts[location];
     const sectionBody = body as unknown as HTMLDivElement;
-    if (existing && existing.mountPoint !== sectionBody) {
+    Object.assign(sectionBody.style, {
+      display: "flex",
+      flexDirection: "column",
+      flex: "none",
+      minHeight: "auto",
+      minWidth: "0",
+      width: "100%",
+      maxWidth: "100%",
+      height: "auto",
+      maxHeight: "none",
+      alignSelf: "stretch",
+      overflow: "visible",
+      overflowX: "hidden",
+      boxSizing: "border-box",
+    });
+    const existing = hosts[location];
+    if (
+      existing &&
+      (existing.attachmentTarget !== "section-body" ||
+        existing.sectionBody !== sectionBody)
+    ) {
       existing.reactRoot?.unmount();
       delete hosts[location];
     }
 
-    const host = hosts[location] ?? {
-      attachmentTarget: "section-body" as const,
-      mountPoint: sectionBody,
-      reactRoot: null,
-      reactRootElement: sectionBody,
-      bootstrapped: false,
-      bootstrappingPromise: null,
-    };
+    const host =
+      hosts[location] ?? createSectionSidebarHost(location, body.ownerDocument);
     host.attachmentTarget = "section-body";
+    host.sectionBody = sectionBody;
     hosts[location] = host;
+
+    attachSidebarHost(body, host);
 
     Object.assign(host.mountPoint.style, {
       display: "flex",
-      flex: "1 1 auto",
-      minHeight: "0",
+      flex: "none",
+      minHeight: "auto",
       minWidth: "0",
       width: "100%",
       maxWidth: "100%",
-      overflow: "hidden",
+      height: "auto",
+      maxHeight: "none",
+      alignSelf: "stretch",
+      overflow: "visible",
+      boxSizing: "border-box",
+    });
+    Object.assign(host.reactRootElement.style, {
+      display: "flex",
+      flex: "none",
+      minHeight: "auto",
+      minWidth: "0",
+      width: "100%",
+      maxWidth: "100%",
+      height: "auto",
+      maxHeight: "none",
+      overflow: "visible",
       boxSizing: "border-box",
     });
     this.rememberReaderSectionExpansion(win, body, location);
@@ -268,6 +294,7 @@ export class UIFactory {
         if (event === "select" && type === "tab" && !win.closed) {
           void this.requestSectionRefresh(win);
           this.refreshWindow(win);
+          this.scheduleTabSelectionRefresh(win);
         }
       },
     };
@@ -299,6 +326,25 @@ export class UIFactory {
       // Ignore stale observer cleanup errors.
     }
     win.__aiAssistantTabObserverId = null;
+  }
+
+  private static scheduleTabSelectionRefresh(win: Window): void {
+    this.clearTabSelectionRefreshTimer(win);
+    const timer = win.setTimeout(() => {
+      windowTabSelectionRefreshTimer.delete(win);
+      void this.requestSectionRefresh(win);
+    }, 125);
+    windowTabSelectionRefreshTimer.set(win, timer);
+  }
+
+  private static clearTabSelectionRefreshTimer(win: Window): void {
+    const timer = windowTabSelectionRefreshTimer.get(win);
+    if (timer == null) {
+      return;
+    }
+
+    win.clearTimeout(timer);
+    windowTabSelectionRefreshTimer.delete(win);
   }
 
   private static ensureWindowHosts(win: Window): SidebarHostState {
@@ -340,13 +386,16 @@ export class UIFactory {
     }
 
     this.clearScopeRetryTimer(win);
-    const retryTimer = win.setTimeout(() => {
-      this.clearScopeRetryTimer(win);
-      const retriedScope = getCurrentScope();
-      if (!this.areScopesEquivalent(initialScope, retriedScope)) {
-        this.dispatchScopeChange(eventBus, retriedScope, win);
-      }
-    }, location === "reader" ? 150 : 100);
+    const retryTimer = win.setTimeout(
+      () => {
+        this.clearScopeRetryTimer(win);
+        const retriedScope = getCurrentScope();
+        if (!this.areScopesEquivalent(initialScope, retriedScope)) {
+          this.dispatchScopeChange(eventBus, retriedScope, win);
+        }
+      },
+      location === "reader" ? 150 : 100,
+    );
     windowScopeRetryTimer.set(win, retryTimer);
   }
 
@@ -358,6 +407,42 @@ export class UIFactory {
       return;
     }
 
+    const win = body.ownerDocument.defaultView as Window | null;
+    this.renderSectionBody(body, tabType);
+
+    if (win) {
+      this.scheduleReaderSectionBodyReattach(win, body, tabType);
+    }
+  }
+
+  private static scheduleReaderSectionBodyReattach(
+    win: Window,
+    body: SectionRenderBody,
+    tabType: string,
+  ): void {
+    this.clearReaderSectionRemountTimer(win);
+    const timer = win.setTimeout(() => {
+      this.renderReaderSectionBodyAfterNativeCleanup(body, tabType);
+      const followUpTimer = win.setTimeout(() => {
+        windowReaderSectionRemountTimer.delete(win);
+        this.renderReaderSectionBodyAfterNativeCleanup(body, tabType);
+      }, 200);
+      windowReaderSectionRemountTimer.set(win, followUpTimer);
+    }, 50);
+    windowReaderSectionRemountTimer.set(win, timer);
+  }
+
+  private static renderReaderSectionBodyAfterNativeCleanup(
+    body: SectionRenderBody,
+    tabType: string,
+  ): void {
+    if (this.resolveSectionLocation(tabType, body) !== "reader") {
+      return;
+    }
+
+    // Zotero may have replaced the section host before it clears the old body.
+    // Resolve the body again so the persistent child mount is recreated or
+    // reattached against the current native lifecycle state.
     this.renderSectionBody(body, tabType);
   }
 
@@ -401,9 +486,7 @@ export class UIFactory {
     section.setAttribute("aria-expanded", "true");
   }
 
-  private static findSectionContainer(
-    body: SectionRenderBody,
-  ): Element | null {
+  private static findSectionContainer(body: SectionRenderBody): Element | null {
     const selectors = [
       `[data-pane-id="${SECTION_PANE_ID}"]`,
       `[paneid="${SECTION_PANE_ID}"]`,
@@ -471,9 +554,7 @@ export class UIFactory {
     windowScopeRetryTimer.delete(win);
   }
 
-  private static async requestSectionRefresh(
-    win: Window,
-  ): Promise<void> {
+  private static async requestSectionRefresh(win: Window): Promise<void> {
     try {
       await windowSectionRefresh.get(win)?.();
     } catch (error) {
@@ -588,9 +669,7 @@ export class UIFactory {
     windowLibraryEmptyStateRetryTimer.set(win, timer);
   }
 
-  private static clearLibraryEmptyStateRetryTimer(
-    win: Window,
-  ): void {
+  private static clearLibraryEmptyStateRetryTimer(win: Window): void {
     const retryTimer = windowLibraryEmptyStateRetryTimer.get(win);
     if (retryTimer == null) {
       return;
@@ -600,12 +679,26 @@ export class UIFactory {
     windowLibraryEmptyStateRetryTimer.delete(win);
   }
 
+  private static clearReaderSectionRemountTimer(win: Window): void {
+    const timer = windowReaderSectionRemountTimer.get(win);
+    if (timer == null) {
+      return;
+    }
+
+    win.clearTimeout(timer);
+    windowReaderSectionRemountTimer.delete(win);
+  }
+
   private static ensureHostBootstrapped(
     win: Window,
     hostState: SidebarSurfaceHost,
     location: SidebarLocation,
   ): Promise<void> {
-    if (hostState.bootstrapped) {
+    if (hostState.bootstrapped && hostState.reactRoot) {
+      // Zotero can reuse the same Reader section body while clearing its
+      // children during a PDF-tab switch. Re-rendering the existing root puts
+      // the sidebar back without creating a second React root for that body.
+      this.renderSidebarHost(win, hostState, location);
       return Promise.resolve();
     }
 
@@ -619,13 +712,7 @@ export class UIFactory {
         hostState.reactRoot = createRoot(hostState.reactRootElement);
       }
 
-      hostState.reactRoot.render(
-        React.createElement(Sidebar, {
-          eventBus: EventBus.getInstance(),
-          hostWindow: win,
-          location,
-        }),
-      );
+      this.renderSidebarHost(win, hostState, location);
       hostState.bootstrapped = true;
     })()
       .catch((error) => {
@@ -641,6 +728,22 @@ export class UIFactory {
     return hostState.bootstrappingPromise;
   }
 
+  private static renderSidebarHost(
+    win: Window,
+    hostState: SidebarSurfaceHost,
+    location: SidebarLocation,
+  ) {
+    hostState.reactRoot?.render(
+      React.createElement(Sidebar, {
+        eventBus: EventBus.getInstance(),
+        hostWindow: win,
+        location,
+        hostMode:
+          hostState.attachmentTarget === "section-body" ? "section" : "pane",
+      }),
+    );
+  }
+
   private static resolveSectionLocation(
     tabType: string,
     body?: SectionRenderBody,
@@ -650,16 +753,11 @@ export class UIFactory {
       return direct;
     }
 
-    const win = body?.ownerDocument?.defaultView as
-      | Window
-      | null
-      | undefined;
+    const win = body?.ownerDocument?.defaultView as Window | null | undefined;
     return win ? this.getSelectedLocation(win) : null;
   }
 
-  private static getSelectedLocation(
-    win: Window,
-  ): SidebarLocation | null {
+  private static getSelectedLocation(win: Window): SidebarLocation | null {
     return resolveSidebarLocation(win.Zotero_Tabs?.selectedType || "");
   }
 

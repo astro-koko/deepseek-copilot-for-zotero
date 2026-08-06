@@ -30,7 +30,7 @@ The user's expected model is document-scoped: each paper or PDF has its own conv
 - Prevent Reader handoff events from being ignored when Zotero reports reader-like tab types such as `reader-preview` or `reader-loading`.
 - Make blank React sidebar failures visible with an error fallback instead of an empty pane.
 - Introduce a stable scope key for paper/PDF conversations.
-- Load recent conversations for the current paper/PDF before falling back to global recent history.
+- Load and show recent conversations only for the current paper/PDF; a document with no history stays in the default home state.
 - Stop automatically rewriting the active thread's scope when the user switches documents.
 - Preserve legacy threads by deriving scope keys from existing `scopeSnapshot` values at read time.
 
@@ -94,7 +94,7 @@ Thread listing gains:
 - `listThreadsForScope(scope, options?)`
 - `findMostRecentThreadForScope(scope)`
 
-The default `listThreads()` remains global for export and fallback paths.
+The default `listThreads()` remains global for export and non-document fallback paths. Document-scoped sidebars must use the matching-scope APIs only.
 
 ### Session Behavior
 
@@ -106,7 +106,7 @@ The old `recordScopeTransition()` path remains available only for legacy exports
 
 ### Sidebar Behavior
 
-The sidebar loads current-scope recent threads when `scope` changes. It falls back to global recent threads only when the current scope has no stored thread.
+The sidebar loads current-scope recent threads when `scope` changes. A paper or PDF with no stored thread shows the normal welcome/home state and never exposes another document's history.
 
 Reader handoff uses `resolveSidebarLocation(selectedType)` instead of strict `selectedType === location`.
 
@@ -135,7 +135,7 @@ Wrap the sidebar tree in an error boundary. Render failures show a compact error
 - A React render failure in the sidebar displays a visible fallback message instead of a blank pane.
 - New paper/PDF scopes include stable `scopeKey` values.
 - New threads persist `scopeKey`; legacy threads get a derived `scopeKey` from `scopeSnapshot`.
-- Current-scope recent threads are listed before global recent history.
+- Current-scope recent threads are the only history shown for a paper or PDF; unrelated threads do not appear in its home state.
 - Switching scope does not append `Context switched to:` to a thread from another paper/PDF.
 - Sending in PDF B cannot append to PDF A's active thread.
 - Focused tests pass.
@@ -189,7 +189,7 @@ Reference files inspected:
 Borrow:
 
 - Reader action should bind to the current Reader attachment before sending or focusing the composer.
-- Recent conversations should prefer the current Reader attachment or its parent item before global history.
+- Recent conversations shown in the Reader must belong to the current Reader attachment or paper; do not fall back to global history on document-scoped surfaces.
 - Reader tab changes need explicit stale-state cleanup.
 
 Do not borrow:
@@ -206,8 +206,8 @@ Local verification:
 
 - Risk: legacy histories disappear from the current-scope recent list.
   Mitigation: derive `scopeKey` from `scopeSnapshot` during load and save migrated rows.
-- Risk: clearing active thread on scope change feels like data loss.
-  Mitigation: keep global recent fallback and expose recent current-scope threads immediately.
+- Risk: clearing an active thread on scope change feels like data loss.
+  Mitigation: restore the most recent thread for the newly active document when one exists; otherwise present the normal home state with an explicit new-conversation action.
 - Risk: Reader blank pane is caused by Zotero host visibility rather than React errors.
   Mitigation: add visible error fallback and keep runtime evidence for mount size/parent/display in smoke.
 - Risk: new scope key shape is too narrow for collections.

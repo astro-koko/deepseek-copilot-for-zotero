@@ -112,6 +112,27 @@ Treat the next smoke run as an evidence-collection pass, not a vibe check. Captu
 
 For `Commands and Prompts` validation, do not start from a currently visible Settings pane unless step 5 has just proven the newest dev XPI is loaded. Treat the slash card editor as the product requirement: built-in cards must render under `默认命令`, custom cards must render under `我的命令`, `新增命令` must create a blank editable card, leaving a valid card must auto-save, leaving an empty new card must discard it, duplicate slash tokens must show inline validation without silent save, `恢复默认` must remove a built-in override, and save/reopen plus packaged-restart persistence must keep the edited title/slash/prompt values. The normal Settings UI must not expose JSON import, preview, raw-storage, copy-prompt, or GitHub JSON-example actions.
 
+### Responsive sidebar reflow regression
+
+Use [docs/zotero-sidebar-layout-contract.md](zotero-sidebar-layout-contract.md)
+whenever a change touches the native section host, sidebar shell, Markdown
+renderer, composer, or thread viewport.
+
+1. Use a new or restored PDF with a long answer; do not let an agent send paper
+   content to a provider without the user's explicit approval.
+2. In the Library right pane, drag from wide to approximately 350 px, 280 px,
+   and 260 px while the response is visible or streaming; then repeat
+   `wide → narrow → wide → narrow`.
+3. Confirm Chinese and long English text, lists, fenced code, tables, and math
+   stay inside the pane. Code and display math may scroll inside their own
+   block, but no message may be horizontally clipped by the native pane.
+4. Confirm resizing preserves the reading position instead of forcing a jump to
+   the newest message; the message viewport still scrolls vertically to its end
+   and the composer plus send controls remain reachable.
+5. Repeat the essential check in Reader and after an `A → B → A` PDF switch;
+   the restored conversation must belong to A, while a no-history PDF shows
+   the normal home/new-conversation state.
+
 ## Runtime evidence
 
 Collect the following facts during host debugging:

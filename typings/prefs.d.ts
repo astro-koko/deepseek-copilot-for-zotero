@@ -10,7 +10,6 @@ declare namespace _ZoteroTypes {
       "apiKey": string;
       "customPresets": string;
       "model": string;
-      "maxContextBudget": number;
       "sidebarVisible": boolean;
       "evidenceEnabled": boolean;
       "evidenceProviderMode": string;

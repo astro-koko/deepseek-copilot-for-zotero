@@ -10,6 +10,7 @@ function makeScope(overrides: Partial<ScopeContext> = {}): ScopeContext {
   return {
     type: "paper",
     id: "paper-1",
+    scopeKey: "paper-1",
     label: "Paper 1",
     itemIds: [1],
     ...overrides,
@@ -47,7 +48,6 @@ function makeSettings(overrides: Partial<Settings> = {}): Settings {
     baseURL: "https://api.deepseek.com",
     customPresets: "",
     model: "deepseek-v4-flash",
-    maxContextBudget: 4000,
     keyboardShortcut: "I",
     evidenceEnabled: false,
     evidenceProviderMode: "mcp-web-search",
@@ -106,7 +106,13 @@ describe("buildSidebarViewModel", () => {
   it("shows a Beaver-like home shell when scope exists but the thread is empty", () => {
     const model = buildSidebarViewModel({
       location: "library",
-      recentThreads: [makeThread({ id: "thread-2", title: "Earlier chat" })],
+      recentThreads: [
+        makeThread({
+          id: "thread-2",
+          scopeKey: "paper-1",
+          title: "Earlier chat",
+        }),
+      ],
       scope: makeScope(),
       session: makeSession({
         activeThread: makeThread({ scopeSnapshot: makeScope() }),
@@ -138,6 +144,42 @@ describe("buildSidebarViewModel", () => {
       "evidence",
       "evidence",
     ]);
+  });
+
+  it("keeps a fresh PDF in its default home state instead of showing another document's history", () => {
+    const currentScope = makeScope({
+      type: "pdf",
+      id: "pdf-20",
+      scopeKey: "pdf-20",
+      label: "PDF 20",
+      readerAttachmentId: 20,
+    });
+    const otherDocumentThread = makeThread({
+      id: "thread-pdf-10",
+      scopeKey: "pdf-10",
+      scopeSnapshot: makeScope({
+        type: "pdf",
+        id: "pdf-10",
+        scopeKey: "pdf-10",
+        label: "PDF 10",
+        readerAttachmentId: 10,
+      }),
+      title: "Older PDF conversation",
+    });
+
+    const model = buildSidebarViewModel({
+      location: "reader",
+      recentThreads: [otherDocumentThread],
+      scope: currentScope,
+      session: makeSession(),
+      settings: makeSettings(),
+      settingsIssue: null,
+    });
+
+    expect(model.mode).toBe("home");
+    expect(model.showIntroSection).toBe(true);
+    expect(model.recentThreads).toEqual([]);
+    expect(model.showRecentThreads).toBe(false);
   });
 
   // Manual compact pane layout checklist:

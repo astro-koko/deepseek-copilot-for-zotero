@@ -56,6 +56,43 @@ describe("openAICompatibleProvider", () => {
     });
   });
 
+  it("applies bounded generation options when a caller supplies them", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          new ReadableStream({
+            start(controller: ReadableStreamDefaultController) {
+              controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+              controller.close();
+            },
+          }),
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createOpenAICompatibleProvider({
+      baseURL: "https://api.deepseek.com",
+      apiKey: "test-key",
+      model: "deepseek-v4-flash",
+    });
+
+    await provider.sendChat(
+      [{ role: "user", content: "Summarize this dialogue" }],
+      undefined,
+      undefined,
+      { maxTokens: 2_000, temperature: 0.2 },
+    );
+
+    const firstCall = fetchMock.mock.calls[0] as unknown as
+      | [string, RequestInit]
+      | undefined;
+    const requestInit = firstCall?.[1] as RequestInit | undefined;
+    expect(JSON.parse(String(requestInit?.body))).toMatchObject({
+      max_tokens: 2_000,
+      temperature: 0.2,
+    });
+  });
+
   it("records the most recent non-sensitive request diagnostic for host smoke verification", async () => {
     const fetchMock = vi.fn(
       async () =>
@@ -144,7 +181,7 @@ describe("openAICompatibleProvider", () => {
     });
   });
 
-  it("writes the latest provider request to a dedicated runtime diagnostic file", async () => {
+  it("keeps provider diagnostics in memory without writing a runtime file", async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(
@@ -172,12 +209,13 @@ describe("openAICompatibleProvider", () => {
 
     await provider.sendChat([{ role: "user", content: "hello" }]);
 
-    expect(Zotero.File.putContents).toHaveBeenCalledTimes(1);
-    const diagnosticPayload = (
-      Zotero.File.putContents as ReturnType<typeof vi.fn>
-    ).mock.calls[0]?.[1];
-    expect(String(diagnosticPayload)).toContain('"model": "deepseek-v4-pro"');
-    expect(String(diagnosticPayload)).toContain('"messageCount": 1');
+    expect(Zotero.File.putContents).not.toHaveBeenCalled();
+    expect(
+      (globalThis as any).__aiAssistantDiagnostics?.lastProviderRequest,
+    ).toMatchObject({
+      messageCount: 1,
+      model: "deepseek-v4-pro",
+    });
   });
 
   it("reassembles SSE frames that are split across chunks", async () => {

@@ -34,6 +34,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Scan release sources for private data
+        run: npm run privacy:check
+
       - name: Build release artifacts
         run: npm run build:release:xpi
 

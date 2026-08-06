@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { assembleContext } from "./contextAssembler";
+import {
+  assembleContext,
+  clearContextAssemblyCache,
+} from "./contextAssembler";
 import type { ScopeContext } from "../types/scope";
 
 interface FakeCreator {
@@ -17,6 +20,7 @@ interface FakeItemShape {
   cacheFilePath?: string;
   creators?: FakeCreator[];
   date?: string;
+  dateModified?: string;
   displayTitle: string;
   parentItem?: FakeItemShape | null;
   attachmentIDs?: number[];
@@ -34,6 +38,7 @@ function makeItem(shape: FakeItemShape): Zotero.Item {
     id: shape.id,
     attachmentContentType: shape.attachmentContentType,
     attachmentText: shape.attachmentText,
+    dateModified: shape.dateModified,
     parentItem: shape.parentItem ? makeItem(shape.parentItem) : null,
     getAttachments: () => shape.attachmentIDs || [],
     getCreators: () => shape.creators || [],
@@ -58,6 +63,7 @@ function makeScope(overrides: Partial<ScopeContext>): ScopeContext {
 
 beforeEach(() => {
   itemRegistry.clear();
+  clearContextAssemblyCache();
   vi.stubGlobal("Zotero", {
     File: {
       getContentsAsync: vi.fn(async () => ""),
@@ -169,6 +175,163 @@ describe("assembleContext", () => {
 
     expect(result.availability).toBe("pdf-text-ready");
     expect(result.fullText).toContain("Worker extracted PDF text");
+  });
+
+  it("extracts the same PDF only once while its conversation remains active", async () => {
+    const parent = registerItem({
+      id: 35,
+      abstractNote: "Parent abstract",
+      displayTitle: "Cached Reader Paper",
+    });
+    registerItem({
+      id: 36,
+      attachmentContentType: "application/pdf",
+      displayTitle: "Cached Reader PDF",
+      parentItem: parent,
+    });
+    const getFullText = Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>;
+    getFullText.mockResolvedValue({ text: "Extract this PDF only once" });
+    const scope = makeScope({
+      type: "pdf",
+      id: "pdf-36",
+      itemIds: [35],
+      readerAttachmentId: 36,
+    });
+
+    const first = await assembleContext(scope);
+    const second = await assembleContext(scope);
+
+    expect(first.fullText).toBe("Extract this PDF only once");
+    expect(second.fullText).toBe("Extract this PDF only once");
+    expect(getFullText).toHaveBeenCalledTimes(1);
+  });
+
+  it("bounds the PDF text cache so older documents can be released", async () => {
+    const getFullText = Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>;
+    getFullText.mockImplementation(async (attachmentId: number) => ({
+      text: `PDF text ${attachmentId}`,
+    }));
+
+    for (let attachmentId = 51; attachmentId <= 54; attachmentId += 1) {
+      const parent = registerItem({
+        id: attachmentId + 100,
+        displayTitle: `Paper ${attachmentId}`,
+      });
+      registerItem({
+        id: attachmentId,
+        attachmentContentType: "application/pdf",
+        displayTitle: `PDF ${attachmentId}`,
+        parentItem: parent,
+      });
+      await assembleContext(
+        makeScope({
+          type: "pdf",
+          id: `pdf-${attachmentId}`,
+          itemIds: [parent.id],
+          readerAttachmentId: attachmentId,
+        }),
+      );
+    }
+
+    await assembleContext(
+      makeScope({
+        type: "pdf",
+        id: "pdf-51",
+        itemIds: [151],
+        readerAttachmentId: 51,
+      }),
+    );
+
+    expect(getFullText).toHaveBeenCalledTimes(5);
+  });
+
+  it("keeps one oversized but model-compatible active PDF cached", async () => {
+    const parent = registerItem({
+      id: 55,
+      displayTitle: "Long Paper",
+    });
+    registerItem({
+      id: 56,
+      attachmentContentType: "application/pdf",
+      displayTitle: "Long PDF",
+      parentItem: parent,
+    });
+    const longText = "A".repeat(2_100_000);
+    const getFullText = Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>;
+    getFullText.mockResolvedValue({ text: longText });
+    const scope = makeScope({
+      type: "pdf",
+      id: "pdf-56",
+      itemIds: [55],
+      readerAttachmentId: 56,
+    });
+
+    expect((await assembleContext(scope)).fullText).toHaveLength(
+      longText.length,
+    );
+    expect((await assembleContext(scope)).fullText).toHaveLength(
+      longText.length,
+    );
+    expect(getFullText).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries extraction after a transient empty result", async () => {
+    const parent = registerItem({
+      id: 60,
+      displayTitle: "Retry Paper",
+    });
+    registerItem({
+      id: 61,
+      attachmentContentType: "application/pdf",
+      displayTitle: "Retry PDF",
+      parentItem: parent,
+    });
+    const getFullText = Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>;
+    getFullText
+      .mockResolvedValueOnce({ text: "" })
+      .mockResolvedValueOnce({ text: "Text became available" });
+    const scope = makeScope({
+      type: "pdf",
+      id: "pdf-61",
+      itemIds: [60],
+      readerAttachmentId: 61,
+    });
+
+    const first = await assembleContext(scope);
+    const second = await assembleContext(scope);
+
+    expect(first.availability).toBe("fulltext-required-error");
+    expect(second.fullText).toBe("Text became available");
+    expect(getFullText).toHaveBeenCalledTimes(2);
+  });
+
+  it("invalidates cached text when the PDF attachment changes", async () => {
+    const parent = registerItem({
+      id: 70,
+      displayTitle: "Updated Paper",
+    });
+    const attachment = registerItem({
+      id: 71,
+      attachmentContentType: "application/pdf",
+      dateModified: "2026-08-06 10:00:00",
+      displayTitle: "Updated PDF",
+      parentItem: parent,
+    });
+    const getFullText = Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>;
+    getFullText
+      .mockResolvedValueOnce({ text: "Original text" })
+      .mockResolvedValueOnce({ text: "Updated text" });
+    const scope = makeScope({
+      type: "pdf",
+      id: "pdf-71",
+      itemIds: [70],
+      readerAttachmentId: 71,
+    });
+
+    expect((await assembleContext(scope)).fullText).toBe("Original text");
+    attachment.dateModified = "2026-08-06 11:00:00";
+    expect((await assembleContext(scope)).fullText).toBe("Updated text");
+    expect(getFullText).toHaveBeenCalledTimes(2);
   });
 
   it("returns the full PDF text even when the active reader page is later in the document", async () => {

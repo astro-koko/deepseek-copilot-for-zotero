@@ -436,7 +436,6 @@ describe("registerPreferencesPane", () => {
         baseURL: "https://api.deepseek.com",
         customPresets: "",
         model: "deepseek-v4-pro",
-        maxContextBudget: 8192,
         keyboardShortcut: "I",
         evidenceEnabled: false,
         evidenceProviderMode: "mcp-web-search" as const,

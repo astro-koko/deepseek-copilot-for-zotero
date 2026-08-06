@@ -105,6 +105,12 @@ For host debugging, collect the same runtime evidence each pass:
 - count, parent, display, and size of `ai-assistant-pane-library-mount` and `ai-assistant-pane-reader-mount`
 - whether the native right-pane content is truly hidden or merely obscured
 
+For any Library or Reader sidebar layout change, also follow the
+[responsive sidebar layout contract](zotero-sidebar-layout-contract.md). A
+visible section alone is insufficient: the mounted conversation must reflow at
+the actual native-pane width, remain vertically scrollable, and keep its
+composer reachable after repeated narrow/wide resizing.
+
 Prefer these built-in tools:
 
 - `Tools -> Developer -> Run JavaScript`
