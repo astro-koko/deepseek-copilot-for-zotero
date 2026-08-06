@@ -442,6 +442,19 @@ export function createChatSessionStore(
 
         setState({ streamingStatus: "waiting" }, scopeKey);
 
+        if (response.sessionMessages?.length) {
+          for (const sessionMessage of response.sessionMessages) {
+            const compressedThread = await deps.appendMessage(
+              thread.id,
+              sessionMessage,
+            );
+            if (compressedThread) {
+              thread = compressedThread;
+              setState({ activeThread: compressedThread }, scopeKey);
+            }
+          }
+        }
+
         if (response.evidenceAuditMessage) {
           const auditedThread = await deps.appendMessage(thread.id, {
             role: "system",

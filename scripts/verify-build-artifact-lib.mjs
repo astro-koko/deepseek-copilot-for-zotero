@@ -16,6 +16,36 @@ const FORBIDDEN_ARCHIVE_ENTRY_PATTERNS = [
   /(^|\/)(?:\.scaffold|scaffold|dev-data|dev-profile|release-profile|profile)(\/|$)/,
 ];
 
+const ARCHIVE_TEXT_ENTRY_PATTERN =
+  /\.(?:cjs|cts|ftl|js|json|jsx|md|mjs|mts|ts|tsx|xhtml|xml|ya?ml)$/i;
+
+const ARCHIVE_SECRET_PATTERNS = [
+  {
+    label: "OpenAI-style key",
+    pattern: /\bsk-[A-Za-z0-9_-]{16,}\b/g,
+  },
+  {
+    label: "GitHub personal access token",
+    pattern: /\bghp_[A-Za-z0-9]{20,}\b/g,
+  },
+  {
+    label: "GitHub fine-grained token",
+    pattern: /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g,
+  },
+  {
+    label: "Slack token",
+    pattern: /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g,
+  },
+  {
+    label: "Bearer token",
+    pattern: /\bBearer\s+[A-Za-z0-9._-]{20,}\b/g,
+  },
+  {
+    label: "Private key block",
+    pattern: /-----BEGIN (?:RSA|OPENSSH|EC|DSA) PRIVATE KEY-----/g,
+  },
+];
+
 function normalizeArchiveEntry(entry) {
   return entry.replace(/\\/g, "/").replace(/^\.\//, "").trim();
 }
@@ -92,4 +122,19 @@ export function findUnexpectedArchiveEntries(archiveEntries) {
     const topLevel = entry.replace(/\/$/, "").split("/")[0];
     return !ALLOWED_ARCHIVE_TOP_LEVEL_ENTRIES.has(topLevel);
   });
+}
+
+export function isTextArchiveEntry(entry) {
+  return ARCHIVE_TEXT_ENTRY_PATTERN.test(normalizeArchiveEntry(entry));
+}
+
+export function findSensitiveArchiveContent(entry, content) {
+  const findings = [];
+  for (const { label, pattern } of ARCHIVE_SECRET_PATTERNS) {
+    pattern.lastIndex = 0;
+    if (pattern.test(content)) {
+      findings.push(`${label} in ${normalizeArchiveEntry(entry)}`);
+    }
+  }
+  return findings;
 }

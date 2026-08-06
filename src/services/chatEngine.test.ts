@@ -19,7 +19,6 @@ const providerMocks = vi.hoisted(() => {
     baseURL: "https://api.deepseek.com",
     customPresets: "",
     keyboardShortcut: "I",
-    maxContextBudget: 4000,
     model: "deepseek-v4-flash",
     evidenceEnabled: false,
     evidenceProviderMode: "mcp-web-search",
@@ -62,7 +61,13 @@ vi.mock("./evidenceSearch", () => ({
   searchEvidence: providerMocks.searchEvidence,
 }));
 
-import { buildSystemPrompt, sendChatMessage } from "./chatEngine";
+import {
+  CONTEXT_COMPRESSION_TARGET_TOKENS,
+  CONTEXT_COMPRESSION_THRESHOLD_TOKENS,
+  buildSystemPrompt,
+  estimateTextTokens,
+  sendChatMessage,
+} from "./chatEngine";
 
 function makeThread(messages: Thread["messages"]): Thread {
   return {
@@ -95,13 +100,25 @@ describe("chatEngine", () => {
     });
   });
 
-  it("sends the persisted thread history without duplicating the latest user message", async () => {
+  it("sends the full persisted thread history without duplicating the latest user message", async () => {
     const persistedThread = makeThread([
       {
         id: "msg-1",
         role: "user",
         content: "Summarize this paper",
         timestamp: 1,
+      },
+      {
+        id: "msg-2",
+        role: "assistant",
+        content: "Earlier answer",
+        timestamp: 2,
+      },
+      {
+        id: "msg-3",
+        role: "user",
+        content: "Follow-up question",
+        timestamp: 3,
       },
     ]);
 
@@ -117,13 +134,27 @@ describe("chatEngine", () => {
           role: "user",
           content: "Summarize this paper",
         },
+        {
+          role: "assistant",
+          content: "Earlier answer",
+        },
+        {
+          role: "user",
+          content: "Follow-up question",
+        },
       ],
       undefined,
       expect.objectContaining({
         fullTextChars: 0,
         systemPromptChars: expect.any(Number),
       }),
+      { maxTokens: 16_000 },
     );
+  });
+
+  it("uses a conservative estimate for predominantly English context", () => {
+    expect(estimateTextTokens("a".repeat(100))).toBe(30);
+    expect(estimateTextTokens("论文")).toBe(2);
   });
 
   it("instructs the model to emit displayable LaTeX formulas", async () => {
@@ -174,7 +205,6 @@ describe("chatEngine", () => {
       baseURL: "https://api.deepseek.com",
       customPresets: "",
       keyboardShortcut: "I",
-      maxContextBudget: 4000,
       model: "deepseek-v4-pro",
       evidenceEnabled: false,
       evidenceProviderMode: "mcp-web-search",
@@ -215,7 +245,7 @@ describe("chatEngine", () => {
     expect(messages[0].content).toContain("stanford-ai4physics/sharp");
   });
 
-  it("adds a document-tail helper section while still sending the full paper text", async () => {
+  it("sends one complete PDF copy without duplicating a document-tail excerpt", async () => {
     const bodyPrefix =
       "Introduction text.\n" + "Background paragraph.\n".repeat(220);
     const tailSection =
@@ -249,9 +279,323 @@ describe("chatEngine", () => {
     const [messages] = providerMocks.sendChat.mock.calls[0] || [];
     expect(messages[0].content).toContain("=== 正文内容 ===");
     expect(messages[0].content).toContain("Introduction text.");
-    expect(messages[0].content).toContain("=== 文档末尾重点 ===");
     expect(messages[0].content).toContain("Figure A7");
     expect(messages[0].content).toContain("Figure A8");
+    expect(messages[0].content).not.toContain("=== 文档末尾重点 ===");
+    expect(messages[0].content.match(/Figure A7/g)).toHaveLength(1);
+  });
+
+  it("keeps the PDF as a stable prefix when later questions are appended", async () => {
+    providerMocks.assembleContext.mockReturnValue({
+      availability: "pdf-text-ready",
+      fullText: "Stable full PDF text",
+      metadata: "Stable metadata",
+      selectedText: "A changing Reader selection",
+      warnings: [],
+    });
+    const firstThread = makeThread([
+      {
+        id: "msg-1",
+        role: "user",
+        content: "First question",
+        timestamp: 1,
+      },
+    ]);
+    const secondThread = makeThread([
+      ...firstThread.messages,
+      {
+        id: "msg-2",
+        role: "assistant",
+        content: "First answer",
+        timestamp: 2,
+      },
+      {
+        id: "msg-3",
+        role: "user",
+        content: "Second question",
+        timestamp: 3,
+      },
+    ]);
+    const scope = {
+      type: "pdf" as const,
+      id: "pdf-1",
+      label: "Paper PDF",
+      itemIds: [1],
+      readerAttachmentId: 11,
+      selectedText: "A changing Reader selection",
+    };
+
+    await sendChatMessage(firstThread, scope);
+    await sendChatMessage(secondThread, scope);
+
+    const firstMessages = providerMocks.sendChat.mock.calls[0]?.[0];
+    const secondMessages = providerMocks.sendChat.mock.calls[1]?.[0];
+    expect(firstMessages?.[0]).toEqual(secondMessages?.[0]);
+    expect(firstMessages?.[0].content).toContain("Stable full PDF text");
+    expect(firstMessages?.[0].content).not.toContain(
+      "A changing Reader selection",
+    );
+  });
+
+  it("compresses older dialogue at the 90 percent context line and keeps the PDF", async () => {
+    const largePaper = "论文正文。".repeat(150_000);
+    providerMocks.assembleContext.mockReturnValue({
+      availability: "pdf-text-ready",
+      fullText: largePaper,
+      metadata: "Metadata block",
+      selectedText: "",
+      warnings: [],
+    });
+    const oldDialogue = "早期讨论。".repeat(65_000);
+    const thread = makeThread([
+      {
+        id: "msg-old-user",
+        role: "user",
+        content: oldDialogue,
+        timestamp: 1,
+      },
+      {
+        id: "msg-old-assistant",
+        role: "assistant",
+        content: oldDialogue,
+        timestamp: 2,
+      },
+      {
+        id: "msg-recent-user",
+        role: "user",
+        content: "最新问题",
+        timestamp: 3,
+      },
+    ]);
+    providerMocks.sendChat
+      .mockResolvedValueOnce({
+        abort: vi.fn(),
+        stream: (async function* summaryStream() {
+          yield "压缩后的早期对话摘要";
+        })(),
+      })
+      .mockResolvedValueOnce({
+        abort: vi.fn(),
+        stream: (async function* answerStream() {})(),
+      });
+
+    const response = await sendChatMessage(thread, {
+      type: "paper",
+      id: "paper-1",
+      label: "Paper 1",
+      itemIds: [1],
+    });
+
+    expect(estimateTextTokens(largePaper + oldDialogue + oldDialogue)).toBeGreaterThan(
+      CONTEXT_COMPRESSION_THRESHOLD_TOKENS,
+    );
+    expect(providerMocks.sendChat).toHaveBeenCalledTimes(2);
+    expect(providerMocks.sendChat.mock.calls[0]?.[3]).toEqual({
+      maxTokens: 2_000,
+      temperature: 0.2,
+    });
+    const mainMessages = providerMocks.sendChat.mock.calls[1]?.[0];
+    expect(mainMessages?.[0].content).toContain(largePaper.slice(0, 40));
+    expect(mainMessages?.some((message: { content: string }) =>
+      message.content.includes("压缩后的早期对话摘要"),
+    )).toBe(true);
+    expect(mainMessages?.some((message: { content: string }) =>
+      message.content.includes(oldDialogue.slice(0, 80)),
+    )).toBe(false);
+    expect(response.sessionMessages).toEqual([
+      expect.objectContaining({
+        kind: "context-compression",
+        role: "system",
+        compressedThroughMessageId: "msg-old-assistant",
+        contextSummary: "压缩后的早期对话摘要",
+      }),
+    ]);
+    expect(CONTEXT_COMPRESSION_TARGET_TOKENS).toBeLessThan(
+      CONTEXT_COMPRESSION_THRESHOLD_TOKENS,
+    );
+    expect(providerMocks.sendChat.mock.calls[1]?.[3]).toEqual({
+      maxTokens: 16_000,
+    });
+  });
+
+  it("searches evidence once and keeps it when dialogue compression is required", async () => {
+    providerMocks.assembleContext.mockReturnValue({
+      availability: "pdf-text-ready",
+      fullText: "论文正文。".repeat(150_000),
+      metadata: "Metadata block",
+      selectedText: "",
+      warnings: [],
+    });
+    providerMocks.searchEvidence.mockResolvedValue({
+      providerMode: "mcp-web-search",
+      items: [
+        {
+          title: "Evidence result",
+          authors: [],
+          year: "",
+          source: "Academic search",
+          url: "",
+          snippet: "External evidence remains available.",
+        },
+      ],
+    });
+    const oldDialogue = "早期讨论。".repeat(65_000);
+    const thread = makeThread([
+      {
+        id: "msg-old-user",
+        role: "user",
+        content: oldDialogue,
+        timestamp: 1,
+      },
+      {
+        id: "msg-old-assistant",
+        role: "assistant",
+        content: oldDialogue,
+        timestamp: 2,
+      },
+      {
+        id: "msg-recent-user",
+        role: "user",
+        content: "请结合外部证据回答",
+        timestamp: 3,
+      },
+    ]);
+    providerMocks.sendChat
+      .mockResolvedValueOnce({
+        abort: vi.fn(),
+        stream: (async function* summaryStream() {
+          yield "压缩后的早期对话摘要";
+        })(),
+      })
+      .mockResolvedValueOnce({
+        abort: vi.fn(),
+        stream: (async function* answerStream() {})(),
+      });
+
+    await sendChatMessage(
+      thread,
+      {
+        type: "paper",
+        id: "paper-1",
+        label: "Paper 1",
+        itemIds: [1],
+      },
+      { evidenceEnabled: true },
+    );
+
+    expect(providerMocks.searchEvidence).toHaveBeenCalledTimes(1);
+    const mainMessages = providerMocks.sendChat.mock.calls[1]?.[0];
+    expect(mainMessages?.[0].content).toContain("=== 外部证据 ===");
+    expect(mainMessages?.[0].content).toContain(
+      "External evidence remains available.",
+    );
+  });
+
+  it("keeps recent messages when a later compression only rewrites the prior summary", async () => {
+    providerMocks.assembleContext.mockReturnValue({
+      availability: "pdf-text-ready",
+      fullText: "论".repeat(820_000),
+      metadata: "Metadata block",
+      selectedText: "",
+      warnings: [],
+    });
+    const thread = makeThread([
+      {
+        id: "msg-original-boundary",
+        role: "assistant",
+        content: "首次压缩到这里",
+        timestamp: 1,
+      },
+      {
+        id: "msg-before-marker",
+        role: "user",
+        content: "这条最近消息位于旧压缩标记之前，不能丢失。",
+        timestamp: 2,
+      },
+      {
+        id: "msg-old-compression",
+        role: "system",
+        content: "旧压缩提示",
+        timestamp: 3,
+        kind: "context-compression",
+        compressedThroughMessageId: "msg-original-boundary",
+        contextSummary: "摘".repeat(90_000),
+      },
+      {
+        id: "msg-after-marker",
+        role: "assistant",
+        content: "这条最近回复也必须保留。",
+        timestamp: 4,
+      },
+      {
+        id: "msg-current-user",
+        role: "user",
+        content: "继续回答当前问题。",
+        timestamp: 5,
+      },
+    ]);
+    providerMocks.sendChat
+      .mockResolvedValueOnce({
+        abort: vi.fn(),
+        stream: (async function* summaryStream() {
+          yield "重新整理后的摘要";
+        })(),
+      })
+      .mockResolvedValueOnce({
+        abort: vi.fn(),
+        stream: (async function* answerStream() {})(),
+      });
+
+    const response = await sendChatMessage(thread, {
+      type: "paper",
+      id: "paper-1",
+      label: "Paper 1",
+      itemIds: [1],
+    });
+
+    expect(response.sessionMessages?.[0]?.compressedThroughMessageId).toBe(
+      "msg-original-boundary",
+    );
+    const mainMessages = providerMocks.sendChat.mock.calls[1]?.[0];
+    expect(mainMessages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          content: "这条最近消息位于旧压缩标记之前，不能丢失。",
+        }),
+        expect.objectContaining({ content: "这条最近回复也必须保留。" }),
+        expect.objectContaining({ content: "继续回答当前问题。" }),
+      ]),
+    );
+  });
+
+  it("blocks a PDF that cannot leave safe room inside the selected model context window", async () => {
+    providerMocks.assembleContext.mockReturnValue({
+      availability: "pdf-text-ready",
+      fullText: "长".repeat(995_000),
+      metadata: "Metadata block",
+      selectedText: "",
+      warnings: [],
+    });
+
+    await expect(
+      sendChatMessage(
+        makeThread([
+          {
+            id: "msg-1",
+            role: "user",
+            content: "请总结",
+            timestamp: 1,
+          },
+        ]),
+        {
+          type: "paper",
+          id: "paper-1",
+          label: "Very Long Paper",
+          itemIds: [1],
+        },
+      ),
+    ).rejects.toThrow("所选模型的上下文窗口");
+    expect(providerMocks.sendChat).not.toHaveBeenCalled();
   });
 
   it("propagates an unsupported-scope blocking message before calling the provider", async () => {
@@ -297,7 +641,7 @@ describe("chatEngine", () => {
           itemIds: [1],
         },
       ),
-    ).rejects.toThrow("当前论文全文超出模型上下文上限，请更换模型或缩小范围。");
+    ).rejects.toThrow("当前请求超出所选模型的上下文窗口，无法发送。");
   });
 
   it("injects external evidence into the system prompt when evidence search is enabled", async () => {

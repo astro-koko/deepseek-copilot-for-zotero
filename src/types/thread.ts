@@ -5,6 +5,9 @@ export interface Message {
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: number;
+  kind?: "context-compression";
+  compressedThroughMessageId?: string;
+  contextSummary?: string;
 }
 
 export interface Thread {

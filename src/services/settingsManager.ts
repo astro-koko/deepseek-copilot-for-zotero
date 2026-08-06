@@ -13,7 +13,6 @@ export interface PersistedSettings {
   apiKey: string;
   customPresets: string;
   model: string;
-  maxContextBudget: number;
   keyboardShortcut: string;
   evidenceEnabled: boolean;
   evidenceProviderMode: EvidenceProviderMode;
@@ -36,7 +35,6 @@ export const DEFAULT_SETTINGS: Settings = {
   baseURL: DEEPSEEK_BASE_URL,
   customPresets: "",
   model: DEEPSEEK_MODELS[0],
-  maxContextBudget: 4000,
   keyboardShortcut: "I",
   evidenceEnabled: false,
   evidenceProviderMode: DEFAULT_EVIDENCE_PROVIDER_MODE,
@@ -358,9 +356,6 @@ export function getSettings(): Settings {
     baseURL: DEEPSEEK_BASE_URL,
     customPresets: normalizeCustomPresetsValue(getPref("customPresets")),
     model: normalizeModel(getPref("model") as string | undefined),
-    maxContextBudget: Number(
-      getPref("maxContextBudget") || DEFAULT_SETTINGS.maxContextBudget,
-    ),
     keyboardShortcut: (getPref("keyboardShortcut") ||
       DEFAULT_SETTINGS.keyboardShortcut) as string,
     evidenceEnabled: normalizeBoolean(getPref("evidenceEnabled")),
@@ -380,8 +375,6 @@ export function saveSettings(settings: Partial<PersistedSettings>): void {
     );
   if (settings.model !== undefined)
     setPref("model", normalizeModel(settings.model));
-  if (settings.maxContextBudget !== undefined)
-    setPref("maxContextBudget", settings.maxContextBudget);
   if (settings.keyboardShortcut !== undefined)
     setPref("keyboardShortcut", settings.keyboardShortcut);
   if (settings.evidenceEnabled !== undefined)

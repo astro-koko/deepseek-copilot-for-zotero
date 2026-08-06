@@ -22,10 +22,15 @@ export function findMissingArchiveEntries(
   archiveEntries: string[],
 ): string[];
 
-export function findForbiddenArchiveEntries(
-  archiveEntries: string[],
-): string[];
+export function findForbiddenArchiveEntries(archiveEntries: string[]): string[];
 
 export function findUnexpectedArchiveEntries(
   archiveEntries: string[],
+): string[];
+
+export function isTextArchiveEntry(entry: string): boolean;
+
+export function findSensitiveArchiveContent(
+  entry: string,
+  content: string,
 ): string[];

@@ -4,22 +4,23 @@ import type {
   ChatStreamChunk,
   StreamingResponse,
   ChatCompletionRequest,
+  ProviderChatOptions,
   ProviderRequestDiagnostics,
 } from "./types";
-
-const PROVIDER_DIAGNOSTIC_PATH = "/tmp/deepseek-copliot-provider-request.json";
 
 export function createOpenAICompatibleProvider(config: ProviderConfig) {
   async function sendChat(
     messages: ChatCompletionMessage[],
     signal?: AbortSignal,
     diagnostics?: ProviderRequestDiagnostics,
+    options?: ProviderChatOptions,
   ): Promise<StreamingResponse> {
     const requestBody: ChatCompletionRequest = {
       model: config.model,
       messages,
       stream: true,
-      temperature: 0.7,
+      temperature: options?.temperature ?? 0.7,
+      max_tokens: options?.maxTokens,
     };
 
     recordProviderRequestDiagnostic(config, requestBody, diagnostics);
@@ -219,17 +220,4 @@ function recordProviderRequestDiagnostic(
     timestamp: new Date().toISOString(),
   };
   diagnostics.lastProviderRequest = payload;
-
-  try {
-    const target =
-      typeof Zotero?.File?.pathToFile === "function"
-        ? Zotero.File.pathToFile(PROVIDER_DIAGNOSTIC_PATH)
-        : PROVIDER_DIAGNOSTIC_PATH;
-    Zotero.File?.putContents?.(
-      target as unknown as nsIFile,
-      JSON.stringify(payload, null, 2),
-    );
-  } catch {
-    // Keep diagnostics best-effort so request flow never depends on file IO.
-  }
 }

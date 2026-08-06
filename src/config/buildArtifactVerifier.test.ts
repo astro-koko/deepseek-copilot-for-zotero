@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildVerificationContext,
   findForbiddenArchiveEntries,
+  findSensitiveArchiveContent,
   findUnexpectedArchiveEntries,
 } from "../../scripts/verify-build-artifact-lib.mjs";
 import { buildAddonVersionMetadata } from "../../scripts/build-version-lib.mjs";
@@ -140,6 +141,15 @@ describe("build artifact verifier", () => {
       "content/data.db",
       "release-profile/places.sqlite",
     ]);
+  });
+
+  it("flags real secret patterns in packaged text assets", () => {
+    expect(
+      findSensitiveArchiveContent(
+        "content/scripts/zotero-ai-assistant.js",
+        `const token = \"sk-${"a".repeat(24)}\";`,
+      ),
+    ).toEqual(["OpenAI-style key in content/scripts/zotero-ai-assistant.js"]);
   });
 
   it("rejects unexpected top-level archive entries outside the plugin payload", () => {

@@ -53,7 +53,6 @@ describe("settingsManager", () => {
       baseURL: "https://api.deepseek.com",
       customPresets: "",
       model: "deepseek-v4-flash",
-      maxContextBudget: 4000,
       keyboardShortcut: "I",
       evidenceEnabled: false,
       evidenceProviderMode: "mcp-web-search",

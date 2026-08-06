@@ -2,13 +2,45 @@
 
 ## v1.0.0 (development)
 
-- Reduced Zotero main-thread load while AI answers stream by coalescing sidebar updates and preserving immediate status transitions.
-- Avoided re-parsing completed chat history during streaming and removed duplicate automatic-scroll layout work.
-- Added a one-click copy control to each completed assistant reply, with Zotero-native clipboard fallback support.
-- Made the native Reader and Library sidebars adapt to the actual pane width with regular, compact, and dense layouts.
-- Fixed narrow-pane reflow after live resizing: the Library host, scroll chain, chat bubbles, and Markdown blocks now shrink within the native section instead of being clipped, and active answers re-anchor after reflow.
-- Fixed a native Zotero section height regression that could leave only the `Deepseek Copliot` header visible after import or restart; restored conversations and the composer now remain reachable in the Reader and Library sections.
-- Kept paper and PDF conversations strictly document-scoped: switching documents restores only that document's history, while a document with no history opens the default home state.
+Deepseek Copliot 1.0 focuses on making long-form reading conversations feel
+continuous inside Zotero, especially when you are following an AI response in a
+narrow Library or Reader sidebar.
+
+### Smoother Reading Conversations
+
+- Made streaming replies substantially smoother, reducing visible stutter while
+  keeping status changes and new content responsive.
+- Added a copy action to completed replies, so useful explanations, formulas,
+  and summaries can be reused without selecting a whole message manually.
+- Kept every paper and PDF conversation independent: switching documents brings
+  back that document's own thread, while a new document starts cleanly.
+
+### A Sidebar That Adapts To You
+
+- Made the Reader and Library chat interface, message cards, and composer adapt
+  to the width Zotero currently provides, including compact and very narrow
+  sidebars.
+- Fixed clipping during live resize and streaming. Long Chinese and English
+  text now reflows in place; code, wide tables, and long formulas stay usable
+  within their own bounded scrolling area instead of widening the whole pane.
+- Fixed a restart and section-height issue that could leave only the
+  `Deepseek Copliot` heading visible and make the conversation or input box
+  unreachable.
+- Improved formula recognition so ordinary parenthesized English explanations
+  remain readable text rather than being mistakenly rendered as mathematical
+  expressions.
+
+### Clearer Answers And Longer Threads
+
+- Refined the answer prompt for Zotero's vertical sidebar: comparisons now
+  prefer grouped vertical lists or small tables of up to three columns, reducing
+  crowded wide tables and unnecessary horizontal scrolling.
+- Removed the manual context-budget setting. When a full paper fits, it stays
+  available for the conversation; only when a thread approaches the model
+  window is older dialogue condensed inside the same thread, while the paper
+  and recent discussion remain in place.
+- Reused recently read PDF text with bounded memory, so repeated questions can
+  avoid needless extraction work and keep their paper context stable.
 
 ## v0.9.9
 
