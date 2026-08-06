@@ -7,6 +7,7 @@
 - Added a one-click copy control to each completed assistant reply, with Zotero-native clipboard fallback support.
 - Made the native Reader and Library sidebars adapt to the actual pane width with regular, compact, and dense layouts.
 - Fixed narrow-pane reflow after live resizing: the Library host, scroll chain, chat bubbles, and Markdown blocks now shrink within the native section instead of being clipped, and active answers re-anchor after reflow.
+- Fixed a native Zotero section height regression that could leave only the `Deepseek Copliot` header visible after import or restart; restored conversations and the composer now remain reachable in the Reader and Library sections.
 - Kept paper and PDF conversations strictly document-scoped: switching documents restores only that document's history, while a document with no history opens the default home state.
 
 ## v0.9.9

@@ -2,6 +2,19 @@
 
 This workflow keeps issue work, specs, agent execution, and real Zotero evidence connected.
 
+## Handoff Memory
+
+At the start of a new Codex window, read:
+
+- [docs/agent-memory.md](agent-memory.md) for durable project context,
+  acceptance evidence, user operating preferences, and known non-regressions.
+- [docs/development-status.md](development-status.md) for the current Git
+  baseline, release readiness, follow-up gates, and intentionally uncommitted
+  worktree files.
+
+Treat those files as the handoff source of truth until newer evidence is
+collected in the current window.
+
 ## Intake
 
 Classify each issue before implementation:
@@ -26,16 +39,27 @@ Related issue:
 Target release:
 
 ## Problem
+
 ## Goals
+
 ## Non-goals
+
 ## User Workflow
+
 ## Scope And Boundaries
+
 ## Design Decisions
+
 ## Files Expected To Change
+
 ## Acceptance Criteria
+
 ## Verification Plan
+
 ## Rollout Or Release Notes
+
 ## Risks And Mitigations
+
 ## Open Questions
 ```
 
@@ -129,6 +153,8 @@ Use the guardrails in [zotero-real-smoke-guardrails.md](zotero-real-smoke-guardr
 Before closing an issue or PR:
 
 - update the plan checkbox or explain why it no longer applies
+- update [docs/development-status.md](development-status.md) when the Git
+  baseline, acceptance state, or release blockers change
 - update `CHANGELOG.md` when user-facing behavior changed
 - update README when install, release, or public narrative changed
 - attach test command results
