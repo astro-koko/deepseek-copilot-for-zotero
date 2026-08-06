@@ -84,6 +84,23 @@ describe("ThreadView markdown rendering", () => {
     expect(markup.match(/10:02:03 AM/g)?.length).toBe(3);
   });
 
+  it("marks each persisted message with a stable resize-anchor id", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-anchor",
+            role: "assistant",
+            content: "Anchor me",
+            timestamp: 1,
+          },
+        ]),
+      }),
+    );
+
+    expect(markup).toContain('data-ai-assistant-message-id="msg-anchor"');
+  });
+
   it("escapes raw html instead of mounting it as live markup", () => {
     const markup = renderToStaticMarkup(
       React.createElement(ThreadView, {

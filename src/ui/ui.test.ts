@@ -615,38 +615,56 @@ describe("UIFactory", () => {
     expect((body as any).scrollTo).toHaveBeenCalledTimes(0);
   });
 
-  it("allows a native section to shrink with the Zotero pane without leaving a blank host", async () => {
-    const win = new FakeWindow();
-    win.Zotero_Tabs.selectedType = "reader";
+  it.each(["library", "reader"] as const)(
+    "keeps the %s native section body auto-sized while containing the plugin horizontally",
+    async (tabType) => {
+      const win = new FakeWindow();
+      win.Zotero_Tabs.selectedType = tabType;
 
-    UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
+      UIFactory.registerChatPanel(win as unknown as Window & typeof globalThis);
 
-    const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
-    const body = win.document.createElement("vbox");
-    body.ownerDocument = win.document;
+      const sectionConfig = registerSectionMock.mock.calls[0]?.[0];
+      const body = win.document.createElement("vbox");
+      body.ownerDocument = win.document;
 
-    sectionConfig.onRender({
-      body,
-      tabType: "reader",
-    });
-    await Promise.resolve();
-    await Promise.resolve();
+      sectionConfig.onRender({
+        body,
+        tabType,
+      });
+      await Promise.resolve();
+      await Promise.resolve();
 
-    const mountPoint = body.children[0] as FakeElement;
-    expect(body.style.minWidth).toBe("0");
-    expect(body.style.width).toBe("100%");
-    expect(body.style.maxWidth).toBe("100%");
-    expect(body.style.overflowX).toBe("hidden");
-    expect(body.style.boxSizing).toBe("border-box");
-    expect(mountPoint.style.display).toBe("flex");
-    expect(mountPoint.style.flex).toBe("1 1 0");
-    expect(mountPoint.style.minWidth).toBe("0");
-    expect(mountPoint.style.width).toBe("100%");
-    expect(mountPoint.style.height).toBe("100%");
-    expect(mountPoint.style.maxHeight).toBe("100%");
-    expect(mountPoint.style.alignSelf).toBe("stretch");
-    expect(mountPoint.style.overflow).toBe("hidden");
-  });
+      const mountPoint = body.children[0] as FakeElement;
+      expect(mountPoint.id).toBe(`ai-assistant-pane-${tabType}-mount`);
+      expect(body.style.display).toBe("flex");
+      expect(body.style.flexDirection).toBe("column");
+      expect(body.style.flex).toBe("none");
+      expect(body.style.minHeight).toBe("auto");
+      expect(body.style.height).toBe("auto");
+      expect(body.style.maxHeight).toBe("none");
+      expect(body.style.overflow).toBe("visible");
+      expect(body.style.minWidth).toBe("0");
+      expect(body.style.width).toBe("100%");
+      expect(body.style.maxWidth).toBe("100%");
+      expect(body.style.overflowX).toBe("hidden");
+      expect(body.style.boxSizing).toBe("border-box");
+      expect(mountPoint.style.display).toBe("flex");
+      expect(mountPoint.style.flex).toBe("none");
+      expect(mountPoint.style.minHeight).toBe("auto");
+      expect(mountPoint.style.minWidth).toBe("0");
+      expect(mountPoint.style.width).toBe("100%");
+      expect(mountPoint.style.height).toBe("auto");
+      expect(mountPoint.style.maxHeight).toBe("none");
+      expect(mountPoint.style.alignSelf).toBe("stretch");
+      expect(mountPoint.style.overflow).toBe("visible");
+      const reactRoot = mountPoint.children[0] as FakeElement;
+      expect(reactRoot.style.flex).toBe("none");
+      expect(reactRoot.style.minHeight).toBe("auto");
+      expect(reactRoot.style.height).toBe("auto");
+      expect(reactRoot.style.maxHeight).toBe("none");
+      expect(reactRoot.style.overflow).toBe("visible");
+    },
+  );
 
   it("uses the section only as a fallback when the native pane is unavailable", () => {
     const win = new FakeWindow();

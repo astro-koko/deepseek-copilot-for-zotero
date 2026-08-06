@@ -202,10 +202,17 @@ export class UIFactory {
     const hosts = this.ensureWindowHosts(win);
     const sectionBody = body as unknown as HTMLDivElement;
     Object.assign(sectionBody.style, {
+      display: "flex",
+      flexDirection: "column",
+      flex: "none",
+      minHeight: "auto",
       minWidth: "0",
       width: "100%",
       maxWidth: "100%",
+      height: "auto",
+      maxHeight: "none",
       alignSelf: "stretch",
+      overflow: "visible",
       overflowX: "hidden",
       boxSizing: "border-box",
     });
@@ -229,15 +236,27 @@ export class UIFactory {
 
     Object.assign(host.mountPoint.style, {
       display: "flex",
-      flex: "1 1 0",
-      minHeight: "0",
+      flex: "none",
+      minHeight: "auto",
       minWidth: "0",
       width: "100%",
       maxWidth: "100%",
-      height: "100%",
-      maxHeight: "100%",
+      height: "auto",
+      maxHeight: "none",
       alignSelf: "stretch",
-      overflow: "hidden",
+      overflow: "visible",
+      boxSizing: "border-box",
+    });
+    Object.assign(host.reactRootElement.style, {
+      display: "flex",
+      flex: "none",
+      minHeight: "auto",
+      minWidth: "0",
+      width: "100%",
+      maxWidth: "100%",
+      height: "auto",
+      maxHeight: "none",
+      overflow: "visible",
       boxSizing: "border-box",
     });
     this.rememberReaderSectionExpansion(win, body, location);
@@ -719,6 +738,8 @@ export class UIFactory {
         eventBus: EventBus.getInstance(),
         hostWindow: win,
         location,
+        hostMode:
+          hostState.attachmentTarget === "section-body" ? "section" : "pane",
       }),
     );
   }

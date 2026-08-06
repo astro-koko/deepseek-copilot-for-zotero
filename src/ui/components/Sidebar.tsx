@@ -46,6 +46,14 @@ import { createHostEvent } from "../../utils/domEvents";
 import { debugLog } from "../../utils/debugLog";
 import { isSidebarLocationSelected } from "../sidebarSection";
 import { resolveSidebarLayout } from "../sidebarLayout";
+import {
+  captureVisibleMessageAnchor,
+  isNearScrollBottom,
+  restoreVisibleMessageAnchor,
+  shouldFollowLatestOutput,
+  type SidebarScrollAnchor,
+  type SidebarScrollViewport,
+} from "../sidebarScrollAnchor";
 
 const BRAND_ICON_SRC =
   "chrome://zotero-ai-assistant/content/icons/deepseek-favicon.png";
@@ -54,6 +62,7 @@ interface SidebarProps {
   eventBus: EventTarget;
   hostWindow: Window;
   location: "library" | "reader";
+  hostMode?: "pane" | "section";
 }
 
 const LazyThreadView = React.lazy(async () => ({
@@ -66,9 +75,15 @@ function isSupportedChatScope(
   return scope?.type === "paper" || scope?.type === "pdf";
 }
 
-function useResponsiveSidebarLayout(hostWindow: Window) {
+function useResponsiveSidebarLayout(
+  hostWindow: Window,
+  onWidthWillChange: () => void,
+) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState<number | null>(null);
+  const widthRef = useRef<number | null>(null);
+  const onWidthWillChangeRef = useRef(onWidthWillChange);
+  onWidthWillChangeRef.current = onWidthWillChange;
 
   useEffect(() => {
     const root = rootRef.current;
@@ -77,9 +92,13 @@ function useResponsiveSidebarLayout(hostWindow: Window) {
     }
 
     const updateWidth = (nextWidth = root.getBoundingClientRect().width) => {
-      setWidth((currentWidth) =>
-        currentWidth === nextWidth ? currentWidth : nextWidth,
-      );
+      if (widthRef.current === nextWidth) {
+        return;
+      }
+
+      onWidthWillChangeRef.current();
+      widthRef.current = nextWidth;
+      setWidth(nextWidth);
     };
 
     updateWidth();
@@ -112,6 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   eventBus,
   hostWindow,
   location,
+  hostMode = "pane",
 }) => {
   const session = useSyncExternalStore(
     chatSessionStore.subscribe,
@@ -132,11 +152,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [composerFocusNonce, setComposerFocusNonce] = useState(0);
   const [themeRefreshKey, setThemeRefreshKey] = useState(0);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
+  const scrollAnchorRef = useRef<SidebarScrollAnchor | null>(null);
+  const wasNearBottomRef = useRef(true);
+  const previousThreadIdRef = useRef<string | null>(null);
   const {
     layout: sidebarLayout,
     rootRef: sidebarRootRef,
     width: sidebarWidth,
-  } = useResponsiveSidebarLayout(hostWindow);
+  } = useResponsiveSidebarLayout(hostWindow, () => {
+    scrollAnchorRef.current = captureVisibleMessageAnchor(
+      scrollViewportRef.current as SidebarScrollViewport | null,
+    );
+  });
   const isCompactSidebar = sidebarLayout !== "regular";
   const isDenseSidebar = sidebarLayout === "dense";
   const scopeSyncVersionRef = useRef(0);
@@ -514,19 +541,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
       : "Web Verification";
 
   useEffect(() => {
-    const content = scrollViewportRef.current;
+    const content = scrollViewportRef.current as SidebarScrollViewport | null;
     if (!content) {
       return;
     }
 
-    const hasVisibleThread = Boolean(session.activeThread?.messages.length);
-    const hasStreamingOutput = Boolean(session.isStreaming);
-    if (!hasVisibleThread && !hasStreamingOutput) {
+    const updateScrollState = () => {
+      scrollAnchorRef.current = captureVisibleMessageAnchor(content);
+      wasNearBottomRef.current = isNearScrollBottom(content);
+    };
+
+    updateScrollState();
+    content.addEventListener("scroll", updateScrollState, { passive: true });
+    return () => content.removeEventListener("scroll", updateScrollState);
+  }, [session.activeThread?.id]);
+
+  useEffect(() => {
+    const threadId = session.activeThread?.id ?? null;
+    if (previousThreadIdRef.current !== threadId) {
+      wasNearBottomRef.current = true;
+      previousThreadIdRef.current = threadId;
+    }
+  }, [session.activeThread?.id]);
+
+  useEffect(() => {
+    const content = scrollViewportRef.current as SidebarScrollViewport | null;
+    if (!content) {
+      return;
+    }
+
+    const hasVisibleOutput = Boolean(
+      session.activeThread?.messages.length || session.isStreaming,
+    );
+    if (
+      !shouldFollowLatestOutput({
+        hasVisibleOutput,
+        wasNearBottom: wasNearBottomRef.current,
+      })
+    ) {
       return;
     }
 
     const scrollToLatest = () => {
       content.scrollTop = content.scrollHeight;
+      scrollAnchorRef.current = captureVisibleMessageAnchor(content);
+      wasNearBottomRef.current = true;
     };
     const requestAnimationFrame = hostWindow.requestAnimationFrame;
     if (typeof requestAnimationFrame === "function") {
@@ -536,14 +595,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     scrollToLatest();
   }, [
+    hostWindow,
     session.activeThread?.id,
     session.activeThread?.messages.length,
     session.isStreaming,
     session.streamingContent,
     session.streamingReasoningContent,
     session.streamingStatus,
-    sidebarWidth,
   ]);
+
+  useEffect(() => {
+    const content = scrollViewportRef.current as SidebarScrollViewport | null;
+    const anchor = scrollAnchorRef.current;
+    if (!content || !anchor) {
+      return;
+    }
+
+    const restoreAnchor = () => {
+      restoreVisibleMessageAnchor(content, anchor);
+      scrollAnchorRef.current = captureVisibleMessageAnchor(content);
+      wasNearBottomRef.current = isNearScrollBottom(content);
+    };
+    const requestAnimationFrame = hostWindow.requestAnimationFrame;
+    if (typeof requestAnimationFrame === "function") {
+      const frame = requestAnimationFrame.call(hostWindow, restoreAnchor);
+      return () => hostWindow.cancelAnimationFrame?.(frame);
+    }
+
+    restoreAnchor();
+  }, [hostWindow, sidebarWidth]);
 
   const streamingMessage = session.isStreaming
     ? {
@@ -561,6 +641,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         data-ai-assistant-sidebar-layout={sidebarLayout}
         style={{
           ...styles.container,
+          height: hostMode === "section" ? "auto" : styles.container.height,
           ...(isCompactSidebar ? styles.containerCompact : {}),
           background: theme.background,
           color: theme.text,

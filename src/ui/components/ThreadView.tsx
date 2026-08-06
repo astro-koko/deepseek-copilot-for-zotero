@@ -745,6 +745,7 @@ const MessageBubble = React.memo(function MessageBubble({
             ? theme.userMessageBorder
             : theme.assistantMessageBorder,
       }}
+      data-ai-assistant-message-id={message.id}
     >
       <MarkdownMessage content={message.content} theme={theme} />
       <div style={styles.messageFooter}>

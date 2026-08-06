@@ -141,8 +141,9 @@ describe("Sidebar recent thread layout", () => {
     expect(sidebarSource).toContain("composerDock: {");
     expect(sidebarSource).toContain('height: "100%"');
     expect(sidebarSource).toContain('overflowY: "auto"');
-    expect(sidebarSource).toContain(
-      "content.scrollTop = content.scrollHeight;",
+    expect(sidebarSource).toContain("shouldFollowLatestOutput({");
+    expect(sidebarSource).not.toMatch(
+      /session\.streamingStatus,[\s\S]*sidebarWidth,[\s\S]*\]\);/,
     );
     expect(sidebarSource).not.toContain('position: "sticky"');
     expect(sidebarSource).not.toContain("composerSection:");
