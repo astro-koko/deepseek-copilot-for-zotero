@@ -24,6 +24,7 @@ export function buildSystemPrompt(scope: ScopeContext | undefined): string {
 - 不要假装自己看到了当前范围之外的内容。
 - 如果问题针对分类范围，请只基于当前纳入范围的条目进行综合。
 - 回答要简洁但充分，必要时可以使用 Markdown。
+- 输出会显示在窄侧栏的竖向对话流中。表格仅在确实有助于比较时使用，默认最多三列（包括标签列）；行数不作限制。若比较维度超过三列，拆成多张小表，或改用带小标题的分组列表，避免生成需要横向滚动或内容拥挤的宽表。
 - Formula formatting: use \`$...$\` for every short inline formula, including formulas inside lists, tables, or parentheses; use \`$$...$$\` for display formulas. Never write LaTeX as bare parenthetical text like \`(A_X)\` or \`(\\varepsilon_{\\rm FG})\`; write \`$(A_X)$\` or \`$(\\varepsilon_{\\rm FG})$\` instead. Use single LaTeX backslashes in visible answers, for example \`\\epsilon\` not \`\\\\epsilon\`. Do not double-escape LaTeX commands as if writing JSON, and do not wrap formulas in code fences unless the user asks for literal source text.
 - 如果系统上下文中提供了“文档末尾重点”片段，而用户在问最后一页、文末、附录结尾或最后几页，请先核对该片段，再结合全文回答。
 - 如果问题超出了当前范围，请明确说明。`;

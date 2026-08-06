@@ -62,7 +62,7 @@ vi.mock("./evidenceSearch", () => ({
   searchEvidence: providerMocks.searchEvidence,
 }));
 
-import { sendChatMessage } from "./chatEngine";
+import { buildSystemPrompt, sendChatMessage } from "./chatEngine";
 
 function makeThread(messages: Thread["messages"]): Thread {
   return {
@@ -136,6 +136,15 @@ describe("chatEngine", () => {
     expect(messages[0].content).toContain("bare parenthetical text");
     expect(messages[0].content).toContain("single LaTeX backslashes");
     expect(messages[0].content).toContain("Do not double-escape");
+  });
+
+  it("instructs the model to keep Markdown tables readable in the narrow sidebar", () => {
+    const prompt = buildSystemPrompt(undefined);
+
+    expect(prompt).toContain("窄侧栏");
+    expect(prompt).toContain("最多三列");
+    expect(prompt).toContain("行数不作限制");
+    expect(prompt).toContain("拆成多张小表");
   });
 
   it("includes context availability warnings in the system prompt when full text is unavailable", async () => {
