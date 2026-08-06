@@ -98,6 +98,6 @@
 
 ## 微信群交流
 
-欢迎大家进入微信群交流。下面的二维码有效期至 `2026-07-19`：
+欢迎大家进入微信群交流。下面的二维码有效期至 `2026-08-13`：
 
-<img src="docs/community/assets/deepseek-copilot-wechat-group-2026-07-19.jpg" alt="Deepseek Copliot 微信交流群二维码" width="360">
+<img src="docs/community/assets/deepseek-copilot-wechat-group-2026-08-13.jpg" alt="Deepseek Copliot 微信交流群二维码" width="360">
