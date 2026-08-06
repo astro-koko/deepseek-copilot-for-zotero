@@ -9,6 +9,7 @@ import type { Settings } from "../../services/settingsManager";
 import type { ScopeContext } from "../../types/scope";
 import type { Thread } from "../../types/thread";
 import { isChineseLocale } from "../../utils/locale";
+import { threadMatchesScope } from "../../services/threadController";
 
 export type SidebarMode = "empty" | "config-error" | "home" | "thread";
 
@@ -121,7 +122,9 @@ export function buildSidebarViewModel({
       : "Library";
   const providerLabel = "DeepSeek";
   const filteredRecentThreads = recentThreads.filter(
-    (thread) => thread.id !== session.activeThread?.id,
+    (thread) =>
+      thread.id !== session.activeThread?.id &&
+      (!isChatSupportedScope(scope) || threadMatchesScope(thread, scope)),
   );
   const contextAvailabilityLabel = contextSummary
     ? mapContextAvailabilityLabel(contextSummary.availability)

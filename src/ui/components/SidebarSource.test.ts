@@ -23,7 +23,9 @@ describe("Sidebar recent thread layout", () => {
 
     expect(sidebarSource).toContain("model.suggestedActions.map((action) =>");
     expect(sidebarSource).toContain("suggestedActionsList: {");
-    expect(sidebarSource).toContain('gridTemplateColumns: "repeat(2, minmax(0, 1fr))"');
+    expect(sidebarSource).toContain(
+      'gridTemplateColumns: "repeat(2, minmax(0, 1fr))"',
+    );
     expect(sidebarSource).not.toContain("suggestedActionGroups.map");
     expect(sidebarSource).not.toContain("getPresetGroupLabel(group, zh)");
     expect(suggestedActionsList).toContain('gap: "6px"');
@@ -50,7 +52,7 @@ describe("Sidebar recent thread layout", () => {
   it("renders suggested action cards with only the short label copy", () => {
     expect(sidebarSource).toContain("{action.label}");
     expect(sidebarSource).not.toContain("{action.description}");
-    expect(sidebarSource).not.toContain('/{action.command}');
+    expect(sidebarSource).not.toContain("/{action.command}");
   });
 
   it("keeps recent thread actions in their own vertical action row", () => {
@@ -86,16 +88,19 @@ describe("Sidebar recent thread layout", () => {
     expect(sidebarSource).toContain("<SidebarErrorBoundary>");
   });
 
-  it("loads recent chats through the current scope before falling back to global history", () => {
+  it("keeps document chat history scoped to the current paper or PDF", () => {
     expect(sidebarSource).toContain("listThreadsForScope");
     expect(sidebarSource).toContain("findMostRecentThreadForScope");
     expect(sidebarSource).toContain("scope?.scopeKey");
+    expect(sidebarSource).toContain("return listThreadsForScope(nextScope);");
   });
 
   it("uses host temp-directory helpers instead of hardcoded /tmp when picker fallback is needed", () => {
     expect(sidebarSource).toContain("PathUtils?.tempDir");
     expect(sidebarSource).toMatch(/OS[\s\S]*Constants[\s\S]*Path[\s\S]*tmpDir/);
-    expect(sidebarSource).not.toContain('const fallbackPath = `/tmp/${fileName}`');
+    expect(sidebarSource).not.toContain(
+      "const fallbackPath = `/tmp/${fileName}`",
+    );
   });
 
   it("renders the composer in a dedicated dock after the scrollable message viewport", () => {
@@ -116,7 +121,9 @@ describe("Sidebar recent thread layout", () => {
 
   it("renders recent chats after the composer dock instead of inside the scroll viewport", () => {
     const composerDockIndex = sidebarSource.indexOf("composerDock");
-    const recentChatsIndex = sidebarSource.indexOf("{isRecentChatsVisible && (");
+    const recentChatsIndex = sidebarSource.indexOf(
+      "{isRecentChatsVisible && (",
+    );
 
     expect(composerDockIndex).toBeGreaterThan(-1);
     expect(recentChatsIndex).toBeGreaterThan(-1);
@@ -139,6 +146,36 @@ describe("Sidebar recent thread layout", () => {
     );
     expect(sidebarSource).not.toContain('position: "sticky"');
     expect(sidebarSource).not.toContain("composerSection:");
+  });
+
+  it("keeps the message section contained when Zotero reuses a narrow reader pane", () => {
+    const threadSection = getStyleBlock("threadSection");
+
+    expect(threadSection).toContain('width: "100%"');
+    expect(threadSection).toContain('maxWidth: "100%"');
+    expect(threadSection).toContain("minWidth: 0");
+    expect(threadSection).toContain('boxSizing: "border-box"');
+    expect(threadSection).toContain('overflowX: "hidden"');
+  });
+
+  it("contains every Library scroll child before the native pane can clip it", () => {
+    for (const blockName of [
+      "mainPane",
+      "scrollViewport",
+      "introSection",
+      "section",
+      "composerDock",
+      "streamingSection",
+      "errorSection",
+    ]) {
+      const block = getStyleBlock(blockName);
+      expect(block, `Expected containment styles for ${blockName}`).toContain(
+        'width: "100%"',
+      );
+      expect(block).toContain('maxWidth: "100%"');
+      expect(block).toContain('boxSizing: "border-box"');
+      expect(block).toContain("minWidth: 0");
+    }
   });
 
   it("observes native pane width and switches to a compact sidebar layout", () => {

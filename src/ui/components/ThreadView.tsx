@@ -126,6 +126,14 @@ export async function copyMessageToClipboard(text: string): Promise<boolean> {
 function buildMarkdownComponents(
   theme: ReturnType<typeof getSidebarTheme>,
 ): Components {
+  const markdownBlockStyle: React.CSSProperties = {
+    minWidth: 0,
+    maxWidth: "100%",
+    boxSizing: "border-box",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+  };
+
   return {
     a: ({ node: _node, href, children, ...props }) => (
       <a
@@ -147,6 +155,7 @@ function buildMarkdownComponents(
       <blockquote
         {...props}
         style={{
+          ...markdownBlockStyle,
           margin: "6px 0",
           padding: "0 0 0 10px",
           borderLeft: `3px solid ${theme.softBorder}`,
@@ -171,6 +180,7 @@ function buildMarkdownComponents(
       <h1
         {...props}
         style={{
+          ...markdownBlockStyle,
           margin: "0 0 8px",
           fontSize: typography.headingLg,
           lineHeight: 1.3,
@@ -183,6 +193,7 @@ function buildMarkdownComponents(
       <h2
         {...props}
         style={{
+          ...markdownBlockStyle,
           margin: "0 0 7px",
           fontSize: typography.headingMd,
           lineHeight: 1.35,
@@ -195,6 +206,7 @@ function buildMarkdownComponents(
       <h3
         {...props}
         style={{
+          ...markdownBlockStyle,
           margin: "0 0 6px",
           fontSize: typography.headingSm,
           lineHeight: 1.35,
@@ -207,6 +219,7 @@ function buildMarkdownComponents(
       <h4
         {...props}
         style={{
+          ...markdownBlockStyle,
           margin: "0 0 6px",
           fontSize: typography.headingSm,
           lineHeight: 1.35,
@@ -219,6 +232,7 @@ function buildMarkdownComponents(
       <h5
         {...props}
         style={{
+          ...markdownBlockStyle,
           margin: "0 0 5px",
           fontSize: typography.body,
           lineHeight: 1.35,
@@ -231,6 +245,7 @@ function buildMarkdownComponents(
       <h6
         {...props}
         style={{
+          ...markdownBlockStyle,
           margin: "0 0 5px",
           fontSize: typography.body,
           lineHeight: 1.35,
@@ -240,15 +255,20 @@ function buildMarkdownComponents(
       </h6>
     ),
     li: ({ node: _node, children, ...props }) => (
-      <li {...props}>{renderInlineMath(children, theme)}</li>
+      <li {...props} style={markdownBlockStyle}>
+        {renderInlineMath(children, theme)}
+      </li>
     ),
     ol: ({ node: _node, children, ...props }) => (
-      <ol {...props} style={{ margin: "6px 0", paddingLeft: "18px" }}>
+      <ol
+        {...props}
+        style={{ ...markdownBlockStyle, margin: "6px 0", paddingLeft: "18px" }}
+      >
         {children}
       </ol>
     ),
     p: ({ node: _node, children, ...props }) => (
-      <p {...props} style={{ margin: "0 0 6px" }}>
+      <p {...props} style={{ ...markdownBlockStyle, margin: "0 0 6px" }}>
         {renderInlineMath(children, theme)}
       </p>
     ),
@@ -256,6 +276,7 @@ function buildMarkdownComponents(
       <pre
         {...props}
         style={{
+          ...markdownBlockStyle,
           margin: "6px 0",
           padding: "8px",
           overflowX: "auto",
@@ -275,9 +296,11 @@ function buildMarkdownComponents(
       <table
         {...props}
         style={{
+          ...markdownBlockStyle,
           width: "100%",
           margin: "6px 0",
           borderCollapse: "collapse",
+          tableLayout: "fixed",
           fontSize: typography.meta,
         }}
       >
@@ -288,6 +311,7 @@ function buildMarkdownComponents(
       <td
         {...props}
         style={{
+          ...markdownBlockStyle,
           border: `1px solid ${theme.softBorder}`,
           padding: "4px 6px",
           verticalAlign: "top",
@@ -300,6 +324,7 @@ function buildMarkdownComponents(
       <th
         {...props}
         style={{
+          ...markdownBlockStyle,
           border: `1px solid ${theme.softBorder}`,
           padding: "4px 6px",
           textAlign: "left",
@@ -310,7 +335,10 @@ function buildMarkdownComponents(
       </th>
     ),
     ul: ({ node: _node, children, ...props }) => (
-      <ul {...props} style={{ margin: "6px 0", paddingLeft: "18px" }}>
+      <ul
+        {...props}
+        style={{ ...markdownBlockStyle, margin: "6px 0", paddingLeft: "18px" }}
+      >
         {children}
       </ul>
     ),
@@ -788,7 +816,10 @@ const selectableTextStyle: React.CSSProperties = {
 const styles: Record<string, React.CSSProperties> = {
   container: {
     flex: "none",
-    overflow: "visible",
+    width: "100%",
+    maxWidth: "100%",
+    overflow: "hidden",
+    boxSizing: "border-box",
     padding: "0",
     display: "flex",
     flexDirection: "column",
@@ -799,6 +830,7 @@ const styles: Record<string, React.CSSProperties> = {
   message: {
     maxWidth: "94%",
     minWidth: 0,
+    boxSizing: "border-box",
     padding: "7px 9px",
     borderRadius: "4px",
     border: "1px solid transparent",
@@ -807,6 +839,11 @@ const styles: Record<string, React.CSSProperties> = {
     ...selectableTextStyle,
   },
   content: {
+    width: "100%",
+    minWidth: 0,
+    maxWidth: "100%",
+    boxSizing: "border-box",
+    whiteSpace: "normal",
     wordBreak: "break-word",
     overflowWrap: "anywhere",
     ...selectableTextStyle,
@@ -820,6 +857,9 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.45,
     overflowX: "auto",
     overflowY: "hidden",
+    minWidth: 0,
+    maxWidth: "100%",
+    boxSizing: "border-box",
     ...selectableTextStyle,
   },
   mathInline: {

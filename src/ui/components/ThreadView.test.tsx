@@ -157,6 +157,63 @@ describe("ThreadView markdown rendering", () => {
     expect(markup).toContain("<strong>answer</strong>");
   });
 
+  it("keeps long CJK messages inside a narrow native reader pane", () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(ThreadView, {
+        thread: makeThread([
+          {
+            id: "msg-user",
+            role: "user",
+            content: "请用清晰易懂的语言解释当前概念、段落或结果。".repeat(12),
+            timestamp: 1,
+          },
+          {
+            id: "msg-assistant",
+            role: "assistant",
+            content: [
+              "这是一段用于验证狭窄阅读器侧栏换行行为的连续中文回复。".repeat(
+                24,
+              ),
+              "",
+              "```text",
+              "https://example.test/this-is-an-intentionally-long-code-line-that-must-stay-inside-the-message-bubble",
+              "```",
+              "",
+              "| 很长的列名 | Another intentionally long table heading |",
+              "| - | - |",
+              "| 内容 | value |",
+            ].join("\n"),
+            timestamp: 2,
+          },
+        ]),
+      }),
+    );
+
+    const threadViewStyle = markup.match(/^<div style="([^"]+)"/);
+    const messageStyle = markup.match(
+      /class="ai-assistant-message ai-assistant-message-user" style="([^"]+)"/,
+    );
+    const messageContentStyle = markup.match(
+      /class="ai-assistant-message-content" style="([^"]+)"/,
+    );
+
+    expect(threadViewStyle?.[1]).toContain("width:100%");
+    expect(threadViewStyle?.[1]).toContain("max-width:100%");
+    expect(threadViewStyle?.[1]).toContain("overflow:hidden");
+    expect(messageStyle?.[1]).toContain("box-sizing:border-box");
+    expect(messageContentStyle?.[1]).toContain("width:100%");
+    expect(messageContentStyle?.[1]).toContain("min-width:0");
+    expect(messageContentStyle?.[1]).toContain("max-width:100%");
+    expect(messageContentStyle?.[1]).toContain("box-sizing:border-box");
+    expect(messageContentStyle?.[1]).toContain("white-space:normal");
+    expect(markup).toMatch(
+      /<pre style="[^"]*max-width:100%[^"]*box-sizing:border-box/,
+    );
+    expect(markup).toMatch(
+      /<table style="[^"]*max-width:100%[^"]*box-sizing:border-box/,
+    );
+  });
+
   it("renders display math blocks without exposing outer delimiters", () => {
     const markup = renderToStaticMarkup(
       React.createElement(ThreadView, {
