@@ -5,6 +5,7 @@ import { getLocaleID } from "../utils/locale";
 import { Sidebar } from "./components/Sidebar";
 import { getCurrentScope } from "../services/scopeResolver";
 import {
+  applySectionSidebarLayout,
   attachSidebarHost,
   createFallbackSidebarHost,
   createSectionSidebarHost,
@@ -201,21 +202,6 @@ export class UIFactory {
 
     const hosts = this.ensureWindowHosts(win);
     const sectionBody = body as unknown as HTMLDivElement;
-    Object.assign(sectionBody.style, {
-      display: "flex",
-      flexDirection: "column",
-      flex: "none",
-      minHeight: "auto",
-      minWidth: "0",
-      width: "100%",
-      maxWidth: "100%",
-      height: "auto",
-      maxHeight: "none",
-      alignSelf: "stretch",
-      overflow: "visible",
-      overflowX: "hidden",
-      boxSizing: "border-box",
-    });
     const existing = hosts[location];
     if (
       existing &&
@@ -233,32 +219,7 @@ export class UIFactory {
     hosts[location] = host;
 
     attachSidebarHost(body, host);
-
-    Object.assign(host.mountPoint.style, {
-      display: "flex",
-      flex: "none",
-      minHeight: "auto",
-      minWidth: "0",
-      width: "100%",
-      maxWidth: "100%",
-      height: "auto",
-      maxHeight: "none",
-      alignSelf: "stretch",
-      overflow: "visible",
-      boxSizing: "border-box",
-    });
-    Object.assign(host.reactRootElement.style, {
-      display: "flex",
-      flex: "none",
-      minHeight: "auto",
-      minWidth: "0",
-      width: "100%",
-      maxWidth: "100%",
-      height: "auto",
-      maxHeight: "none",
-      overflow: "visible",
-      boxSizing: "border-box",
-    });
+    applySectionSidebarLayout(sectionBody, host);
     this.rememberReaderSectionExpansion(win, body, location);
 
     void this.ensureHostBootstrapped(win, host, location).catch((error) => {

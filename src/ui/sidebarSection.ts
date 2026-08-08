@@ -104,6 +104,17 @@ export function createSectionSidebarHost(
   );
 }
 
+export function applySectionSidebarLayout(
+  body: HTMLElement,
+  host: SidebarSurfaceHost,
+): void {
+  Object.assign(body.style, sectionBodyStyles);
+  Object.assign(host.mountPoint.style, sectionHostStyles);
+  Object.assign(host.reactRootElement.style, sectionHostStyles, {
+    flexDirection: "column",
+  });
+}
+
 export function ensureSidebarHostState(
   state: SidebarHostState | undefined,
   location: SidebarLocation,
@@ -279,6 +290,37 @@ const sharedHostStyles = {
   width: "100%",
   maxWidth: "100%",
   maxHeight: "100%",
+  overflow: "hidden",
+  boxSizing: "border-box",
+};
+
+const sectionBodyStyles = {
+  display: "flex",
+  flexDirection: "column",
+  flex: "0 1 auto",
+  minHeight: "auto",
+  minWidth: "0",
+  width: "100%",
+  maxWidth: "100%",
+  height: "auto",
+  maxHeight: "none",
+  alignSelf: "stretch",
+  overflow: "hidden",
+  overflowX: "hidden",
+  boxSizing: "border-box",
+};
+
+const sectionHostStyles = {
+  display: "flex",
+  flexDirection: "column",
+  flex: "1 1 auto",
+  minHeight: "auto",
+  minWidth: "0",
+  width: "100%",
+  maxWidth: "100%",
+  height: "auto",
+  maxHeight: "none",
+  alignSelf: "stretch",
   overflow: "hidden",
   boxSizing: "border-box",
 };

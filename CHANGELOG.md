@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.1
+
+修复 Zotero Library 与 PDF Reader 原生窄侧栏在完成回答后的重复收窄场景。
+
+- 修复 section body、插件 mount 和 React root 之间把自动高度与横向 intrinsic width 混用的问题。
+- 保持 section 宿主可收缩且有边界，避免完成回答、普通段落、复制按钮和 Composer 在窄侧栏右侧被裁切。
+- 增加 Library 与 Reader 宿主样式契约回归测试。
+
 ## v1.0.0
 
 Deepseek Copliot 1.0 focuses on making long-form reading conversations feel
