@@ -1,3 +1,5 @@
+
+
 # Deepseek Copliot
 
 [![Release](https://img.shields.io/github/v/release/astro-koko/deepseek-copilot-for-zotero?display_name=tag&style=flat-square)](https://github.com/astro-koko/deepseek-copilot-for-zotero/releases)
@@ -66,9 +68,9 @@
 
 ## 版本与兼容性
 
-当前稳定版本是 `v1.0.0`，使用适配 Zotero 7、8、9 和 10 的统一安装包：
+当前稳定版本是 `v1.0.1`，使用适配 Zotero 7、8、9 和 10 的统一安装包：
 
-- Zotero 7、8、9、10 都使用 `Deepseek.Copliot-1.0.0.xpi`，无需按 Zotero 版本分别下载。
+- Zotero 7、8、9、10 都使用 `Deepseek.Copliot-1.0.1.xpi`，无需按 Zotero 版本分别下载。
 - 开发测试包与正式发布包使用相同的运行时代码；正式包只使用正式版本元数据和更新地址。
 - 完整更新内容请查看 [CHANGELOG](CHANGELOG.md)。
 
@@ -94,7 +96,7 @@
 5. 选中下载好的 `.xpi` 文件并完成安装。
 6. 重启 Zotero。
 
-当前稳定版本是 `v1.0.0`，手动安装文件名为 `Deepseek.Copliot-1.0.0.xpi`。
+当前稳定版本是 `v1.0.1`，手动安装文件名为 `Deepseek.Copliot-1.0.1.xpi`。
 
 ## 微信群交流
 
