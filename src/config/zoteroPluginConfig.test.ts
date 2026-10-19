@@ -15,7 +15,7 @@ describe("zotero-plugin config", () => {
 
   it("configures the checked-in Chinese product notes for the tagged version", () => {
     expect(config.release?.changelog).toBe(
-      "node scripts/read-release-notes.mjs 1.0.1",
+      "node scripts/read-release-notes.mjs 1.1.0",
     );
   });
 });

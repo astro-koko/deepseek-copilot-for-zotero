@@ -394,13 +394,7 @@ describe("registerPreferencesPane", () => {
   let slashCustom: FakeContainer;
   let slashAddButton: FakeButton;
   let slashLimitStatus: FakeStatusElement;
-  let evidenceProviderField: FakeField;
-  let tavilyApiKeyField: FakeField;
-  let tavilyValidateButton: FakeButton;
-  let tavilyStatus: FakeStatusElement;
-  let tavilySettingsRow: FakeField;
   let deepSeekLink: FakeLink;
-  let tavilyLink: FakeLink;
   let deps: PreferencesPaneDeps;
 
   beforeEach(() => {
@@ -422,28 +416,23 @@ describe("registerPreferencesPane", () => {
     slashCustom = new FakeContainer();
     slashAddButton = new FakeButton();
     slashLimitStatus = new FakeStatusElement();
-    evidenceProviderField = new FakeField();
-    tavilyApiKeyField = new FakeField();
-    tavilyValidateButton = new FakeButton();
-    tavilyStatus = new FakeStatusElement();
-    tavilySettingsRow = new FakeField();
     deepSeekLink = new FakeLink();
-    tavilyLink = new FakeLink();
 
     deps = {
       getSettings: vi.fn(() => ({
         apiKey: "sk-test",
         baseURL: "https://api.deepseek.com",
         customPresets: "",
-        model: "deepseek-v4-pro",
+        model: "deepseek-flash",
         keyboardShortcut: "I",
         evidenceEnabled: false,
-        evidenceProviderMode: "mcp-web-search" as const,
-        tavilyApiKey: "",
+        reasoningEffort: "low" as const,
+        thinkingEnabled: true,
+        
       })),
       saveSettings: vi.fn(),
       validateSettings: vi.fn(async () => ({ valid: true })),
-      validateEvidenceSettings: vi.fn(async () => ({ valid: true })),
+      
       exportDebugLog: vi.fn(async () => "/tmp/deepseek-copliot-debug.jsonl"),
     };
   });
@@ -461,13 +450,7 @@ describe("registerPreferencesPane", () => {
       "zotero-ai-assistant-pref-slash-custom": slashCustom,
       "zotero-ai-assistant-pref-slash-add": slashAddButton,
       "zotero-ai-assistant-pref-slash-limit-status": slashLimitStatus,
-      "zotero-ai-assistant-pref-evidence-provider": evidenceProviderField,
-      "zotero-ai-assistant-pref-tavily-api-key": tavilyApiKeyField,
-      "zotero-ai-assistant-pref-tavily-validate": tavilyValidateButton,
-      "zotero-ai-assistant-pref-tavily-status": tavilyStatus,
-      "zotero-ai-assistant-pref-tavily-settings": tavilySettingsRow,
       "zotero-ai-assistant-pref-api-key-link": deepSeekLink,
-      "zotero-ai-assistant-pref-tavily-link": tavilyLink,
     });
 
     return new FakeWindow(
@@ -481,7 +464,6 @@ describe("registerPreferencesPane", () => {
     expect(deps.getSettings).toHaveBeenCalledTimes(1);
     expect(apiKeyField.value).toBe("sk-test");
     expect(customPresetsField.value).toBe("");
-    expect(evidenceProviderField.value).toBe("mcp-web-search");
     expect(slashBuiltins.querySelectorAll('[data-slash-card="true"]').length).toBeGreaterThan(0);
     expect(
       slashBuiltins.querySelector('[data-slash-field="title"]'),
@@ -503,26 +485,17 @@ describe("registerPreferencesPane", () => {
     expect(saveButton.getListenerCount("command")).toBe(1);
     expect(validateButton.getListenerCount("command")).toBe(1);
     expect(exportDebugLogButton.getListenerCount("command")).toBe(1);
-    expect(evidenceProviderField.getListenerCount("change")).toBe(1);
-    expect(evidenceProviderField.getListenerCount("command")).toBe(1);
-    expect(tavilyValidateButton.getListenerCount("command")).toBe(1);
     expect(deps.saveSettings).toHaveBeenCalledTimes(1);
   });
 
-  it("opens the DeepSeek and Tavily signup links through Zotero.launchURL", () => {
+  it("opens the DeepSeek signup link through Zotero.launchURL", () => {
     (Zotero as any).launchURL = vi.fn();
     registerPreferencesPane(createWindow(), deps);
 
     deepSeekLink.dispatch("click", { preventDefault: vi.fn() });
-    tavilyLink.dispatch("click", { preventDefault: vi.fn() });
 
-    expect((Zotero as any).launchURL).toHaveBeenNthCalledWith(
-      1,
+    expect((Zotero as any).launchURL).toHaveBeenCalledWith(
       "https://platform.deepseek.com/",
-    );
-    expect((Zotero as any).launchURL).toHaveBeenNthCalledWith(
-      2,
-      "https://app.tavily.com/",
     );
   });
 
@@ -537,8 +510,6 @@ describe("registerPreferencesPane", () => {
     expect(deps.saveSettings).toHaveBeenCalledWith({
       apiKey: "sk-next",
       customPresets: "",
-      evidenceProviderMode: "mcp-web-search",
-      tavilyApiKey: "",
     });
     expect(status.textContent).toBe("l10n:ai-assistant-pref-status-saved");
     expect(status.dataset.variant).toBe("success");
@@ -577,44 +548,6 @@ describe("registerPreferencesPane", () => {
     expect(slashCustom.querySelectorAll('[data-slash-card="true"]').length).toBe(1);
   });
 
-  it("shows the Tavily settings only when the Tavily provider is selected", async () => {
-    registerPreferencesPane(createWindow(), deps);
-
-    expect(tavilySettingsRow.style.display).toBe("none");
-
-    evidenceProviderField.value = "tavily";
-    evidenceProviderField.dispatch("command");
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(tavilySettingsRow.style.display).toBe("");
-    expect(deps.saveSettings).toHaveBeenLastCalledWith({
-      apiKey: "sk-test",
-      customPresets: "",
-      evidenceProviderMode: "tavily",
-      tavilyApiKey: "",
-    });
-  });
-
-  it("validates Tavily settings with unsaved values", async () => {
-    registerPreferencesPane(createWindow(), deps);
-
-    evidenceProviderField.value = "tavily";
-    evidenceProviderField.dispatch("command");
-    tavilyApiKeyField.value = "tvly-next";
-    tavilyValidateButton.dispatch("command");
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(deps.validateEvidenceSettings).toHaveBeenCalledWith({
-      apiKey: "sk-test",
-      customPresets: "",
-      evidenceProviderMode: "tavily",
-      tavilyApiKey: "tvly-next",
-    });
-    expect(tavilyStatus.textContent).toBe("Tavily connection looks good");
-  });
-
   it("runs validation with unsaved values and reports errors inline", async () => {
     deps.validateSettings = vi.fn(async () => ({
       valid: false,
@@ -630,8 +563,6 @@ describe("registerPreferencesPane", () => {
     expect(deps.validateSettings).toHaveBeenCalledWith({
       apiKey: "sk-bad",
       customPresets: "",
-      evidenceProviderMode: "mcp-web-search",
-      tavilyApiKey: "",
     });
     expect(status.textContent).toBe("Invalid API key");
     expect(status.dataset.variant).toBe("error");
@@ -652,3 +583,5 @@ describe("registerPreferencesPane", () => {
     expect(status.textContent).toContain("Debug log exported to");
   });
 });
+
+

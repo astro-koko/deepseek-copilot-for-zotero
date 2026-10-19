@@ -3,11 +3,7 @@ import { getPref, setPref } from "../utils/prefs";
 import { config } from "../../package.json";
 import type { ScopeType } from "../types/scope";
 
-export const DEFAULT_EVIDENCE_PROVIDER_MODE = "mcp-web-search";
-export type EvidenceProviderMode =
-  | typeof DEFAULT_EVIDENCE_PROVIDER_MODE
-  | "tavily";
-type LegacyEvidenceProviderMode = "builtin-search";
+export type ReasoningEffort = "low" | "max";
 
 export interface PersistedSettings {
   apiKey: string;
@@ -15,8 +11,8 @@ export interface PersistedSettings {
   model: string;
   keyboardShortcut: string;
   evidenceEnabled: boolean;
-  evidenceProviderMode: EvidenceProviderMode;
-  tavilyApiKey: string;
+  reasoningEffort: ReasoningEffort;
+  thinkingEnabled: boolean;
 }
 
 export interface Settings extends PersistedSettings {
@@ -24,41 +20,56 @@ export interface Settings extends PersistedSettings {
 }
 
 export const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
-export const DEEPSEEK_MODELS = [
-  "deepseek-v4-flash",
-  "deepseek-v4-pro",
-] as const;
-export const TAVILY_BASE_URL = "https://api.tavily.com";
+export const DEEPSEEK_MODEL = "deepseek-flash";
+// 保留旧模型名称用于兼容性识别
+const LEGACY_MODELS = ["deepseek-v4-flash", "deepseek-v4-pro"] as const;
 
 export const DEFAULT_SETTINGS: Settings = {
   apiKey: "",
   baseURL: DEEPSEEK_BASE_URL,
   customPresets: "",
-  model: DEEPSEEK_MODELS[0],
+  model: DEEPSEEK_MODEL,
   keyboardShortcut: "I",
   evidenceEnabled: false,
-  evidenceProviderMode: DEFAULT_EVIDENCE_PROVIDER_MODE,
-  tavilyApiKey: "",
+  reasoningEffort: "low",
+  thinkingEnabled: true,
 };
 
 export const PREFERENCES_PANE_ID = `${config.addonRef}-prefpane`;
 
 function normalizeModel(model: string | undefined): string {
   const value = model?.trim();
-  if (
-    value &&
-    DEEPSEEK_MODELS.includes(value as (typeof DEEPSEEK_MODELS)[number])
-  ) {
+  // 所有旧模型名称统一迁移到新的 deepseek-flash
+  if (value && LEGACY_MODELS.includes(value as (typeof LEGACY_MODELS)[number])) {
+    return DEEPSEEK_MODEL;
+  }
+  if (value === DEEPSEEK_MODEL) {
     return value;
   }
-
   return DEFAULT_SETTINGS.model;
 }
 
-function normalizeEvidenceProviderMode(
-  mode: string | LegacyEvidenceProviderMode | undefined,
-): EvidenceProviderMode {
-  return mode === "tavily" ? "tavily" : DEFAULT_EVIDENCE_PROVIDER_MODE;
+function normalizeReasoningEffort(
+  effort: string | undefined,
+  legacyModel?: string,
+): ReasoningEffort {
+  // 如果有明确的 reasoningEffort 设置，优先使用
+  if (effort === "low" || effort === "max") {
+    return effort;
+  }
+  // 兼容旧配置：Pro -> max, Flash -> low
+  if (legacyModel === "deepseek-v4-pro") {
+    return "max";
+  }
+  return DEFAULT_SETTINGS.reasoningEffort;
+}
+
+function normalizeThinkingEnabled(value: unknown): boolean {
+  // 新安装默认开启，升级用户保留原有设置
+  if (value === undefined || value === null) {
+    return DEFAULT_SETTINGS.thinkingEnabled;
+  }
+  return normalizeBoolean(value);
 }
 
 function normalizeBoolean(value: unknown): boolean {
@@ -351,18 +362,22 @@ export function mergeEditableCustomPresets(
 }
 
 export function getSettings(): Settings {
+  const legacyModel = getPref("model") as string | undefined;
+  const reasoningEffort = normalizeReasoningEffort(
+    getPref("reasoningEffort") as string | undefined,
+    legacyModel,
+  );
+
   return {
     apiKey: (getPref("apiKey") || "") as string,
     baseURL: DEEPSEEK_BASE_URL,
     customPresets: normalizeCustomPresetsValue(getPref("customPresets")),
-    model: normalizeModel(getPref("model") as string | undefined),
+    model: normalizeModel(legacyModel),
     keyboardShortcut: (getPref("keyboardShortcut") ||
       DEFAULT_SETTINGS.keyboardShortcut) as string,
     evidenceEnabled: normalizeBoolean(getPref("evidenceEnabled")),
-    evidenceProviderMode: normalizeEvidenceProviderMode(
-      getPref("evidenceProviderMode") as string | undefined,
-    ),
-    tavilyApiKey: (getPref("tavilyApiKey") || "") as string,
+    reasoningEffort,
+    thinkingEnabled: normalizeThinkingEnabled(getPref("thinkingEnabled")),
   };
 }
 
@@ -379,13 +394,10 @@ export function saveSettings(settings: Partial<PersistedSettings>): void {
     setPref("keyboardShortcut", settings.keyboardShortcut);
   if (settings.evidenceEnabled !== undefined)
     setPref("evidenceEnabled", settings.evidenceEnabled);
-  if (settings.evidenceProviderMode !== undefined)
-    setPref(
-      "evidenceProviderMode",
-      normalizeEvidenceProviderMode(settings.evidenceProviderMode),
-    );
-  if (settings.tavilyApiKey !== undefined)
-    setPref("tavilyApiKey", settings.tavilyApiKey);
+  if (settings.reasoningEffort !== undefined)
+    setPref("reasoningEffort", settings.reasoningEffort);
+  if (settings.thinkingEnabled !== undefined)
+    setPref("thinkingEnabled", settings.thinkingEnabled);
 }
 
 export function getSettingsIssue(
@@ -393,20 +405,6 @@ export function getSettingsIssue(
 ): string | null {
   if (!settings.apiKey.trim()) {
     return "DeepSeek API key not configured. Open plugin Settings to continue.";
-  }
-
-  return null;
-}
-
-export function getEvidenceSettingsIssue(
-  settings: Settings = getSettings(),
-): string | null {
-  if (settings.evidenceProviderMode !== "tavily") {
-    return null;
-  }
-
-  if (!settings.tavilyApiKey.trim()) {
-    return "Tavily API key not configured. Open plugin Settings to enable web verification.";
   }
 
   return null;
@@ -420,18 +418,8 @@ function mergeSettings(overrides?: Partial<Settings>): Settings {
     ...settings,
     ...overrides,
     baseURL: DEEPSEEK_BASE_URL,
-    evidenceProviderMode: normalizeEvidenceProviderMode(
-      overrides.evidenceProviderMode ?? settings.evidenceProviderMode,
-    ),
     model: normalizeModel(overrides.model ?? settings.model),
-    tavilyApiKey: String(overrides.tavilyApiKey ?? settings.tavilyApiKey ?? ""),
   };
-}
-
-export function getEvidenceAuditLabel(
-  providerMode: EvidenceProviderMode,
-): string {
-  return providerMode === "tavily" ? "Tavily" : "默认查证";
 }
 
 export async function validateSettings(overrides?: Partial<Settings>): Promise<{
@@ -475,44 +463,6 @@ export async function validateSettings(overrides?: Partial<Settings>): Promise<{
     }
     if (status === 402) {
       return { valid: false, error: "Insufficient DeepSeek balance" };
-    }
-    return { valid: false, error: `Connection failed: ${e.message}` };
-  }
-}
-
-export async function validateEvidenceSettings(
-  overrides?: Partial<Settings>,
-): Promise<{
-  valid: boolean;
-  error?: string;
-}> {
-  const settings = mergeSettings(overrides);
-
-  if (settings.evidenceProviderMode !== "tavily") {
-    return { valid: true };
-  }
-
-  if (!settings.tavilyApiKey.trim()) {
-    return { valid: false, error: "Tavily API key is required" };
-  }
-
-  try {
-    const response = await sendTavilyValidationRequest(settings, 8000);
-    if (!response.ok) {
-      if (response.status === 401) {
-        return { valid: false, error: "Invalid Tavily API key" };
-      }
-      return {
-        valid: false,
-        error: `Tavily error: ${response.status}`,
-      };
-    }
-
-    return { valid: true };
-  } catch (e: any) {
-    const status = Number(e?.status ?? e?.xhr?.status ?? 0);
-    if (status === 401) {
-      return { valid: false, error: "Invalid Tavily API key" };
     }
     return { valid: false, error: `Connection failed: ${e.message}` };
   }
@@ -585,36 +535,6 @@ async function sendValidationRequest(
       headers,
       body,
     },
-    timeoutMs,
-  );
-
-  return {
-    ok: response.ok,
-    status: response.status,
-  };
-}
-
-async function sendTavilyValidationRequest(
-  settings: Settings,
-  timeoutMs: number,
-): Promise<{
-  ok: boolean;
-  status: number;
-}> {
-  const response = await sendJsonRequest(
-    `${TAVILY_BASE_URL}/search`,
-    {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${settings.tavilyApiKey}`,
-    },
-    JSON.stringify({
-      query: "latest peer reviewed findings on retrieval augmented generation",
-      search_depth: "basic",
-      include_answer: false,
-      include_raw_content: false,
-      max_results: 1,
-      topic: "general",
-    }),
     timeoutMs,
   );
 

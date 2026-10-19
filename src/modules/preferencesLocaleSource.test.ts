@@ -64,30 +64,12 @@ describe("preferences locale copy", () => {
     );
   });
 
-  it("makes the default web verification path explicitly keyless", () => {
+  it("describes web search powered by DeepSeek Search", () => {
     expect(enPreferences).toContain(
-      "ai-assistant-pref-evidence-provider-builtin = Default web verification (recommended, no API key)",
+      "ai-assistant-pref-evidence-description = Enable web search in the composer to supplement answers with current information from DeepSeek Search",
     );
     expect(zhPreferences).toContain(
-      "ai-assistant-pref-evidence-provider-builtin = 默认联网查证（推荐，无需 API Key）",
-    );
-  });
-
-  it("makes the Tavily path explicitly require its own API key", () => {
-    expect(enPreferences).toContain(
-      "ai-assistant-pref-evidence-provider-tavily = Tavily web verification (requires API key)",
-    );
-    expect(zhPreferences).toContain(
-      "ai-assistant-pref-evidence-provider-tavily = Tavily 联网查证（需 API Key）",
-    );
-  });
-
-  it("explains that Tavily fields appear only after switching providers", () => {
-    expect(enPreferences).toContain(
-      "ai-assistant-pref-evidence-provider-help = The default web verification path does not require an API key. Switch to Tavily to reveal the Tavily API key field.",
-    );
-    expect(zhPreferences).toContain(
-      "ai-assistant-pref-evidence-provider-help = 默认联网查证无需 API Key。切换到 Tavily 后，下面才会显示 Tavily API Key 输入框。",
+      "ai-assistant-pref-evidence-description = 在输入框中启用联网搜索，使用 DeepSeek Search 补充最新信息",
     );
   });
 

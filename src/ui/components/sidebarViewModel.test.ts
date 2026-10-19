@@ -47,11 +47,11 @@ function makeSettings(overrides: Partial<Settings> = {}): Settings {
     apiKey: "sk-test",
     baseURL: "https://api.deepseek.com",
     customPresets: "",
-    model: "deepseek-v4-flash",
+    model: "deepseek-flash",
     keyboardShortcut: "I",
     evidenceEnabled: false,
-    evidenceProviderMode: "mcp-web-search",
-    tavilyApiKey: "",
+    reasoningEffort: "low",
+    thinkingEnabled: true,
     ...overrides,
   };
 }

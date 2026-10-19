@@ -1,149 +1,95 @@
 import type { ScopeContext } from "../types/scope";
-import {
-  DEFAULT_EVIDENCE_PROVIDER_MODE,
-  type EvidenceProviderMode,
-  type Settings,
-  TAVILY_BASE_URL,
-  getSettings,
-} from "./settingsManager";
+import { DEEPSEEK_BASE_URL, getSettings } from "./settingsManager";
 
 export interface EvidenceSearchItem {
   title: string;
-  authors: string[];
-  year: string;
-  source: string;
   url: string;
   snippet: string;
+  content?: string;
 }
 
 export interface EvidenceSearchResult {
-  providerMode: EvidenceProviderMode;
   items: EvidenceSearchItem[];
 }
 
 export async function searchEvidence(
   question: string,
   scope?: ScopeContext,
-  settings: Settings = getSettings(),
 ): Promise<EvidenceSearchResult> {
+  const settings = getSettings();
   const query = buildEvidenceQuery(question, scope);
-  if (settings.evidenceProviderMode === "tavily") {
-    return searchWithTavily(query, settings.tavilyApiKey);
-  }
-  return searchWithOpenAlex(query);
+
+  return searchWithDeepSeek(query, settings.apiKey);
 }
 
 function buildEvidenceQuery(question: string, scope?: ScopeContext): string {
   const parts = [question.trim()];
   if (scope?.selectedText) {
-    parts.push(scope.selectedText.slice(0, 300));
+    parts.push(scope.selectedText.slice(0, 200));
   } else if (scope?.label) {
     parts.push(scope.label);
   }
 
-  return parts.filter(Boolean).join(" ").trim();
+  const fullQuery = parts.filter(Boolean).join(" ").trim();
+  // DeepSeek Search API 要求 query 长度为 1-128 个 Unicode 字符
+  if (fullQuery.length === 0) {
+    return "research";
+  }
+  if (fullQuery.length > 128) {
+    return fullQuery.slice(0, 128);
+  }
+  return fullQuery;
 }
 
-async function searchWithOpenAlex(query: string): Promise<EvidenceSearchResult> {
-  const url = new URL("https://api.openalex.org/works");
-  url.searchParams.set("search", query);
-  url.searchParams.set("per-page", "5");
-
-  const payload = await requestJson<{
-    results?: Array<{
-      authorships?: Array<{ author?: { display_name?: string } }>;
-      display_name?: string;
-      id?: string;
-      publication_year?: number;
-      primary_location?: {
-        landing_page_url?: string;
-        source?: { display_name?: string };
-      };
-      abstract_inverted_index?: Record<string, number[]>;
-    }>;
-  }>(url.toString(), {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-
-  return {
-    providerMode: DEFAULT_EVIDENCE_PROVIDER_MODE,
-    items: (payload.results || []).map((item) => ({
-      title: item.display_name || "Untitled result",
-      authors: (item.authorships || [])
-        .map((author) => author.author?.display_name || "")
-        .filter(Boolean)
-        .slice(0, 5),
-      year: item.publication_year ? String(item.publication_year) : "",
-      source: item.primary_location?.source?.display_name || "Academic search",
-      url: item.primary_location?.landing_page_url || item.id || "",
-      snippet: materializeOpenAlexAbstract(item.abstract_inverted_index),
-    })),
-  };
-}
-
-async function searchWithTavily(
+async function searchWithDeepSeek(
   query: string,
   apiKey: string,
 ): Promise<EvidenceSearchResult> {
-  const payload = await requestJson<{
-    results?: Array<{
-      title?: string;
-      url?: string;
-      content?: string;
-    }>;
-  }>(`${TAVILY_BASE_URL}/search`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      query,
-      search_depth: "advanced",
-      include_answer: false,
-      include_raw_content: false,
-      max_results: 5,
-      topic: "general",
-    }),
-  });
-
-  return {
-    providerMode: "tavily",
-    items: (payload.results || []).map((item) => ({
-      title: item.title || "Untitled result",
-      authors: [],
-      year: "",
-      source: "Tavily",
-      url: item.url || "",
-      snippet: item.content || "",
-    })),
-  };
-}
-
-function materializeOpenAlexAbstract(
-  invertedIndex: Record<string, number[]> | undefined,
-): string {
-  if (!invertedIndex) {
-    return "";
+  if (!apiKey.trim()) {
+    throw new Error("DeepSeek API Key 未配置，无法进行联网搜索");
   }
 
-  const positions = Object.entries(invertedIndex).flatMap(([word, indexes]) =>
-    indexes.map((index) => ({ index, word })),
-  );
-  return positions
-    .sort((left, right) => left.index - right.index)
-    .slice(0, 80)
-    .map((entry) => entry.word)
-    .join(" ");
+  const url = `${DEEPSEEK_BASE_URL}/v1/tools/search`;
+
+  try {
+    const payload = await requestJson<{
+      results?: Array<{
+        title?: string;
+        url?: string;
+        content?: string;
+        summary?: string;
+      }>;
+    }>(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        query,
+        count: 5,
+        need_content: true,
+      }),
+    });
+
+    return {
+      items: (payload.results || []).map((item) => ({
+        title: item.title || "无标题结果",
+        url: item.url || "",
+        snippet: item.summary || "",
+        content: item.content,
+      })),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`DeepSeek 搜索失败：${message}`);
+  }
 }
 
 async function requestJson<T>(
   url: string,
   init: RequestInit,
-  timeoutMs = 8000,
+  timeoutMs = 10000,
 ): Promise<T> {
   const response = await fetchWithTimeout(url, init, timeoutMs);
   if (!response.ok) {

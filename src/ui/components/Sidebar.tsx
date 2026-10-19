@@ -22,7 +22,6 @@ import {
 import { getCurrentScope } from "../../services/scopeResolver";
 import {
   PREFERENCES_PANE_ID,
-  getEvidenceSettingsIssue,
   getSettings,
   getSettingsIssue,
   saveSettings,
@@ -355,7 +354,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           });
           await chatSessionStore.send(prompt, currentScope, {
             evidenceEnabled:
-              settings.evidenceEnabled && !getEvidenceSettingsIssue(settings),
+              settings.evidenceEnabled,
           });
           return;
         }
@@ -418,8 +417,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setShowRecentChats(false);
   };
 
-  const evidenceIssue = getEvidenceSettingsIssue(settings);
-  const evidenceEnabled = settings.evidenceEnabled && !evidenceIssue;
+  const settingsIssue = getSettingsIssue(settings);
+  const evidenceEnabled = settings.evidenceEnabled && !settingsIssue;
 
   const handleSend = async (userInput: string) => {
     if (!isSupportedChatScope(scope)) {
@@ -532,13 +531,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     model.recentThreads.length > 0 &&
     (showRecentChats || model.showRecentThreads);
   const theme = getSidebarTheme(hostWindow);
-  const evidenceLabel = evidenceIssue
+  const evidenceLabel = settingsIssue
     ? zh
-      ? "联网查证（配置 Tavily）"
-      : "Web Verification (Configure Tavily)"
+      ? "联网搜索（配置 API Key）"
+      : "Web Search (Configure API Key)"
     : zh
-      ? "联网查证"
-      : "Web Verification";
+      ? "联网搜索"
+      : "Web Search";
 
   useEffect(() => {
     const content = scrollViewportRef.current as SidebarScrollViewport | null;
@@ -989,11 +988,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 void handleSend(message);
               }}
               onCancel={handleCancel}
-              onModelModeChange={(mode) =>
-                handleModelChange(
-                  mode === "deep" ? "deepseek-v4-pro" : "deepseek-v4-flash",
-                )
-              }
+              onModelModeChange={(mode) => {
+                const newSettings = {
+                  ...settings,
+                  reasoningEffort: (mode === "deep" ? "max" : "low") as "low" | "max",
+                };
+                saveSettings(newSettings);
+                setSettings(newSettings);
+              }}
               onToggleEvidence={handleToggleEvidence}
               isStreaming={session.isStreaming}
               currentScopeType={scope?.type || null}
@@ -1004,9 +1006,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               draftValue={composerDraft}
               focusNonce={composerFocusNonce}
               modelMode={
-                settings.model === "deepseek-v4-pro" ? "deep" : "light"
+                settings.reasoningEffort === "max" ? "deep" : "light"
               }
-              evidenceDisabled={Boolean(evidenceIssue)}
+              evidenceDisabled={Boolean(settingsIssue)}
               evidenceEnabled={evidenceEnabled}
               evidenceLabel={evidenceLabel}
               onDraftChange={setComposerDraft}

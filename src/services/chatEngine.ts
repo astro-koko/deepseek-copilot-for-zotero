@@ -6,7 +6,7 @@ import type {
 } from "./provider/types";
 import { createOpenAICompatibleProvider } from "./provider/openAICompatibleProvider";
 import { assembleContext, type AssembledContext } from "./contextAssembler";
-import { getEvidenceAuditLabel, getSettings } from "./settingsManager";
+import { getSettings } from "./settingsManager";
 import { searchEvidence } from "./evidenceSearch";
 
 export interface ChatRequestOptions {
@@ -14,10 +14,6 @@ export interface ChatRequestOptions {
 }
 
 export const MODEL_CONTEXT_WINDOW_TOKENS = 1_000_000;
-const MODEL_CONTEXT_WINDOW_TOKENS_BY_MODEL: Record<string, number> = {
-  "deepseek-v4-flash": MODEL_CONTEXT_WINDOW_TOKENS,
-  "deepseek-v4-pro": MODEL_CONTEXT_WINDOW_TOKENS,
-};
 export const CONTEXT_COMPRESSION_THRESHOLD_TOKENS = Math.floor(
   MODEL_CONTEXT_WINDOW_TOKENS * 0.9,
 );
@@ -138,8 +134,9 @@ export async function sendChatMessage(
   requestOptions: ChatRequestOptions = {},
   signal?: AbortSignal,
 ): Promise<StreamingResponse> {
-  const { baseURL, apiKey, model } = getSettings();
-  const modelContextWindowTokens = getModelContextWindowTokens(model);
+  const settings = getSettings();
+  const { baseURL, apiKey, model, reasoningEffort, thinkingEnabled } = settings;
+  const modelContextWindowTokens = MODEL_CONTEXT_WINDOW_TOKENS;
   const compressionThresholdTokens = Math.floor(
     modelContextWindowTokens * 0.9,
   );
@@ -149,7 +146,12 @@ export async function sendChatMessage(
     throw new Error("API Key 尚未配置，请先在设置中填写。");
   }
 
-  const provider = createOpenAICompatibleProvider({ baseURL, apiKey, model });
+  const provider = createOpenAICompatibleProvider({
+    baseURL,
+    apiKey,
+    model,
+    reasoningEffort: thinkingEnabled ? reasoningEffort : undefined,
+  });
 
   const preparedEvidence = requestOptions.evidenceEnabled
     ? await prepareEvidenceContext(thread, scope)
@@ -237,11 +239,6 @@ export function estimateTextTokens(text: string): number {
   return Math.ceil(asciiChars * 0.3 + nonAsciiChars);
 }
 
-function getModelContextWindowTokens(model: string): number {
-  return (
-    MODEL_CONTEXT_WINDOW_TOKENS_BY_MODEL[model] || MODEL_CONTEXT_WINDOW_TOKENS
-  );
-}
 
 function estimateMessagesTokens(messages: ChatCompletionMessage[]): number {
   return messages.reduce(
@@ -378,41 +375,32 @@ async function prepareEvidenceContext(
     let content = "";
     if (evidence.items.length > 0) {
       content =
-        "\n\n=== 外部证据 ===\n以下外部证据只能作为补充参考，请明确区分哪些内容来自当前论文，哪些来自联网查证。\n";
+        "\n\n=== 联网搜索结果 ===\n以下内容来自 DeepSeek 联网搜索，只能作为补充参考，请明确区分哪些内容来自当前论文，哪些来自联网查证。\n";
       evidence.items.forEach((item, index) => {
-        content += `\n[E${index + 1}] ${item.title}`;
-        if (item.authors.length > 0) {
-          content += ` — ${item.authors.join(", ")}`;
-        }
-        if (item.year) {
-          content += ` (${item.year})`;
-        }
-        if (item.source) {
-          content += `\n来源：${item.source}`;
-        }
+        content += `\n[网页${index + 1}] ${item.title}`;
         if (item.url) {
           content += `\n链接：${item.url}`;
         }
-        if (item.snippet) {
-          content += `\n摘录：${item.snippet}`;
+        // 优先使用 content，否则使用 snippet
+        const textContent = item.content || item.snippet;
+        if (textContent) {
+          content += `\n内容：${textContent}`;
         }
         content += "\n";
       });
     }
     return {
       content,
-      auditMessage: `联网查证：${getEvidenceAuditLabel(
-        evidence.providerMode,
-      )} · ${evidence.items.length} 条结果`,
+      auditMessage: `联网搜索：DeepSeek · ${evidence.items.length} 条结果`,
     };
   } catch (error) {
     const message =
       error instanceof Error && error.message
         ? error.message
-        : "Evidence search failed";
+        : "搜索失败";
     return {
       content: "",
-      auditMessage: `联网查证失败：${message}，本轮仅基于当前论文回答`,
+      auditMessage: `联网搜索失败：${message}，本轮仅基于当前论文回答`,
     };
   }
 }
