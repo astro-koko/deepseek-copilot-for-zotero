@@ -1,8 +1,0 @@
-# 临时文档和调试文件
-docs/debug/
-docs/research/
-progress.md
-.spec-workflow/
-
-# 如果不需要这些规范文档
-docs/superpowers/specs/
