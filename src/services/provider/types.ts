@@ -2,6 +2,7 @@ export interface ProviderConfig {
   baseURL: string;
   apiKey: string;
   model: string;
+  reasoningEffort?: "low" | "max";
 }
 
 export interface ChatCompletionMessage {
@@ -46,4 +47,8 @@ export interface ChatCompletionRequest {
   stream: true;
   temperature?: number;
   max_tokens?: number;
+  thinking?: {
+    type: "enabled";
+    reasoning_effort?: "low" | "max";
+  };
 }

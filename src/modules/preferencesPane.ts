@@ -1,10 +1,8 @@
 import {
-  DEFAULT_EVIDENCE_PROVIDER_MODE,
   getSettings,
   parseCustomPresets,
   saveSettings,
   type PersistedSettings,
-  validateEvidenceSettings,
   validateSettings,
 } from "../services/settingsManager";
 import { getAllPresets } from "../services/presets";
@@ -45,7 +43,6 @@ export interface PreferencesPaneDeps {
   getSettings: typeof getSettings;
   saveSettings: typeof saveSettings;
   validateSettings: typeof validateSettings;
-  validateEvidenceSettings: typeof validateEvidenceSettings;
 }
 
 export interface SlashCardDraft {
@@ -74,12 +71,6 @@ const VALIDATE_BUTTON_ID = "zotero-ai-assistant-pref-validate";
 const EXPORT_DEBUG_LOG_BUTTON_ID =
   "zotero-ai-assistant-pref-export-debug-log";
 const STATUS_ID = "zotero-ai-assistant-pref-status";
-const EVIDENCE_PROVIDER_ID = "zotero-ai-assistant-pref-evidence-provider";
-const TAVILY_API_KEY_ID = "zotero-ai-assistant-pref-tavily-api-key";
-const TAVILY_LINK_ID = "zotero-ai-assistant-pref-tavily-link";
-const TAVILY_VALIDATE_BUTTON_ID = "zotero-ai-assistant-pref-tavily-validate";
-const TAVILY_STATUS_ID = "zotero-ai-assistant-pref-tavily-status";
-const TAVILY_SETTINGS_ID = "zotero-ai-assistant-pref-tavily-settings";
 const CUSTOM_PRESETS_ID = "zotero-ai-assistant-pref-custom-presets";
 const SLASH_BUILTINS_ID = "zotero-ai-assistant-pref-slash-builtins";
 const SLASH_CUSTOM_ID = "zotero-ai-assistant-pref-slash-custom";
@@ -91,7 +82,6 @@ const BUTTON_ACTIVATION_DEDUPE_WINDOW_MS = 300;
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 
 export const DEEPSEEK_PLATFORM_URL = "https://platform.deepseek.com/";
-export const TAVILY_APP_URL = "https://app.tavily.com/";
 
 interface BuiltInCardDefault extends SlashCardDraft {
   kind: "builtin";
@@ -392,7 +382,6 @@ export function registerPreferencesPane(
     exportDebugLog,
     getSettings,
     saveSettings,
-    validateEvidenceSettings,
     validateSettings,
   },
 ): void {
@@ -411,9 +400,7 @@ export function registerPreferencesPane(
     const traceId = createTraceId("settings-save");
     const values = readFormValues(doc);
     debugLog.info("settings.save.start", {
-      evidenceProviderMode: values.evidenceProviderMode,
       hasApiKey: Boolean(values.apiKey?.trim()),
-      hasTavilyApiKey: Boolean(values.tavilyApiKey?.trim()),
       surface: "settings",
       traceId,
     });
@@ -436,7 +423,6 @@ export function registerPreferencesPane(
     }
 
     deps.saveSettings(values);
-    applyEvidenceProviderVisibility(doc, values.evidenceProviderMode);
     EventBus.getInstance().dispatchEvent(
       createHostEvent("settingsChange", win),
     );
@@ -494,47 +480,6 @@ export function registerPreferencesPane(
       win,
       zh ? "Deepseek Copliot 验证失败" : "Deepseek Copliot Validation Failed",
       result.error || (zh ? "验证失败" : "Validation failed"),
-    );
-  };
-
-  const validateEvidence = async () => {
-    const traceId = createTraceId("settings-evidence-validate");
-    const values = readFormValues(doc);
-    const zh = isChineseLocale();
-    debugLog.info("settings.evidence.validate.start", {
-      evidenceProviderMode: values.evidenceProviderMode,
-      hasTavilyApiKey: Boolean(values.tavilyApiKey?.trim()),
-      surface: "settings",
-      traceId,
-    });
-    setStatusText(
-      getEvidenceStatusElement(doc),
-      zh ? "正在验证 Tavily..." : "Validating Tavily...",
-      "success",
-    );
-    const result = await deps.validateEvidenceSettings(values);
-    if (result.valid) {
-      debugLog.info("settings.evidence.validate.success", {
-        surface: "settings",
-        traceId,
-      });
-      setStatusText(
-        getEvidenceStatusElement(doc),
-        zh ? "Tavily 连接正常" : "Tavily connection looks good",
-        "success",
-      );
-      return;
-    }
-
-    debugLog.warn("settings.evidence.validate.error", {
-      errorMessage: result.error || "Tavily validation failed",
-      surface: "settings",
-      traceId,
-    });
-    setStatusText(
-      getEvidenceStatusElement(doc),
-      result.error || (zh ? "Tavily 验证失败" : "Tavily validation failed"),
-      "error",
     );
   };
 
@@ -618,15 +563,7 @@ export function registerPreferencesPane(
     rerenderSlash();
     persist();
   });
-  bindTriggeredFieldEvents(
-    doc,
-    EVIDENCE_PROVIDER_ID,
-    ["change", "command"],
-    () => persist(),
-  );
-  bindFieldEvent(doc, TAVILY_API_KEY_ID, "change", () => persist());
   bindExternalLink(doc, API_KEY_LINK_ID, DEEPSEEK_PLATFORM_URL);
-  bindExternalLink(doc, TAVILY_LINK_ID, TAVILY_APP_URL);
   bindButtonActivation(doc, SLASH_ADD_ID, () => {
     const next = addCustomSlashCard(slashState);
     if (next === slashState) {
@@ -642,9 +579,6 @@ export function registerPreferencesPane(
   bindButtonActivation(doc, EXPORT_DEBUG_LOG_BUTTON_ID, () => {
     void exportLog();
   });
-  bindButtonActivation(doc, TAVILY_VALIDATE_BUTTON_ID, () => {
-    void validateEvidence();
-  });
   rerenderSlash();
 }
 
@@ -655,8 +589,6 @@ function hydrateForm(
 ): void {
   const apiKeyField = getField(doc, API_KEY_ID);
   const customPresetsField = getField(doc, CUSTOM_PRESETS_ID);
-  const evidenceProviderField = getField(doc, EVIDENCE_PROVIDER_ID);
-  const tavilyApiKeyField = getField(doc, TAVILY_API_KEY_ID);
 
   if (apiKeyField) {
     apiKeyField.value = settings.apiKey;
@@ -664,13 +596,6 @@ function hydrateForm(
   if (customPresetsField) {
     customPresetsField.value = serializeSlashSettingsState(slashState);
   }
-  if (evidenceProviderField) {
-    evidenceProviderField.value = settings.evidenceProviderMode;
-  }
-  if (tavilyApiKeyField) {
-    tavilyApiKeyField.value = settings.tavilyApiKey;
-  }
-  applyEvidenceProviderVisibility(doc, settings.evidenceProviderMode);
 }
 
 function renderSlashSettings(
@@ -1079,32 +1004,11 @@ function updateSlashLimitStatus(
 function readFormValues(doc: PreferencesDocument): Partial<PersistedSettings> {
   const apiKeyField = getField(doc, API_KEY_ID);
   const customPresetsField = getField(doc, CUSTOM_PRESETS_ID);
-  const evidenceProviderField = getField(doc, EVIDENCE_PROVIDER_ID);
-  const tavilyApiKeyField = getField(doc, TAVILY_API_KEY_ID);
 
   return {
     apiKey: apiKeyField?.value?.trim?.() ?? "",
     customPresets: customPresetsField?.value ?? "",
-    evidenceProviderMode:
-      evidenceProviderField?.value === "tavily"
-        ? "tavily"
-        : DEFAULT_EVIDENCE_PROVIDER_MODE,
-    tavilyApiKey: tavilyApiKeyField?.value?.trim?.() ?? "",
   };
-}
-
-function applyEvidenceProviderVisibility(
-  doc: PreferencesDocument,
-  providerMode: Partial<PersistedSettings>["evidenceProviderMode"] = DEFAULT_EVIDENCE_PROVIDER_MODE,
-): void {
-  const tavilySettings = doc.getElementById(TAVILY_SETTINGS_ID) as
-    | (HTMLElement & { style?: { display?: string } })
-    | null;
-  if (!tavilySettings?.style) {
-    return;
-  }
-
-  tavilySettings.style.display = providerMode === "tavily" ? "" : "none";
 }
 
 function getField(
@@ -1318,14 +1222,6 @@ function getStatusElement(
   doc: PreferencesDocument,
 ): PreferencesStatusElement | null {
   return doc.getElementById(STATUS_ID) as PreferencesStatusElement | null;
-}
-
-function getEvidenceStatusElement(
-  doc: PreferencesDocument,
-): PreferencesStatusElement | null {
-  return doc.getElementById(
-    TAVILY_STATUS_ID,
-  ) as PreferencesStatusElement | null;
 }
 
 function showValidationDialog(

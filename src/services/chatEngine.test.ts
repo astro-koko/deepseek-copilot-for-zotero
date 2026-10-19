@@ -427,13 +427,9 @@ describe("chatEngine", () => {
       warnings: [],
     });
     providerMocks.searchEvidence.mockResolvedValue({
-      providerMode: "mcp-web-search",
       items: [
         {
           title: "Evidence result",
-          authors: [],
-          year: "",
-          source: "Academic search",
           url: "",
           snippet: "External evidence remains available.",
         },
@@ -485,7 +481,7 @@ describe("chatEngine", () => {
 
     expect(providerMocks.searchEvidence).toHaveBeenCalledTimes(1);
     const mainMessages = providerMocks.sendChat.mock.calls[1]?.[0];
-    expect(mainMessages?.[0].content).toContain("=== 外部证据 ===");
+    expect(mainMessages?.[0].content).toContain("=== 联网搜索结果 ===");
     expect(mainMessages?.[0].content).toContain(
       "External evidence remains available.",
     );
@@ -646,13 +642,9 @@ describe("chatEngine", () => {
 
   it("injects external evidence into the system prompt when evidence search is enabled", async () => {
     providerMocks.searchEvidence.mockResolvedValue({
-      providerMode: "mcp-web-search",
       items: [
         {
           title: "Retrieval-Augmented Generation for Large Language Models",
-          authors: ["Jane Doe", "John Roe"],
-          year: "2024",
-          source: "Academic search",
           url: "https://example.com/rag",
           snippet:
             "RAG improves factual grounding when paired with citation-aware retrieval.",
@@ -672,10 +664,10 @@ describe("chatEngine", () => {
     );
 
     const [messages] = providerMocks.sendChat.mock.calls[0] || [];
-    expect(messages[0].content).toContain("=== 外部证据 ===");
-    expect(messages[0].content).toContain("[E1]");
+    expect(messages[0].content).toContain("=== 联网搜索结果 ===");
+    expect(messages[0].content).toContain("[网页1]");
     expect(messages[0].content).toContain("RAG improves factual grounding");
-    expect(result.evidenceAuditMessage).toBe("联网查证：默认查证 · 1 条结果");
+    expect(result.evidenceAuditMessage).toBe("联网搜索：DeepSeek · 1 条结果");
   });
 
   it("continues without external evidence when evidence search fails", async () => {
@@ -697,7 +689,7 @@ describe("chatEngine", () => {
     const [messages] = providerMocks.sendChat.mock.calls[0] || [];
     expect(messages[0].content).not.toContain("EXTERNAL EVIDENCE");
     expect(result.evidenceAuditMessage).toBe(
-      "联网查证失败：Tavily unavailable，本轮仅基于当前论文回答",
+      "联网搜索失败：Tavily unavailable，本轮仅基于当前论文回答",
     );
   });
 });

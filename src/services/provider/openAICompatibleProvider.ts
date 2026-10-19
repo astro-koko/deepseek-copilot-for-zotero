@@ -23,6 +23,14 @@ export function createOpenAICompatibleProvider(config: ProviderConfig) {
       max_tokens: options?.maxTokens,
     };
 
+    // 添加 thinking 参数（如果配置中启用）
+    if (config.reasoningEffort) {
+      requestBody.thinking = {
+        type: "enabled",
+        reasoning_effort: config.reasoningEffort,
+      };
+    }
+
     recordProviderRequestDiagnostic(config, requestBody, diagnostics);
 
     const AbortControllerCtor = (globalThis as any).AbortController;

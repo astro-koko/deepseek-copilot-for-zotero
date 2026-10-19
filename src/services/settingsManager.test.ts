@@ -18,13 +18,12 @@ vi.mock("../utils/prefs", () => ({
 
 import {
   buildCustomCommandAIPrompt,
-  DEEPSEEK_MODELS,
+  DEEPSEEK_MODEL,
   getSettings,
   mergeEditableCustomPresets,
   parseEditableCustomPresets,
   saveSettings,
   stringifyEditableCustomPresets,
-  validateEvidenceSettings,
   validateSettings,
 } from "./settingsManager";
 
@@ -45,31 +44,45 @@ describe("settingsManager", () => {
   });
 
   it("defaults to DeepSeek provider settings", () => {
-    expect(DEEPSEEK_MODELS).toEqual([
-      "deepseek-v4-flash",
-      "deepseek-v4-pro",
-    ]);
+    expect(DEEPSEEK_MODEL).toBe("deepseek-flash");
     expect(getSettings()).toMatchObject({
       baseURL: "https://api.deepseek.com",
       customPresets: "",
-      model: "deepseek-v4-flash",
+      model: "deepseek-flash",
       keyboardShortcut: "I",
       evidenceEnabled: false,
-      evidenceProviderMode: "mcp-web-search",
-      tavilyApiKey: "",
+      reasoningEffort: "low",
+      thinkingEnabled: true,
     });
   });
 
-  it("normalizes the legacy builtin-search provider to the new default mode", () => {
-    prefState.set("evidenceProviderMode", "builtin-search");
+  it("migrates legacy deepseek-v4-flash to deepseek-flash", () => {
+    prefState.set("model", "deepseek-v4-flash");
 
-    expect(getSettings().evidenceProviderMode).toBe("mcp-web-search");
+    expect(getSettings().model).toBe("deepseek-flash");
+  });
+
+  it("migrates legacy deepseek-v4-pro to deepseek-flash with max reasoning effort", () => {
+    prefState.set("model", "deepseek-v4-pro");
+
+    const settings = getSettings();
+    expect(settings.model).toBe("deepseek-flash");
+    expect(settings.reasoningEffort).toBe("max");
+  });
+
+  it("preserves explicit reasoningEffort setting over legacy model migration", () => {
+    prefState.set("model", "deepseek-v4-pro");
+    prefState.set("reasoningEffort", "low");
+
+    const settings = getSettings();
+    expect(settings.model).toBe("deepseek-flash");
+    expect(settings.reasoningEffort).toBe("low");
   });
 
   it("falls back to the default DeepSeek model when the saved model is unsupported", () => {
     prefState.set("model", "deepseek-chat");
 
-    expect(getSettings().model).toBe("deepseek-v4-flash");
+    expect(getSettings().model).toBe("deepseek-flash");
   });
 
   it("validates the API key against the DeepSeek chat endpoint", async () => {
@@ -87,7 +100,7 @@ describe("settingsManager", () => {
           Authorization: "Bearer sk-test",
         },
         body: JSON.stringify({
-          model: "deepseek-v4-flash",
+          model: "deepseek-flash",
           messages: [{ role: "user", content: "ping" }],
           stream: false,
           max_tokens: 1,
@@ -118,7 +131,7 @@ describe("settingsManager", () => {
       "https://api.deepseek.com/chat/completions",
       expect.objectContaining({
         body: JSON.stringify({
-          model: "deepseek-v4-flash",
+          model: "deepseek-flash",
           messages: [{ role: "user", content: "ping" }],
           stream: false,
           max_tokens: 1,
@@ -220,7 +233,7 @@ describe("settingsManager", () => {
     await expect(
       validateSettings({
         apiKey: "sk-new",
-        model: "deepseek-v4-pro",
+        model: "deepseek-flash",
       }),
     ).resolves.toEqual({ valid: true });
 
@@ -233,7 +246,7 @@ describe("settingsManager", () => {
           Authorization: "Bearer sk-new",
         },
         body: JSON.stringify({
-          model: "deepseek-v4-pro",
+          model: "deepseek-flash",
           messages: [{ role: "user", content: "ping" }],
           stream: false,
           max_tokens: 1,
@@ -250,7 +263,7 @@ describe("settingsManager", () => {
 
     saveSettings({
       apiKey: "sk-new",
-      model: "deepseek-v4-pro",
+      model: "deepseek-flash",
     });
 
     expect(prefMocks.setPref).not.toHaveBeenCalledWith(
@@ -337,20 +350,6 @@ describe("settingsManager", () => {
       (globalThis as any).setTimeout = originalSetTimeout;
       (globalThis as any).clearTimeout = originalClearTimeout;
     }
-  });
-
-  it("persists evidence provider settings and toggle state", () => {
-    saveSettings({
-      evidenceEnabled: true,
-      evidenceProviderMode: "tavily",
-      tavilyApiKey: "tvly-test",
-    });
-
-    expect(getSettings()).toMatchObject({
-      evidenceEnabled: true,
-      evidenceProviderMode: "tavily",
-      tavilyApiKey: "tvly-test",
-    });
   });
 
   it("keeps hidden preset tombstones when serializing editable custom presets", () => {
@@ -455,42 +454,6 @@ describe("settingsManager", () => {
     expect(parsed[0]).toMatchObject({
       id: "legacy-summary",
       slashCommand: "legacy-summary",
-    });
-  });
-
-  it("validates Tavily settings against the Tavily search endpoint", async () => {
-    prefState.set("evidenceProviderMode", "tavily");
-    prefState.set("tavilyApiKey", "tvly-test");
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(validateEvidenceSettings()).resolves.toEqual({ valid: true });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.tavily.com/search",
-      expect.objectContaining({
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer tvly-test",
-        },
-        body: JSON.stringify({
-          query: "latest peer reviewed findings on retrieval augmented generation",
-          search_depth: "basic",
-          include_answer: false,
-          include_raw_content: false,
-          max_results: 1,
-          topic: "general",
-        }),
-      }),
-    );
-  });
-
-  it("requires a Tavily API key when the evidence provider is Tavily", async () => {
-    prefState.set("evidenceProviderMode", "tavily");
-
-    await expect(validateEvidenceSettings()).resolves.toEqual({
-      valid: false,
-      error: "Tavily API key is required",
     });
   });
 });

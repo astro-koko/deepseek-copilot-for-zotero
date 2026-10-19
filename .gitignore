@@ -44,3 +44,9 @@ tsconfig.tsbuildinfo
 # Local upstream mirrors and reference artifacts
 reference/
 /Icon?
+
+# Temporary docs and debug files
+docs/debug/
+docs/research/
+progress.md
+.spec-workflow/
