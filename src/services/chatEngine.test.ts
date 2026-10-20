@@ -386,9 +386,9 @@ describe("chatEngine", () => {
       itemIds: [1],
     });
 
-    expect(estimateTextTokens(largePaper + oldDialogue + oldDialogue)).toBeGreaterThan(
-      CONTEXT_COMPRESSION_THRESHOLD_TOKENS,
-    );
+    expect(
+      estimateTextTokens(largePaper + oldDialogue + oldDialogue),
+    ).toBeGreaterThan(CONTEXT_COMPRESSION_THRESHOLD_TOKENS);
     expect(providerMocks.sendChat).toHaveBeenCalledTimes(2);
     expect(providerMocks.sendChat.mock.calls[0]?.[3]).toEqual({
       maxTokens: 2_000,
@@ -396,12 +396,16 @@ describe("chatEngine", () => {
     });
     const mainMessages = providerMocks.sendChat.mock.calls[1]?.[0];
     expect(mainMessages?.[0].content).toContain(largePaper.slice(0, 40));
-    expect(mainMessages?.some((message: { content: string }) =>
-      message.content.includes("压缩后的早期对话摘要"),
-    )).toBe(true);
-    expect(mainMessages?.some((message: { content: string }) =>
-      message.content.includes(oldDialogue.slice(0, 80)),
-    )).toBe(false);
+    expect(
+      mainMessages?.some((message: { content: string }) =>
+        message.content.includes("压缩后的早期对话摘要"),
+      ),
+    ).toBe(true);
+    expect(
+      mainMessages?.some((message: { content: string }) =>
+        message.content.includes(oldDialogue.slice(0, 80)),
+      ),
+    ).toBe(false);
     expect(response.sessionMessages).toEqual([
       expect.objectContaining({
         kind: "context-compression",
@@ -667,7 +671,9 @@ describe("chatEngine", () => {
     expect(messages[0].content).toContain("=== 联网搜索结果 ===");
     expect(messages[0].content).toContain("[网页1]");
     expect(messages[0].content).toContain("RAG improves factual grounding");
-    expect(result.evidenceAuditMessage).toBe("联网搜索：DeepSeek · 1 条结果");
+    expect(result.evidenceAuditMessage).toBe(
+      "联网搜索：DeepSeek · 独立文献 1 条",
+    );
   });
 
   it("continues without external evidence when evidence search fails", async () => {
@@ -689,7 +695,354 @@ describe("chatEngine", () => {
     const [messages] = providerMocks.sendChat.mock.calls[0] || [];
     expect(messages[0].content).not.toContain("EXTERNAL EVIDENCE");
     expect(result.evidenceAuditMessage).toBe(
-      "联网搜索失败：Tavily unavailable，本轮仅基于当前论文回答",
+      "联网搜索失败：Tavily unavailable，本轮未获得联网证据",
     );
+  });
+
+  it("tells the model when a requested search failed instead of silently omitting search status", async () => {
+    providerMocks.searchEvidence.mockRejectedValue(
+      new Error("Search timed out"),
+    );
+
+    await sendChatMessage(
+      makeThread([
+        {
+          id: "q",
+          role: "user",
+          content: "请联网找 arXiv 论文并给出编号",
+          timestamp: 1,
+        },
+      ]),
+      undefined,
+      { evidenceEnabled: true },
+    );
+
+    const [messages] = providerMocks.sendChat.mock.calls[0] || [];
+    expect(messages[0].content).toContain("=== 本轮联网搜索状态 ===");
+    expect(messages[0].content).toContain("搜索失败");
+    expect(messages[0].content).toContain("不要编造");
+  });
+
+  it("distinguishes a completed search with zero results from unavailable networking", async () => {
+    // 决策调用回答"足够"→ 保持零结果状态注入主请求。
+    providerMocks.searchEvidence.mockResolvedValue({ items: [] });
+    providerMocks.sendChat.mockResolvedValueOnce({
+      abort: vi.fn(),
+      stream: (async function* zeroRefineDecline() {
+        yield "足够";
+      })(),
+    });
+
+    await sendChatMessage(makeThread([]), undefined, { evidenceEnabled: true });
+
+    const [messages] = providerMocks.sendChat.mock.calls.at(-1) || [];
+    expect(messages[0].content).toContain("=== 本轮联网搜索状态 ===");
+    expect(messages[0].content).toContain("未找到可用结果");
+    expect(messages[0].content).toContain("不要编造");
+  });
+
+  it("explains that successful host retrieval is available even without model browsing tools", async () => {
+    providerMocks.searchEvidence.mockResolvedValue({
+      items: [
+        {
+          title: "Verified arXiv result",
+          url: "https://arxiv.org/abs/1234.56789",
+          snippet: "A source returned by the plugin, not model memory.",
+        },
+      ],
+    });
+
+    await sendChatMessage(
+      makeThread([
+        {
+          id: "old",
+          role: "assistant",
+          content: "我无法在当前会话中真正联网检索 arXiv",
+          timestamp: 1,
+        },
+        { id: "q", role: "user", content: "联网再查一次", timestamp: 2 },
+      ]),
+      undefined,
+      { evidenceEnabled: true },
+    );
+
+    const [messages] = providerMocks.sendChat.mock.calls[0] || [];
+    expect(messages[0].content).toContain("=== 本轮联网搜索状态 ===");
+    expect(messages[0].content).toContain("插件已完成真实联网检索");
+    expect(messages[0].content).toContain("历史回答");
+    expect(messages[0].content).toContain("不要编造");
+  });
+
+  it("assembles context before searching so the current paper identity reaches the search", async () => {
+    providerMocks.assembleContext.mockReturnValue({
+      availability: "pdf-text-ready",
+      fullText: "Full text",
+      metadata: "Metadata",
+      selectedText: "",
+      warnings: [],
+      currentPaper: {
+        title: "Identity Paper",
+        dois: ["10.1234/identity"],
+        arxivIds: [],
+      },
+    });
+    providerMocks.searchEvidence.mockResolvedValue({ items: [] });
+
+    await sendChatMessage(
+      makeThread([
+        { id: "q", role: "user", content: "相关工作有哪些", timestamp: 1 },
+      ]),
+      { type: "paper", id: "paper-1", label: "Identity Paper", itemIds: [1] },
+      { evidenceEnabled: true },
+    );
+
+    expect(providerMocks.searchEvidence).toHaveBeenCalledWith(
+      "相关工作有哪些",
+      expect.objectContaining({ label: "Identity Paper" }),
+      {
+        currentPaper: {
+          title: "Identity Paper",
+          dois: ["10.1234/identity"],
+          arxivIds: [],
+        },
+        paperFullText: "Full text",
+        priorQuestion: undefined,
+      },
+    );
+    const order = [
+      providerMocks.assembleContext.mock.invocationCallOrder[0],
+      providerMocks.searchEvidence.mock.invocationCallOrder[0],
+    ];
+    expect(order[0]).toBeLessThan(order[1]);
+  });
+
+  it("skips the search entirely when the document context is blocking", async () => {
+    providerMocks.assembleContext.mockReturnValue({
+      availability: "fulltext-required-error",
+      blockingMessage: "当前论文全文不可用，无法发送请求。",
+      fullText: "",
+      metadata: "",
+      selectedText: "",
+      warnings: [],
+    });
+
+    await expect(
+      sendChatMessage(
+        makeThread([
+          { id: "q", role: "user", content: "相关工作", timestamp: 1 },
+        ]),
+        { type: "paper", id: "paper-1", label: "Paper 1", itemIds: [1] },
+        { evidenceEnabled: true },
+      ),
+    ).rejects.toThrow("当前论文全文不可用");
+    expect(providerMocks.searchEvidence).not.toHaveBeenCalled();
+  });
+
+  it("renders folded main-paper entries separately from independent works", async () => {
+    providerMocks.searchEvidence.mockResolvedValue({
+      items: [
+        {
+          title: "Independent related survey",
+          url: "https://example.org/survey",
+          snippet: "Independent survey content",
+          summary: "Independent survey content",
+        },
+      ],
+      mainPaperItems: [
+        {
+          title: "The current paper - Journal Article",
+          url: "https://catalog.example.org/current",
+          snippet: "",
+        },
+      ],
+      plan: {
+        intent: "related-work",
+        queries: [
+          {
+            status: "success",
+            resultCount: 2,
+            queryChars: 100,
+            durationMs: 200,
+          },
+        ],
+      },
+    });
+
+    const result = await sendChatMessage(
+      makeThread([
+        { id: "q", role: "user", content: "相关工作", timestamp: 1 },
+      ]),
+      { type: "paper", id: "paper-1", label: "Paper 1", itemIds: [1] },
+      { evidenceEnabled: true },
+    );
+
+    const [messages] = providerMocks.sendChat.mock.calls[0] || [];
+    expect(messages[0].content).toContain("--- 独立相关文献（1 条）---");
+    expect(messages[0].content).toContain(
+      "--- 当前论文自身条目（1 条，已折叠）---",
+    );
+    expect(messages[0].content).toContain("不是独立文献");
+    expect(messages[0].content).toContain("本轮检索意图：related-work");
+    expect(result.evidenceAuditMessage).toBe(
+      "联网搜索：DeepSeek · 意图 related-work · 独立文献 1 条 · 主论文条目 1 条（已折叠）",
+    );
+  });
+
+  it("runs a second model-guided search when the first pass looks incomplete", async () => {
+    // 首段：零相关（空）→ 模型提出补充查询 → 第二段搜到新工作。
+    providerMocks.searchEvidence
+      .mockResolvedValueOnce({ items: [] })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            title: "Second pass hit",
+            url: "https://example.org/second-pass",
+            snippet: "",
+            summary: "Refined follow-up result.",
+          },
+        ],
+        plan: {
+          intent: "related-work",
+          queries: [
+            {
+              status: "success",
+              resultCount: 3,
+              queryChars: 60,
+              durationMs: 200,
+            },
+            {
+              status: "success",
+              resultCount: 2,
+              queryChars: 40,
+              durationMs: 200,
+            },
+          ],
+        },
+      });
+    providerMocks.sendChat.mockResolvedValueOnce({
+      abort: vi.fn(),
+      stream: (async function* () {
+        yield "ALT_QUERY: WALLABY DR2 confusion mass function";
+      })(),
+    });
+
+    const result = await sendChatMessage(
+      makeThread([
+        { id: "q", role: "user", content: "相关工作有哪些", timestamp: 1 },
+      ]),
+      { type: "paper", id: "paper-1", label: "HI Paper", itemIds: [1] },
+      { evidenceEnabled: true },
+    );
+
+    expect(providerMocks.searchEvidence).toHaveBeenCalledTimes(2);
+    // 第二次搜索收到了模型提炼的补充查询。
+    const allSearchCalls = providerMocks.searchEvidence.mock
+      .calls as unknown as Array<[string, unknown, { extraQuery?: string }]>;
+    expect(allSearchCalls.at(-1)?.[2]).toEqual(
+      expect.objectContaining({
+        extraQuery: "WALLABY DR2 confusion mass function",
+      }),
+    );
+    const [messages] = providerMocks.sendChat.mock.calls.at(-1) || [];
+    expect(messages[0].content).toContain("Second pass hit");
+    expect(result.evidenceAuditMessage).toContain("补充检索");
+  });
+
+  it("keeps the single-pass flow when the first pass already has evidence", async () => {
+    providerMocks.searchEvidence.mockResolvedValueOnce({
+      items: [
+        {
+          title: "Good first pass",
+          url: "https://example.org/first-pass",
+          snippet: "",
+          summary: "First pass result.",
+        },
+      ],
+    });
+
+    await sendChatMessage(
+      makeThread([
+        { id: "q", role: "user", content: "相关工作有哪些", timestamp: 1 },
+      ]),
+      { type: "paper", id: "paper-1", label: "HI Paper", itemIds: [1] },
+      { evidenceEnabled: true },
+    );
+
+    // 已有可用证据时不额外发起决策/补搜。
+    expect(providerMocks.searchEvidence).toHaveBeenCalledTimes(1);
+    expect(providerMocks.sendChat).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the first-pass evidence when the zero-result refine declines", async () => {
+    providerMocks.searchEvidence.mockResolvedValueOnce({ items: [] });
+    // 决策调用回答"足够"（无 ALT_QUERY）→ 不二搜。
+    providerMocks.sendChat.mockResolvedValueOnce({
+      abort: vi.fn(),
+      stream: (async function* () {
+        yield "足够";
+      })(),
+    });
+
+    const result = await sendChatMessage(
+      makeThread([
+        { id: "q", role: "user", content: "相关工作有哪些", timestamp: 1 },
+      ]),
+      { type: "paper", id: "paper-1", label: "HI Paper", itemIds: [1] },
+      { evidenceEnabled: true },
+    );
+
+    expect(providerMocks.searchEvidence).toHaveBeenCalledTimes(1);
+    expect(providerMocks.sendChat).toHaveBeenCalledTimes(2);
+    const [messages] = providerMocks.sendChat.mock.calls.at(-1) || [];
+    expect(messages[0].content).toContain("=== 本轮联网搜索状态 ===");
+    expect(result.evidenceAuditMessage).not.toContain("补充检索");
+  });
+
+  it("injects the model-facing summary in preference to raw page content", async () => {
+    providerMocks.searchEvidence.mockResolvedValue({
+      items: [
+        {
+          title: "Summarized work",
+          url: "https://example.org/work",
+          snippet: "",
+          summary: "Concise model-facing summary.",
+          content: "Raw page body that would waste context.",
+        },
+      ],
+    });
+
+    await sendChatMessage(
+      makeThread([{ id: "q", role: "user", content: "背景", timestamp: 1 }]),
+      { type: "paper", id: "paper-1", label: "Paper 1", itemIds: [1] },
+      { evidenceEnabled: true },
+    );
+
+    const [messages] = providerMocks.sendChat.mock.calls[0] || [];
+    expect(messages[0].content).toContain("Concise model-facing summary.");
+    expect(messages[0].content).not.toContain("Raw page body");
+  });
+
+  it("caps each injected evidence item to a bounded character budget", async () => {
+    providerMocks.searchEvidence.mockResolvedValue({
+      items: [
+        {
+          title: "Huge summary work",
+          url: "https://example.org/huge",
+          snippet: "",
+          summary: "长".repeat(5000),
+        },
+      ],
+    });
+
+    await sendChatMessage(
+      makeThread([{ id: "q", role: "user", content: "背景", timestamp: 1 }]),
+      { type: "paper", id: "paper-1", label: "Paper 1", itemIds: [1] },
+      { evidenceEnabled: true },
+    );
+
+    const [messages] = providerMocks.sendChat.mock.calls[0] || [];
+    const content = messages[0].content as string;
+    const injected = content.split("内容：")[1]?.split("\n")[0] || "";
+    expect(Array.from(injected).length).toBeLessThanOrEqual(800);
   });
 });

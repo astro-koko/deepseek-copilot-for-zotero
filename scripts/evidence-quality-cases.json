@@ -1,0 +1,78 @@
+{
+  "comment": "公开论文的检索质量用例。question 复用内置 related-work 中文提示词原文，保证 planner 无领域硬编码。expect 为验收阈值。",
+  "relatedWorkPrompt": "请把这篇论文放回更广泛的研究脉络中。说明它所属的研究线、通常建立在哪些前人工作之上、与它们可能有何不同，以及接下来值得阅读的相邻方向。请标出需要外部查证的判断",
+  "cases": [
+    {
+      "id": "astro-hi-related-work",
+      "domain": "astronomy",
+      "title": "Spectroscopic confusion: its impact on current and future extragalactic H i surveys",
+      "dois": ["10.1093/mnras/stv429"],
+      "arxivIds": ["1502.07359"],
+      "questionRef": "relatedWorkPrompt",
+      "selectedText": "",
+      "expect": {
+        "intent": "related-work",
+        "minIndependentWorks": 3,
+        "maxMainPaperInIndependent": 0
+      }
+    },
+    {
+      "id": "cs-attention-related-work",
+      "domain": "computer-science",
+      "title": "Attention Is All You Need",
+      "dois": ["10.5555/3295222.3295349"],
+      "arxivIds": ["1706.03762"],
+      "questionRef": "relatedWorkPrompt",
+      "selectedText": "",
+      "expect": {
+        "intent": "related-work",
+        "minIndependentWorks": 3,
+        "maxMainPaperInIndependent": 0
+      }
+    },
+    {
+      "id": "bio-alphafold-related-work",
+      "domain": "life-sciences",
+      "title": "Highly accurate protein structure prediction with AlphaFold",
+      "dois": ["10.1038/s41586-021-03819-2"],
+      "arxivIds": [],
+      "questionRef": "relatedWorkPrompt",
+      "selectedText": "",
+      "expect": {
+        "intent": "related-work",
+        "minIndependentWorks": 3,
+        "maxMainPaperInIndependent": 0
+      }
+    },
+    {
+      "id": "cs-attention-fact-verify",
+      "domain": "computer-science",
+      "title": "Attention Is All You Need",
+      "dois": ["10.5555/3295222.3295349"],
+      "arxivIds": ["1706.03762"],
+      "questionRef": "",
+      "question": "核查该说法：多头注意力让模型在不同表示子空间联合关注信息",
+      "selectedText": "Multi-head attention allows the model to jointly attend to information from different representation subspaces",
+      "expect": {
+        "intent": "fact-verification",
+        "minIndependentWorks": 1,
+        "maxMainPaperInIndependent": null
+      }
+    },
+    {
+      "id": "astro-hi-recent-progress",
+      "domain": "astronomy",
+      "title": "Spectroscopic confusion: its impact on current and future extragalactic H i surveys",
+      "dois": ["10.1093/mnras/stv429"],
+      "arxivIds": ["1502.07359"],
+      "questionRef": "",
+      "question": "这个方向最近两年有什么最新进展？",
+      "selectedText": "",
+      "expect": {
+        "intent": "recent-progress",
+        "minIndependentWorks": 2,
+        "maxMainPaperInIndependent": null
+      }
+    }
+  ]
+}

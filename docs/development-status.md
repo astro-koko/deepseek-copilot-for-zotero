@@ -1,6 +1,16 @@
 # Development Status
 
-Last updated: 2026-08-06
+Last updated: 2026-10-21
+
+## Current Web Search Checkpoint (2026-10-21, v1.2.0)
+
+- Release: `1.2.0` on `main`. Lane `provider-context` retrieval-quality rebuild complete and merged from local work.
+- Backend now includes: `evidenceQueryPlanner.ts` (intent-driven query planning, max 2 queries, `ori_question`, title exclusion / `after:` operators, follow-up intent inheritance, entity-anchored second angle from paper full text), `evidenceResultFilter.ts` (DOI/arXiv identity extraction, work-level dedup, main-paper folding with catalog-suffix stripping), two-pass gap-refine search in `chatEngine` (zero-independent-result turns get one model-proposed supplement query), context-first assembly in `sendChatMessage`.
+- Real-API quality eval on 5 public cases across astronomy/CS/bio: related-work cases yield 8 independent works with 0-1 folded current-paper entries (baseline before this work: 0-1 independent works with 4/5 current-paper catalog pages). WALLABY-anchored follow-up query retrieved WALLABY HIMF literature that topic-keyword search structurally cannot.
+- Assets and regression: `scripts/evidence-quality-cases.json`, `scripts/evidence-quality-eval.mjs` (manual, key via `DEEPSEEK_API_KEY` env), committed fixtures `src/services/fixtures/evidence-eval/`, offline regression `evidenceEvalFixture.test.ts`. Raw live metrics in gitignored `docs/debug/2026-10-20-evidence-search-quality/`.
+- Full suite 391/391, TypeScript clean, privacy check passed, release XPI verified. Older evidence chain: `docs/debug/2026-10-20-web-search/`.
+
+The following sections retain the older checkpoints for reference.
 
 ## Git State
 

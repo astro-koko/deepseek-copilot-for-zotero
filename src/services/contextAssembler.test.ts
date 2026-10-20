@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  assembleContext,
-  clearContextAssemblyCache,
-} from "./contextAssembler";
+import { assembleContext, clearContextAssemblyCache } from "./contextAssembler";
 import type { ScopeContext } from "../types/scope";
 
 interface FakeCreator {
@@ -24,6 +21,8 @@ interface FakeItemShape {
   displayTitle: string;
   parentItem?: FakeItemShape | null;
   attachmentIDs?: number[];
+  // Zotero 条目字段（DOI/archive/archiveID 等），供 getField 模拟返回。
+  pdfFields?: Record<string, string>;
 }
 
 const itemRegistry = new Map<number, FakeItemShape>();
@@ -44,6 +43,12 @@ function makeItem(shape: FakeItemShape): Zotero.Item {
     getCreators: () => shape.creators || [],
     getDisplayTitle: () => shape.displayTitle,
     getField: (field: string) => {
+      const pdfFields = (
+        shape as Partial<FakeItemShape> & {
+          pdfFields?: Record<string, string>;
+        }
+      ).pdfFields;
+      if (pdfFields && field in pdfFields) return pdfFields[field];
       if (field === "abstractNote") return shape.abstractNote || "";
       if (field === "date") return shape.date || "";
       return "";
@@ -121,6 +126,67 @@ describe("assembleContext", () => {
     expect(result.fullText).toContain("Full PDF text");
   });
 
+  it("attaches the current paper identity from item DOI fields", async () => {
+    registerItem({
+      id: 13,
+      attachmentContentType: "application/pdf",
+      attachmentText: "Full PDF text",
+      displayTitle: "Identity PDF",
+      parentItem: {
+        id: 12,
+        displayTitle: "Identity Paper",
+        pdfFields: { DOI: "10.1093/mnras/stv429" },
+      },
+    });
+
+    const result = await assembleContext(
+      makeScope({
+        type: "pdf",
+        id: "pdf-13",
+        itemIds: [12],
+        readerAttachmentId: 13,
+      }),
+    );
+
+    expect(result.currentPaper?.title).toBe("Identity Paper");
+    expect(result.currentPaper?.dois).toEqual(["10.1093/mnras/stv429"]);
+  });
+
+  it("attaches arXiv identity from archive fields and leaves blocking contexts without identity", async () => {
+    registerItem({
+      id: 14,
+      displayTitle: "ArXiv Paper",
+      attachmentIDs: [16],
+      pdfFields: { archive: "arXiv", archiveID: "arXiv:1502.07359" },
+    });
+    registerItem({
+      id: 16,
+      attachmentContentType: "application/pdf",
+      attachmentText: "Full text",
+      displayTitle: "ArXiv PDF",
+      parentItem: {
+        id: 14,
+        displayTitle: "ArXiv Paper",
+        pdfFields: { archive: "arXiv", archiveID: "arXiv:1502.07359" },
+      },
+    });
+
+    const ready = await assembleContext(
+      makeScope({ type: "paper", id: "paper-14", itemIds: [14] }),
+    );
+    expect(ready.currentPaper?.arxivIds).toEqual(["1502.07359"]);
+
+    registerItem({
+      id: 15,
+      displayTitle: "No PDF Paper",
+    });
+    const blocked = await assembleContext(
+      makeScope({ type: "paper", id: "paper-15", itemIds: [15] }),
+    );
+    expect(blocked.blockingMessage).toBeDefined();
+    expect(blocked.currentPaper).toBeUndefined();
+  });
+
   it("awaits promised attachment text before falling back to the abstract", async () => {
     const parent = registerItem({
       id: 20,
@@ -160,7 +226,9 @@ describe("assembleContext", () => {
       displayTitle: "Worker Reader PDF",
       parentItem: parent,
     });
-    (Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (
+      Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
       text: "Worker extracted PDF text",
     });
 
@@ -189,7 +257,9 @@ describe("assembleContext", () => {
       displayTitle: "Cached Reader PDF",
       parentItem: parent,
     });
-    const getFullText = Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>;
+    const getFullText = Zotero.PDFWorker.getFullText as ReturnType<
+      typeof vi.fn
+    >;
     getFullText.mockResolvedValue({ text: "Extract this PDF only once" });
     const scope = makeScope({
       type: "pdf",
@@ -207,7 +277,9 @@ describe("assembleContext", () => {
   });
 
   it("bounds the PDF text cache so older documents can be released", async () => {
-    const getFullText = Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>;
+    const getFullText = Zotero.PDFWorker.getFullText as ReturnType<
+      typeof vi.fn
+    >;
     getFullText.mockImplementation(async (attachmentId: number) => ({
       text: `PDF text ${attachmentId}`,
     }));
@@ -257,7 +329,9 @@ describe("assembleContext", () => {
       parentItem: parent,
     });
     const longText = "A".repeat(2_100_000);
-    const getFullText = Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>;
+    const getFullText = Zotero.PDFWorker.getFullText as ReturnType<
+      typeof vi.fn
+    >;
     getFullText.mockResolvedValue({ text: longText });
     const scope = makeScope({
       type: "pdf",
@@ -286,7 +360,9 @@ describe("assembleContext", () => {
       displayTitle: "Retry PDF",
       parentItem: parent,
     });
-    const getFullText = Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>;
+    const getFullText = Zotero.PDFWorker.getFullText as ReturnType<
+      typeof vi.fn
+    >;
     getFullText
       .mockResolvedValueOnce({ text: "" })
       .mockResolvedValueOnce({ text: "Text became available" });
@@ -317,7 +393,9 @@ describe("assembleContext", () => {
       displayTitle: "Updated PDF",
       parentItem: parent,
     });
-    const getFullText = Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>;
+    const getFullText = Zotero.PDFWorker.getFullText as ReturnType<
+      typeof vi.fn
+    >;
     getFullText
       .mockResolvedValueOnce({ text: "Original text" })
       .mockResolvedValueOnce({ text: "Updated text" });
@@ -349,7 +427,9 @@ describe("assembleContext", () => {
     const filler = "Introduction text. ".repeat(1200);
     const pageFiveSegment =
       "Page 5\nCode Availability\nThe SHARP template is available at https://github.com/stanford-ai4physics/sharp.";
-    (Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (
+      Zotero.PDFWorker.getFullText as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
       text: `${filler}\n${pageFiveSegment}\n`,
     });
 
@@ -385,7 +465,9 @@ describe("assembleContext", () => {
       cacheFilePath: "/tmp/zotero/storage/ABCD1234/.zotero-ft-cache",
       displayTitle: "Cached PDF",
     });
-    (Zotero.File.getContentsAsync as ReturnType<typeof vi.fn>).mockResolvedValue(
+    (
+      Zotero.File.getContentsAsync as ReturnType<typeof vi.fn>
+    ).mockResolvedValue(
       "This indexed Zotero text should be used when PDFWorker is empty.",
     );
 

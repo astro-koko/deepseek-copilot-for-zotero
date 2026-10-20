@@ -1,4 +1,6 @@
 import type { ScopeContext } from "../types/scope";
+import type { CurrentPaperIdentity } from "../types/evidence";
+import { extractWorkIdentifiers } from "./evidenceResultFilter";
 
 export type ContextAvailability =
   | "pdf-text-ready"
@@ -16,6 +18,8 @@ export interface AssembledContext {
   metadata: string;
   selectedText?: string;
   warnings: string[];
+  // 当前论文的标识信息，供检索层做主论文折叠；阻断上下文不携带。
+  currentPaper?: CurrentPaperIdentity;
 }
 
 const MAX_CONTEXT_CACHE_ENTRIES = 3;
@@ -33,16 +37,20 @@ const FULLTEXT_REQUIRED_MESSAGE =
   "当前论文全文不可用，Zotero 暂时无法读取该 PDF 正文，无法发送请求。请确认 Zotero 已成功提取全文后重试。";
 const MULTI_PDF_BLOCKING_MESSAGE =
   "当前论文包含多个 PDF 附件，无法确定唯一全文来源。请只保留一个 PDF 后重试。";
-const UNSUPPORTED_SCOPE_MESSAGE =
-  "当前仅支持单篇论文或当前 PDF 的全文模式。";
+const UNSUPPORTED_SCOPE_MESSAGE = "当前仅支持单篇论文或当前 PDF 的全文模式。";
 
 function isChineseLocale(): boolean {
   try {
     const locale =
-      (globalThis as unknown as { Zotero?: { locale?: string } }).Zotero?.locale ||
-      ((globalThis as unknown as {
-        Zotero?: { Prefs?: { get?: (key: string, global?: boolean) => unknown } };
-      }).Zotero?.Prefs?.get?.("intl.accept_languages", true) as string) ||
+      (globalThis as unknown as { Zotero?: { locale?: string } }).Zotero
+        ?.locale ||
+      ((
+        globalThis as unknown as {
+          Zotero?: {
+            Prefs?: { get?: (key: string, global?: boolean) => unknown };
+          };
+        }
+      ).Zotero?.Prefs?.get?.("intl.accept_languages", true) as string) ||
       "";
     return String(locale).toLowerCase().startsWith("zh");
   } catch {
@@ -50,7 +58,9 @@ function isChineseLocale(): boolean {
   }
 }
 
-export async function assembleContext(scope: ScopeContext): Promise<AssembledContext> {
+export async function assembleContext(
+  scope: ScopeContext,
+): Promise<AssembledContext> {
   switch (scope.type) {
     case "pdf":
       return await assemblePDFContext(scope);
@@ -68,7 +78,9 @@ export function clearContextAssemblyCache(): void {
   contextAssemblyCache.clear();
 }
 
-async function assemblePDFContext(scope: ScopeContext): Promise<AssembledContext> {
+async function assemblePDFContext(
+  scope: ScopeContext,
+): Promise<AssembledContext> {
   if (!scope.readerAttachmentId) {
     return createBlockingContext(
       "fulltext-required-error",
@@ -107,17 +119,26 @@ async function assemblePDFContext(scope: ScopeContext): Promise<AssembledContext
     metadata: formatItemMetadata(item),
     selectedText: scope.selectedText,
     warnings: [],
+    currentPaper: extractCurrentPaperIdentity(item),
   };
 }
 
-async function assemblePaperContext(scope: ScopeContext): Promise<AssembledContext> {
+async function assemblePaperContext(
+  scope: ScopeContext,
+): Promise<AssembledContext> {
   if (!scope.itemIds?.length) {
-    return createBlockingContext("fulltext-required-error", FULLTEXT_REQUIRED_MESSAGE);
+    return createBlockingContext(
+      "fulltext-required-error",
+      FULLTEXT_REQUIRED_MESSAGE,
+    );
   }
 
   const item = Zotero.Items.get(scope.itemIds[0]);
   if (!item) {
-    return createBlockingContext("fulltext-required-error", FULLTEXT_REQUIRED_MESSAGE);
+    return createBlockingContext(
+      "fulltext-required-error",
+      FULLTEXT_REQUIRED_MESSAGE,
+    );
   }
 
   const pdfAttachments = resolvePDFAttachments(item);
@@ -152,6 +173,7 @@ async function assemblePaperContext(scope: ScopeContext): Promise<AssembledConte
     fullTextSource: extracted.source,
     metadata: formatItemMetadata(item),
     warnings: [],
+    currentPaper: extractCurrentPaperIdentity(item),
   };
 }
 
@@ -170,7 +192,8 @@ function formatItemMetadata(
   options?: { includeAbstract?: boolean },
 ): string {
   const title = item.getDisplayTitle();
-  const creators = item.getCreators()
+  const creators = item
+    .getCreators()
     .map((c: any) => `${c.firstName || ""} ${c.lastName || ""}`.trim())
     .join(", ");
   const year = item.getField("date")?.toString().slice(0, 4) || "";
@@ -181,9 +204,11 @@ function formatItemMetadata(
     return `${title}${creators ? ` — ${creators}` : ""}${year ? ` (${year})` : ""}`;
   }
 
-  const lines = [`标题：${title}
+  const lines = [
+    `标题：${title}
 作者：${creators || "暂无"}
-年份：${year || "暂无"}`];
+年份：${year || "暂无"}`,
+  ];
   if (includeAbstract) {
     lines.push(`摘要：${abstract || "暂无"}`);
   }
@@ -285,7 +310,9 @@ async function extractAttachmentTextUncached(
   }
 
   try {
-    const workerResult = await (Zotero as any).PDFWorker?.getFullText?.(attachment.id);
+    const workerResult = await (Zotero as any).PDFWorker?.getFullText?.(
+      attachment.id,
+    );
     const workerText =
       typeof workerResult === "string" ? workerResult : workerResult?.text;
     if (typeof workerText === "string" && workerText.trim()) {
@@ -311,13 +338,19 @@ async function readZoteroFulltextCache(item: Zotero.Item): Promise<string> {
     const fulltext =
       (
         Zotero as unknown as {
-          Fulltext?: { getItemCacheFile?: (item: Zotero.Item) => nsIFile | null };
-          FullText?: { getItemCacheFile?: (item: Zotero.Item) => nsIFile | null };
+          Fulltext?: {
+            getItemCacheFile?: (item: Zotero.Item) => nsIFile | null;
+          };
+          FullText?: {
+            getItemCacheFile?: (item: Zotero.Item) => nsIFile | null;
+          };
         }
       ).Fulltext ||
       (
         Zotero as unknown as {
-          FullText?: { getItemCacheFile?: (item: Zotero.Item) => nsIFile | null };
+          FullText?: {
+            getItemCacheFile?: (item: Zotero.Item) => nsIFile | null;
+          };
         }
       ).FullText;
     const cacheFile = fulltext?.getItemCacheFile?.(item);
@@ -373,6 +406,33 @@ function getItemAbstract(item: Zotero.Item): string {
   return ((item.getField("abstractNote") as string) || "").trim();
 }
 
+// 从 Zotero 条目提取 DOI/arXiv 身份：优先专用字段，再扫 extra/url
+// 兜底（很多导入路径只往 extra 写 "DOI: …" / "arXiv:…" 行）。
+export function extractCurrentPaperIdentity(
+  item: Zotero.Item,
+): CurrentPaperIdentity {
+  const title = item.getDisplayTitle?.() || "";
+  const fields: string[] = [];
+  for (const field of ["DOI", "archive", "archiveID", "url", "extra"]) {
+    const value = (() => {
+      try {
+        return item.getField(field);
+      } catch {
+        return "";
+      }
+    })();
+    if (typeof value === "string" && value.trim()) {
+      fields.push(value);
+    }
+  }
+  const identifiers = extractWorkIdentifiers(fields.join("\n"));
+  return {
+    title,
+    dois: identifiers.dois,
+    arxivIds: identifiers.arxivIds,
+  };
+}
+
 function createBlockingContext(
   availability: "fulltext-required-error" | "fulltext-unsupported-scope",
   blockingMessage: string,
@@ -399,7 +459,10 @@ function createEmptyContext(selectedText?: string): AssembledContext {
   };
 }
 
-function logExtractionSource(source: ExtractedAttachmentText["source"], text: string): void {
+function logExtractionSource(
+  source: ExtractedAttachmentText["source"],
+  text: string,
+): void {
   try {
     ztoolkit.log(`Context full text source: ${source}`, { chars: text.length });
   } catch {
